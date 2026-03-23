@@ -54,7 +54,7 @@
     .ch{font-size:11px;font-family:'IBM Plex Mono',monospace}
     .gbtn{display:flex;align-items:center;gap:10px;padding:9px 14px;cursor:pointer;border-radius:8px;margin:2px 8px;transition:all .15s;border:none;background:none;width:calc(100% - 16px);text-align:left;font-size:13px;color:var(--sb-t2)}
     .gbtn:hover{background:var(--sb-s1);color:var(--sb-t1)}.gbtn.active{background:var(--sb-s1);color:var(--sb-t1);border-left:3px solid var(--acc)}
-    .ma{margin-left:var(--sw);flex:1;display:flex;flex-direction:column;min-height:100vh}
+    .ma{margin-left:var(--sw);width:calc(100% - var(--sw));display:flex;flex-direction:column;min-height:100vh;overflow-x:hidden}
     .tb{background:var(--sb-bg);border-bottom:1px solid var(--sb-b1);padding:0 2rem;height:56px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:40}
     .tb-t{font-size:16px;font-weight:600;color:var(--sb-t1)}.tb-s{font-size:12px;color:var(--sb-t2);margin-top:2px}
     .tb-r{display:flex;align-items:center;gap:12px;flex-shrink:0}
@@ -767,6 +767,7 @@
             <div class="fg"><label>Statut</label>
               <select id="debt-status">
                 <option value="en_cours">En cours</option>
+                <option value="en_negociation">En cours de négociation</option>
                 <option value="suspendu">Suspendu</option>
                 <option value="solde">Soldé</option>
               </select>
@@ -1483,6 +1484,15 @@
         <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
           <div class="fg"><label>Nom</label><input type="text" id="sf-nom" placeholder="Christophe Bouyssou"></div>
           <div class="fg"><label>Poste</label><input type="text" id="sf-poste" placeholder="DG Groupe"></div>
+          <div class="fg"><label>Entité employeuse</label>
+            <select id="sf-entity">
+              <option value="LIVING">💼 SAS LIVING</option>
+              <option value="REAL GAINS">💡 REAL GAINS</option>
+              <option value="FCR">🚗 FCR Autos</option>
+              <option value="CLINIQUE">🏥 Clinique</option>
+              <option value="MONIKAZA">🌐 MONIKAZA</option>
+            </select>
+          </div>
           <div class="fg"><label>Net / mois (€)</label><input type="number" id="sf-net" placeholder="3500"></div>
           <div class="fg"><label>Date entrée CDI</label><input type="date" id="sf-date"></div>
           <div class="fg"><label>Coût employeur / mois (€)</label><input type="number" id="sf-cout" placeholder="6700"></div>
@@ -1498,16 +1508,16 @@
       <div style="overflow-x:auto">
         <table>
           <thead><tr>
-            <th>Nom</th><th>Poste</th><th>Net/mois</th><th>Coût employeur</th>
+            <th>Nom</th><th>Poste</th><th>Entité</th><th>Net/mois</th><th>Coût employeur</th>
             <th style="color:var(--acc)">Refact. FCR</th>
             <th style="color:var(--grn)">Refact. Clinique</th>
             <th style="color:var(--pur)">Refact. MONIKAZA</th>
             <th style="color:var(--grn)">Charge nette LIVING</th>
             <th>Entrée CDI</th><th></th>
           </tr></thead>
-          <tbody id="sal-tbody"><tr><td colspan="10" style="text-align:center;color:var(--t2);padding:1.5rem">Aucun salarié — ajoutez Christophe dès la décision prise</td></tr></tbody>
+          <tbody id="sal-tbody"><tr><td colspan="11" style="text-align:center;color:var(--t2);padding:1.5rem">Aucun salarié — ajoutez Christophe dès la décision prise</td></tr></tbody>
           <tfoot><tr style="background:var(--s2);font-weight:600">
-            <td colspan="3" style="font-size:12px">Total</td>
+            <td colspan="4" style="font-size:12px">Total</td>
             <td id="sal-total-cout" style="font-family:'IBM Plex Mono',monospace">—</td>
             <td id="sal-total-fcr" style="font-family:'IBM Plex Mono',monospace;color:var(--acc)">—</td>
             <td id="sal-total-clin" style="font-family:'IBM Plex Mono',monospace;color:var(--grn)">—</td>
@@ -1571,6 +1581,7 @@
                 </select>
               </div>
               <div class="fg"><label>Description</label><textarea id="p-desc" style="min-height:50px" placeholder="Détails du produit..."></textarea></div>
+              <div class="fg"><label>⏱ Délai signature→paiement (jours)</label><input type="number" id="p-delai" placeholder="ex: 30" min="0" step="1" title="Délai moyen en jours entre la date de signature et la réception du paiement compagnie"></div>
             </div>
             <div>
               <div class="fg"><label>Type commission</label>
@@ -1695,6 +1706,8 @@
               <div class="g2">
                 <div class="fg"><label>Date signature</label><input type="date" id="ct-signed"></div>
                 <div class="fg"><label>Prochain rappel</label><input type="date" id="ct-reminder"></div>
+                <div class="fg"><label>Date paiement prévu</label><input type="date" id="ct-pay-expected"></div>
+                <div class="fg"><label>Date paiement effectif</label><input type="date" id="ct-pay-actual"></div>
                 <div class="fg"><label>Récurrence (si prestation)</label>
                   <select id="ct-recurrence">
                     <option value="">Ponctuel / Pas de récurrence</option>
@@ -1824,6 +1837,10 @@
         </div>
         <div class="fg"><label style="color:var(--acc)">Date signature ⚡ utilisée par la tréso</label><input type="date" id="ce-signed"></div>
         <div class="fg"><label>Prochain rappel</label><input type="date" id="ce-reminder"></div>
+        <div class="g2">
+          <div class="fg"><label>📅 Date paiement prévu</label><input type="date" id="ce-pay-expected"></div>
+          <div class="fg"><label>✅ Date paiement effectif</label><input type="date" id="ce-pay-actual"></div>
+        </div>
         <div class="fg" id="ce-trail-proba-fg" style="display:none">
           <label>Probabilité reconduction trailing (%)</label>
           <input type="range" id="ce-trail-proba" min="0" max="100" value="80" oninput="document.getElementById('ce-trail-proba-val').textContent=this.value+'%'">
@@ -2369,6 +2386,7 @@ async function processNextGEDBatch(){
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({base64,docType:'document_universel'})
     });
+    if(!resp.ok){throw new Error('Fonction OCR indisponible (HTTP '+resp.status+') — vérifiez le déploiement Netlify');}
     const parsed=await resp.json();
     batch.results[batch.current]={file,base64,parsed,error:null};
   }catch(e){
@@ -2524,9 +2542,8 @@ async function analyzeGEDFile(file){
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({base64,docType:'document_universel'})
     });
+    if(!resp.ok){throw new Error('Fonction OCR indisponible (HTTP '+resp.status+') — vérifiez le déploiement Netlify');}
     const parsed=await resp.json();
-
-    resultEl.innerHTML='<div style="font-size:12px;line-height:1.8">'
       +'<div><span style="color:var(--t2)">Type :</span> <strong>'+(parsed.type_document||'—')+'</strong></div>'
       +'<div><span style="color:var(--t2)">Expéditeur :</span> <strong>'+(parsed.emetteur||parsed.fournisseur||'—')+'</strong></div>'
       +'<div><span style="color:var(--t2)">Date :</span> <strong>'+(parsed.date||'—')+'</strong></div>'
@@ -3186,16 +3203,18 @@ function renderSals() {
   var tb=document.getElementById('sal-tbody');
   if(!tb)return;
   if(_sals.length===0){
-    tb.innerHTML='<tr><td colspan="10" style="text-align:center;color:var(--t2);padding:1.5rem">Aucun salarié — ajoutez Christophe dès la décision prise</td></tr>';
+    tb.innerHTML='<tr><td colspan="11" style="text-align:center;color:var(--t2);padding:1.5rem">Aucun salarié — ajoutez Christophe dès la décision prise</td></tr>';
     ['sal-total-cout','sal-total-fcr','sal-total-clin','sal-total-moni','sal-total-net'].forEach(function(id){var e=document.getElementById(id);if(e)e.textContent='—';});
     return;
   }
+  var entityColors={'LIVING':'var(--amb)','REAL GAINS':'var(--acc)','FCR':'var(--acc)','CLINIQUE':'var(--grn)','MONIKAZA':'var(--pur)'};
   var tC=0,tF=0,tCl=0,tM=0,html='';
   _sals.forEach(function(s,i){
     var net=(s.cout||0)-(s.fcr||0)-(s.clin||0)-(s.moni||0);
     tC+=s.cout||0;tF+=s.fcr||0;tCl+=s.clin||0;tM+=s.moni||0;
     var nc=net<=0?'var(--grn)':net<2000?'var(--amb)':'var(--red)';
     html+='<tr><td style="font-weight:500">'+s.nom+'</td><td style="font-size:12px;color:var(--t2)">'+s.poste+'</td>'
+      +'<td><span style="font-size:11px;padding:2px 7px;border-radius:12px;background:'+(entityColors[s.entity||'LIVING']||'var(--t2)')+'22;color:'+(entityColors[s.entity||'LIVING']||'var(--t2)')+'">'+( s.entity||'LIVING')+'</span></td>'
       +'<td style="font-family:\'IBM Plex Mono\',monospace">'+_fmt(s.net||0)+'</td>'
       +'<td style="font-family:\'IBM Plex Mono\',monospace">'+_fmt(s.cout||0)+'</td>'
       +'<td style="font-family:\'IBM Plex Mono\',monospace;color:var(--acc)">'+(s.fcr>0?'-'+_fmt(s.fcr):'—')+'</td>'
@@ -3214,6 +3233,7 @@ function renderSals() {
 
 function saveSalarie() {
   var s={nom:document.getElementById('sf-nom').value,poste:document.getElementById('sf-poste').value,
+    entity:document.getElementById('sf-entity').value||'LIVING',
     net:parseFloat(document.getElementById('sf-net').value)||0,cout:parseFloat(document.getElementById('sf-cout').value)||0,
     fcr:parseFloat(document.getElementById('sf-fcr').value)||0,clin:parseFloat(document.getElementById('sf-clin').value)||0,
     moni:parseFloat(document.getElementById('sf-moni').value)||0,date:document.getElementById('sf-date').value};
@@ -3964,7 +3984,8 @@ async function loadDebts(){
   }
   const coNames={meulette:'La Meulette','sarl-guiraud':'SARL Guiraud','sas-living':'SAS Living','real-gains':'RG/Monikaza'};
   const freqLabels={monthly:'Mensuelle',quarterly:'Trimestrielle',annual:'Annuelle',ponctuel:'Ponctuel'};
-  const statusColors={en_cours:'br',suspendu:'ba',solde:'bg'};
+  const statusColors={en_cours:'br',en_negociation:'bp',suspendu:'ba',solde:'bg'};
+  const statusLabels={en_cours:'En cours',en_negociation:'🤝 Négociation',suspendu:'Suspendu',solde:'Soldé'};
   const total=data.filter(d=>d.status!=='solde').reduce((s,d)=>s+Number(d.amount_remaining||d.amount_total||0),0);
   document.getElementById('debt-total-display').textContent=Math.round(total).toLocaleString('fr-FR')+' €';
   document.getElementById('tk-dettes').textContent=Math.round(total).toLocaleString('fr-FR')+' €';
@@ -3980,7 +4001,7 @@ async function loadDebts(){
     +'<td style="text-align:right;font-family:\'IBM Plex Mono\',monospace;color:var(--amb)">'+(d.frequency==='ponctuel'?Math.round(Number(d.amount_remaining||d.amount_total)).toLocaleString('fr-FR')+' € (solde)':d.monthly_amount>0?Math.round(Number(d.monthly_amount)).toLocaleString('fr-FR')+' €':'—')+'</td>'
     +'<td style="font-size:12px">'+(freqLabels[d.frequency]||d.frequency)+'</td>'
     +'<td style="font-size:12px;text-align:center">'+(d.payment_day?'Le '+d.payment_day:'—')+'</td>'
-    +'<td><span class="badge '+(statusColors[d.status]||'bz')+'">'+d.status+'</span></td>'
+    +'<td><span class="badge '+(statusColors[d.status]||'bz')+'">'+(statusLabels[d.status]||d.status)+'</span></td>'
     +'<td><select onchange="updateDebtUrgency(\''+d.id+'\',this.value)" style="font-size:14px;border:1px solid var(--b1);background:var(--s1);border-radius:4px;cursor:pointer;padding:2px 4px;min-width:80px" title="Priorité de paiement">'
     +'<option value="0"'+(urgency===0?' selected':'')+'>—</option>'
     +'<option value="1"'+(urgency===1?' selected':'')+'>🌶️</option>'
@@ -4818,7 +4839,7 @@ async function loadCatalogue(){
   const catColors={cgw:'var(--grn)',lld:'var(--acc)',honoraires:'var(--amb)',obligations:'var(--pur)',apport_affaire:'var(--t2)'};
   const catLabels={cgw:'CGW',lld:'LLD',honoraires:'Honoraires',obligations:'Obligations',apport_affaire:'Apport affaires'};
   document.getElementById('catalogue-list').innerHTML=`<div class="card"><table>
-    <thead><tr><th>Produit</th><th>Catégorie</th><th>Upfront</th><th>Trail rappel</th><th>Reconduction</th><th>Fréquence</th><th>Max</th><th></th></tr></thead>
+    <thead><tr><th>Produit</th><th>Catégorie</th><th>Upfront</th><th>Trail rappel</th><th>Reconduction</th><th>Fréquence</th><th>⏱ Délai paiement</th><th></th></tr></thead>
     <tbody>${(data||[]).map(p=>`<tr>
       <td><strong>${p.name}</strong>${p.description?`<div style="font-size:11px;color:var(--t2)">${p.description}</div>`:''}</td>
       <td><span class="badge" style="background:${catColors[p.category]||'var(--t2)'}22;color:${catColors[p.category]||'var(--t2)'}">${catLabels[p.category]||p.category}</span></td>
@@ -4826,7 +4847,7 @@ async function loadCatalogue(){
       <td class="mo" style="color:var(--amb)">${p.trailing_rate>0?p.trailing_rate+'%':'—'}</td>
       <td class="mo" style="color:var(--grn)">${p.trailing_rate>0?p.trailing_rate+'% rappel':'—'}</td>
       <td style="font-size:12px;color:var(--t2)">${{none:'Aucun',monthly:'Mensuel',quarterly:'Trimestriel',semi_annual:'Semestriel',annual:'Annuel'}[p.trailing_frequency]||'—'}</td>
-      <td style="font-size:12px;text-align:center">${p.trailing_rate>0?'Oui':'Non'}</td>
+      <td style="font-size:12px;text-align:center;font-family:'IBM Plex Mono',monospace">${p.payment_delay_days!=null?p.payment_delay_days+' j':'—'}</td>
       <td><button onclick="delProduct('${p.id}')" style="border:none;background:none;cursor:pointer;color:var(--t2);font-size:13px">✕</button></td>
     </tr>`).join('')}</tbody>
   </table></div>`;
@@ -4837,6 +4858,7 @@ async function addProduct(){
     name:document.getElementById('p-name').value,
     category:document.getElementById('p-cat').value,
     description:document.getElementById('p-desc').value||null,
+    payment_delay_days:parseInt(document.getElementById('p-delai').value)||null,
     commission_type:document.getElementById('p-ctype').value,
     commission_rate:parseFloat(document.getElementById('p-rate').value)||0,
     trailing_rate:parseFloat(document.getElementById('p-trail').value)||0,
@@ -5152,6 +5174,8 @@ async function addContract(){
     status:document.getElementById('ct-status').value,
     signed_date:signed||null,
     next_reminder:reminder||null,
+    payment_expected_date:document.getElementById('ct-pay-expected').value||null,
+    payment_actual_date:document.getElementById('ct-pay-actual').value||null,
     recurrence:document.getElementById('ct-recurrence').value||null,
     notes:document.getElementById('ct-notes').value||null,
     invoice_status:'a_emettre'
@@ -5221,6 +5245,8 @@ async function openContractEdit(id){
   document.getElementById('ce-invoice').value=data.invoice_status||'a_emettre';
   document.getElementById('ce-signed').value=data.signed_date||'';
   document.getElementById('ce-reminder').value=data.next_reminder||'';
+  document.getElementById('ce-pay-expected').value=data.payment_expected_date||'';
+  document.getElementById('ce-pay-actual').value=data.payment_actual_date||'';
   // Probabilité trailing — affiche seulement pour CGW
   const isCGWProduct=data.products?.category==='cgw';
   const probaFg=document.getElementById('ce-trail-proba-fg');
@@ -5301,6 +5327,8 @@ async function saveContractEdit(){
     invoice_status:document.getElementById('ce-invoice').value,
     signed_date:document.getElementById('ce-signed').value||null,
     next_reminder:document.getElementById('ce-reminder').value||null,
+    payment_expected_date:document.getElementById('ce-pay-expected').value||null,
+    payment_actual_date:document.getElementById('ce-pay-actual').value||null,
     trail_proba:parseInt(document.getElementById('ce-trail-proba')?.value||80),
     tva_taux:parseFloat(document.querySelector('input[name="ce-tva"]:checked')?.value||0),
     commission_ttc:Math.round(parseFloat(document.getElementById('ce-commission').value||0)*(1+parseFloat(document.querySelector('input[name="ce-tva"]:checked')?.value||0)/100)),
@@ -5864,6 +5892,7 @@ async function processFactureOCR(file){
   try{
     const base64=await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result.split(',')[1]);r.onerror=rej;r.readAsDataURL(file);});
     const resp=await fetch('/.netlify/functions/ocr-pro',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({base64,docType:'facture_recue'})});
+    if(!resp.ok){toast('⚠️ Fonction OCR indisponible ('+resp.status+') — saisissez manuellement');openOcrModal({},null);return;}
     const parsed=await resp.json();
 
     if(!parsed||parsed.error){toast('Erreur OCR — remplissez manuellement');openOcrModal({},null);return;}
