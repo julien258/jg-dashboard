@@ -614,9 +614,26 @@ function updateField(type,val){
 
 async function saveMoisData(){
   const i=selM,k=mKey(i);
-  const row={mois:k,rav_cible:ravMois(i),impots_pas:impotsMois(i),depenses_variables:varsMois(i)};
+  // Upsert complet avec toutes les colonnes
+  const row={
+    mois:k,
+    rav_cible:ravMois(i),
+    impots_pas:impotsMois(i),
+    depenses_variables:varsMois(i)
+  };
   const{error}=await sb.from('budget_mensuel_perso').upsert(row,{onConflict:'mois'});
-  toast(error?'Erreur: '+error.message:'✅ Mois enregistré');
+  if(error){
+    // Si erreur de colonne manquante, essayer avec seulement rav_cible
+    if(error.message.includes('impots_pas')||error.message.includes('depenses_variables')){
+      const rowMin={mois:k,rav_cible:ravMois(i)};
+      const{error:e2}=await sb.from('budget_mensuel_perso').upsert(rowMin,{onConflict:'mois'});
+      toast(e2?'Erreur: '+e2.message:'✅ RAV enregistré (exécutez le SQL pour les autres colonnes)');
+    } else {
+      toast('Erreur: '+error.message);
+    }
+    return;
+  }
+  toast('✅ Mois enregistré');
 }
 
 function toggleForm(id){const f=document.getElementById(id);f.style.display=f.style.display==='none'?'block':'none';}
