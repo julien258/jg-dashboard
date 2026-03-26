@@ -272,7 +272,7 @@
           <button class="btn btn-g btn-sm" onclick="calNext()">›</button>
         </div>
       </div>
-      <div id="cal-grid" style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px;width:100%"></div>
+      <div id="cal-grid" style="width:100%"></div>
       <div style="display:flex;gap:14px;margin-top:10px;font-size:11px;color:var(--t2)">
         <span style="display:flex;align-items:center;gap:4px"><span style="width:8px;height:8px;border-radius:50%;background:var(--red);display:inline-block"></span>Dettes</span>
         <span style="display:flex;align-items:center;gap:4px"><span style="width:8px;height:8px;border-radius:50%;background:var(--acc);display:inline-block"></span>Variable engagée</span>
@@ -525,7 +525,7 @@ function renderVars(){
   const elM=document.getElementById('vars-total-m');
   if(elAn)elAn.textContent=fmt(ta);
   if(elM)elM.textContent=fmt(tm)+'/m';
-  document.getElementById('vars-tbody').innerHTML=D.vars.map(v=>`
+  const vTbody=document.getElementById('vars-tbody');if(!vTbody)return;vTbody.innerHTML=D.vars.map(v=>`
     <tr><td>${v.icon||''} ${v.name}</td><td><span class="badge bb">${v.category||'—'}</span></td>
     <td class="mono" style="text-align:right">${fmt(v.amount_2026||0)}</td>
     <td class="mono" style="text-align:right">${v.frequency==='mensuel'?fmt((v.amount_2026||0)/12)+'/m':'—'}</td>
