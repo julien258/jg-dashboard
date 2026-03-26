@@ -1150,7 +1150,7 @@
             <div style="font-size:12px;color:var(--grn);font-weight:600;margin-bottom:10px">💰 Vente prévue (T2 2026 objectif)</div>
             <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
               <div class="fg"><label>Date vente prévue</label><input type="date" id="as-date-vente" oninput="calcVenteNette()"></div>
-              <div class="fg"><label>Prix vente prévu (€)</label><input type="number" id="as-prix-vente" placeholder="Auto = valeur marché" oninput="calcVenteNette()"></div>
+              <div class="fg"><label>Net vendeur (€) — après frais agence/notaire</label><input type="number" id="as-prix-vente" placeholder="Prix net vendeur" oninput="calcVenteNette()"></div>
               <div class="fg"><label>Net perçu estimé (€)</label><input type="number" id="as-net-vente" placeholder="Calculé auto" style="border-color:var(--acc)" readonly></div>
             </div>
             <div id="as-vente-detail" style="font-size:11px;color:var(--t2);margin-top:6px"></div>
@@ -2342,30 +2342,21 @@ async function editAsset(id){
 async function showVenteSimul(id){
   const{data:a}=await sb.from('assets').select('*').eq('id',id).single();
   if(!a)return;
-  const vm=Number(a.valeur_marche||0),cr=Number(a.capital_restant||0),va=Number(a.valeur_acquisition||0)+Number(a.frais_acquisition||0);
-  if(!vm){toast('Renseignez une valeur marché pour simuler');return;}
-  const fA=Math.round(vm*0.05),fN=a.type_asset==='immobilier'?Math.round(vm*0.015):0;
-  const pv=vm-va,impot=pv>0?(a.regime_fiscal==='is'?Math.round(pv*0.25):Math.round(pv*0.36)):0;
-  const net=vm-cr-fA-fN-impot;
+  const nv=Number(a.prix_vente_prevu||a.valeur_marche||0),cr=Number(a.capital_restant||0);
+  if(!nv){toast('Renseignez un net vendeur ou une valeur marché');return;}
+  const net=nv-cr;
   const sep='='.repeat(35);
-  const pvLine=pv>=0?'+'+Math.round(pv).toLocaleString('fr-FR'):Math.round(pv).toLocaleString('fr-FR');
-  const impotLine=pv>0?'\nImpot PV ('+(a.regime_fiscal==='is'?'IS 25%':'IR+PS 36%')+') : -'+impot.toLocaleString('fr-FR')+' \u20ac':'';
-  const fNLine=fN?'\nFrais notaire (~1,5%) : -'+fN.toLocaleString('fr-FR')+' \u20ac':'';
-  const netSign=net>=0?'+':'';
-  alert('Simulation vente - '+a.nom+'\n'+sep+'\nPrix de vente : '+Math.round(vm).toLocaleString('fr-FR')+' \u20ac\nCapital restant : -'+Math.round(cr).toLocaleString('fr-FR')+' \u20ac\nFrais agence (~5%) : -'+fA.toLocaleString('fr-FR')+' \u20ac'+fNLine+'\nPV brute : '+pvLine+' \u20ac'+impotLine+'\n'+sep+'\nNET PERCU ESTIME : '+netSign+Math.round(net).toLocaleString('fr-FR')+' \u20ac');
+  alert('Simulation vente - '+a.nom+'\n'+sep+'\nNet vendeur (après frais) : '+Math.round(nv).toLocaleString('fr-FR')+' \u20ac\nCapital restant dû : -'+Math.round(cr).toLocaleString('fr-FR')+' \u20ac\nPas d\'impôt PV (La Meulette en déficit)\n'+sep+'\nTRÉSO PERÇUE : '+(net>=0?'+':'')+Math.round(net).toLocaleString('fr-FR')+' \u20ac');
 }
 function calcVenteNette(){
-  const vm=parseFloat(document.getElementById('as-prix-vente')?.value)||parseFloat(document.getElementById('as-val-marche')?.value)||0;
+  // Net vendeur saisi = prix net après frais agence/notaire déjà négociés
+  // On déduit juste le capital restant dû
+  const nv=parseFloat(document.getElementById('as-prix-vente')?.value)||0;
   const cr=parseFloat(document.getElementById('as-capital-restant')?.value)||0;
-  const va=(parseFloat(document.getElementById('as-val-acq')?.value)||0)+(parseFloat(document.getElementById('as-frais-acq')?.value)||0);
-  const regime=document.getElementById('as-regime')?.value||'ir';
-  const type=document.getElementById('as-type')?.value||'';
-  if(!vm){document.getElementById('as-net-vente').value='';document.getElementById('as-vente-detail').textContent='';return;}
-  const fA=Math.round(vm*0.05),fN=type==='immobilier'?Math.round(vm*0.015):0;
-  const pv=vm-va,impot=pv>0?(regime==='is'?Math.round(pv*0.25):Math.round(pv*0.36)):0;
-  const net=vm-cr-fA-fN-impot;
+  if(!nv){document.getElementById('as-net-vente').value='';document.getElementById('as-vente-detail').textContent='';return;}
+  const net=nv-cr;
   document.getElementById('as-net-vente').value=Math.round(net);
-  document.getElementById('as-vente-detail').textContent=`Prix ${Math.round(vm).toLocaleString('fr-FR')}€ − Capital dû ${Math.round(cr).toLocaleString('fr-FR')}€ − Agence ${fA.toLocaleString('fr-FR')}€${fN?' − Notaire '+fN.toLocaleString('fr-FR')+'€':''} − Impôt PV ${impot.toLocaleString('fr-FR')}€ = Net ${net>=0?'+':''}${Math.round(net).toLocaleString('fr-FR')}€`;
+  document.getElementById('as-vente-detail').textContent=`Net vendeur ${Math.round(nv).toLocaleString('fr-FR')}€ − Capital restant dû ${Math.round(cr).toLocaleString('fr-FR')}€ = Tréso perçue ${net>=0?'+':''}${Math.round(net).toLocaleString('fr-FR')}€ (pas d'impôt PV — La Meulette en déficit)`;
 }
 async function openSimulCGW(){
   const{data:av}=await sb.from('assets').select('id,nom,date_vente_prevue,net_vente_estime,valeur_marche,capital_restant,valeur_acquisition,frais_acquisition,regime_fiscal,type_asset').not('date_vente_prevue','is','null');
@@ -2376,7 +2367,7 @@ async function openSimulCGW(){
   const list=document.getElementById('simul-ventes-list');
   list.innerHTML=(av||[]).map(a=>{
     let net=Number(a.net_vente_estime||0);
-    if(!net){const vm=Number(a.valeur_marche||0),cr=Number(a.capital_restant||0),va=Number(a.valeur_acquisition||0)+Number(a.frais_acquisition||0),fA=Math.round(vm*0.05),fN=a.type_asset==='immobilier'?Math.round(vm*0.015):0,pv=vm-va,impot=pv>0?(a.regime_fiscal==='is'?Math.round(pv*0.25):Math.round(pv*0.36)):0;net=vm-cr-fA-fN-impot;}
+    if(!net){const nv=Number(a.prix_vente_prevu||a.valeur_marche||0),cr=Number(a.capital_restant||0);net=nv-cr;}
     totalNet+=net;
     const dl=a.date_vente_prevue?new Date(a.date_vente_prevue).toLocaleDateString('fr-FR',{month:'short',year:'numeric'}):'';
     return `<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--b1);font-size:12px"><span>${a.nom} <span style="color:var(--t2)">${dl}</span></span><span style="font-family:'IBM Plex Mono',monospace;color:var(--grn);font-weight:600">+${Math.round(net).toLocaleString('fr-FR')} €</span></div>`;
@@ -4433,10 +4424,9 @@ async function loadTresoChart(){
     const vd=new Date(a.date_vente_prevue);
     let net=Number(a.net_vente_estime||0);
     if(!net){
-      const vm=Number(a.prix_vente_prevu||a.valeur_marche||0),cr=Number(a.capital_restant||0),va=Number(a.valeur_acquisition||0)+Number(a.frais_acquisition||0);
-      const fA=Math.round(vm*0.05),fN=a.type_asset==='immobilier'?Math.round(vm*0.015):0;
-      const pv=vm-va,impot=pv>0?(a.regime_fiscal==='is'?Math.round(pv*0.25):Math.round(pv*0.36)):0;
-      net=vm-cr-fA-fN-impot;
+      // Net vendeur - capital restant dû (pas d'impôt PV si société en déficit)
+      const nv=Number(a.prix_vente_prevu||a.valeur_marche||0),cr=Number(a.capital_restant||0);
+      net=nv-cr;
     }
     months.forEach((m,i)=>{
       if(m.getMonth()===vd.getMonth()&&m.getFullYear()===vd.getFullYear())revenusVente[i]+=net;
