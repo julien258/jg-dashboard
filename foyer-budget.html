@@ -425,9 +425,55 @@
           </div>
           <div class="fg"><label>Versement PER (€/an) — déductible</label>
             <input type="number" id="ir-per" value="0" min="0" step="500" oninput="calcIR()">
+            <div style="font-size:10px;color:var(--t2);margin-top:2px" id="per-plafond-hint"></div>
           </div>
           <div class="fg"><label>Autres déductions (€/an)</label>
             <input type="number" id="ir-deductions" value="0" min="0" step="100" oninput="calcIR()">
+          </div>
+        </div>
+
+        <!-- Historique avis réels -->
+        <div class="card" style="margin-top:0;border-left:3px solid #185FA5">
+          <div class="card-t">📋 Historique avis réels</div>
+          <table style="width:100%;font-size:11px;border-collapse:collapse">
+            <thead><tr>
+              <th style="text-align:left;padding:5px;color:var(--t2);border-bottom:1px solid var(--b1)">Revenus</th>
+              <th style="text-align:right;padding:5px;color:var(--t2);border-bottom:1px solid var(--b1)">IR net</th>
+              <th style="text-align:right;padding:5px;color:var(--t2);border-bottom:1px solid var(--b1)">Taux moy.</th>
+              <th style="text-align:right;padding:5px;color:var(--t2);border-bottom:1px solid var(--b1)">TMI</th>
+            </tr></thead>
+            <tbody>
+              <tr><td style="padding:5px">2022 <span style="color:var(--t2)">(avis 2023)</span></td><td style="text-align:right;font-family:monospace;padding:5px">34 169 €</td><td style="text-align:right;padding:5px">20,19%</td><td style="text-align:right;padding:5px">41%</td></tr>
+              <tr style="background:var(--rdd)"><td style="padding:5px">2023 <span style="color:var(--t2)">(avis 2024)</span></td><td style="text-align:right;font-family:monospace;padding:5px;color:var(--red);font-weight:600">151 928 €</td><td style="text-align:right;padding:5px">33,62%</td><td style="text-align:right;padding:5px">45%</td></tr>
+              <tr><td style="padding:5px">2024 <span style="color:var(--t2)">(avis 2025)</span></td><td style="text-align:right;font-family:monospace;padding:5px">74 090 €</td><td style="text-align:right;padding:5px">26,66%</td><td style="text-align:right;padding:5px">41%</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Plafond PER -->
+        <div class="card" style="margin-top:0;border-left:3px solid var(--grn)">
+          <div class="card-t">🏦 Plafond PER disponible 2025</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
+            <div style="background:var(--grd);border-radius:8px;padding:10px;text-align:center">
+              <div style="font-size:10px;color:var(--t2);margin-bottom:3px">Déclarant 1 (Julien)</div>
+              <div style="font-family:monospace;font-size:16px;font-weight:600;color:var(--grn)">87 613 €</div>
+            </div>
+            <div style="background:var(--grd);border-radius:8px;padding:10px;text-align:center">
+              <div style="font-size:10px;color:var(--t2);margin-bottom:3px">Déclarant 2 (Candice)</div>
+              <div style="font-family:monospace;font-size:16px;font-weight:600;color:var(--grn)">17 264 €</div>
+            </div>
+          </div>
+          <div style="background:var(--grd);border-radius:8px;padding:10px;text-align:center;margin-bottom:10px">
+            <div style="font-size:10px;color:var(--t2);margin-bottom:3px">Plafond total foyer</div>
+            <div style="font-family:monospace;font-size:22px;font-weight:600;color:var(--grn)">104 877 €</div>
+            <div style="font-size:10px;color:var(--t2);margin-top:2px">Non utilisé sur 3 ans cumulés</div>
+          </div>
+          <div id="per-gain-calc" style="font-size:12px;color:var(--t2)">
+            Saisissez un montant PER dans les paramètres pour voir l'économie IR estimée
+          </div>
+          <div style="margin-top:10px;padding:8px;background:var(--acd);border-radius:6px;font-size:11px;color:var(--acc)">
+            💡 Au TMI 41% : chaque 10 000€ versés en PER = <strong>4 100€ d'économie IR</strong>.<br>
+            Versement max déductible 2025 : 104 877€ → économie potentielle max : <strong>~43 000€</strong>
           </div>
         </div>
 
@@ -1010,6 +1056,8 @@ function calcIR2025(){
   const acomptes25 = parseFloat(document.getElementById('ir25-acomptes')?.value)||0;
   const parts25 = parseFloat(document.getElementById('ir25-parts')?.value)||3;
   const per25 = parseFloat(document.getElementById('ir25-per')?.value)||0;
+  const perAnnuel25Saisi = per25;
+  const PLAFOND_PER_2025 = 104877; // Julien 87613 + Candice 17264
 
   if(!rev25){
     const el=document.getElementById('ir25-result');
@@ -1080,9 +1128,14 @@ function calcIR2025(){
 
     +'<div style="margin-top:10px;padding:8px;background:var(--acd);border-radius:6px;font-size:11px;color:var(--acc)">'
     +'💡 Le solde IR 2025 est étalé sur 4 mensualités (sept → déc 2026). '
-    +'Dès janvier 2027, de nouveaux acomptes seront prélevés basés sur votre IR 2025 : '
-    +acompte27mensuel.toLocaleString('fr-FR')+'€/mois (mensuel) ou '+acompte27trim.toLocaleString('fr-FR')+'€/trimestre (fév+mai 2027).'
-    +'</div>';
+    +'Dès janvier 2027, nouveaux acomptes basés sur IR 2025 : '
+    +acompte27mensuel.toLocaleString('fr-FR')+'€/mois.'
+    +'</div>'
+    +(solde25>0&&perAnnuel25Saisi<104877?
+      '<div style="margin-top:8px;padding:8px;background:var(--grd);border-radius:6px;font-size:11px;color:var(--grn)">'
+      +'🏦 Plafond PER non utilisé : 104 877€. Un versement PER avant le 31/12/2025 aurait réduit cet IR. Pour 2026, vous pouvez encore optimiser via versement PER.'
+      +'</div>'
+      :'');
 }
 
 function calcIRBrut(revenuImposable, parts){
@@ -1141,6 +1194,22 @@ function calcIR(){
 
   const provisionAn = pasMensuel * 12;
   const solde = provisionAn - irTotal;
+
+  // Calcul gain PER en temps réel
+  const gainPERCalc = perAnnuel>0 ? calcIRBrut(revImposable, parts) - calcIRBrut(Math.max(0,revImposable-perAnnuel), parts) : 0;
+  const hintEl = document.getElementById('per-plafond-hint');
+  if(hintEl && perAnnuel>0){
+    hintEl.textContent = 'Économie IR estimée : '+gainPERCalc.toLocaleString('fr-FR')+'€ | Plafond dispo 2025 : 104 877€';
+    hintEl.style.color = 'var(--grn)';
+  } else if(hintEl){
+    hintEl.textContent = 'Plafond disponible 2025 : 104 877€ (Julien 87 613€ + Candice 17 264€)';
+    hintEl.style.color = 'var(--t2)';
+  }
+  // Gain PER dans le bloc dédié
+  const perGainEl = document.getElementById('per-gain-calc');
+  if(perGainEl && perAnnuel>0){
+    perGainEl.innerHTML = '<strong style="color:var(--grn)">Économie IR avec '+perAnnuel.toLocaleString('fr-FR')+'€ versés en PER : '+gainPERCalc.toLocaleString('fr-FR')+'€</strong>';
+  }
 
   // Mise à jour KPIs
   const elPas = document.getElementById('ir-pas-mensuel');
