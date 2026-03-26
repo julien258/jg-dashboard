@@ -374,6 +374,35 @@
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
       <!-- Panneau gauche : paramètres -->
       <div>
+        <!-- BLOC 2025 -->
+        <div class="card" style="border-left:3px solid var(--amb)">
+          <div class="card-t">📅 IR sur revenus 2025 — Échéances 2026</div>
+          <div style="font-size:11px;color:var(--t2);margin-bottom:12px">
+            Déclaration mai 2026 → Solde IR payable en septembre 2026
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div class="fg"><label>Revenus bruts 2025 (€)</label>
+              <input type="number" id="ir25-revenus" placeholder="Ex: 85000" step="1000" oninput="calcIR2025()">
+            </div>
+            <div class="fg"><label>Acomptes déjà versés en 2025 (€)</label>
+              <input type="number" id="ir25-acomptes" value="0" step="500" oninput="calcIR2025()">
+              <div style="font-size:10px;color:var(--t2);margin-top:2px">PAS ou acomptes provisionnels versés</div>
+            </div>
+            <div class="fg"><label>Parts fiscales 2025</label>
+              <select id="ir25-parts" onchange="calcIR2025()">
+                <option value="2">2 parts (couple)</option>
+                <option value="2.5">2,5 parts (+ 1 enfant)</option>
+                <option value="3" selected>3 parts (+ 2 enfants)</option>
+                <option value="3.5">3,5 parts (+ 3 enfants)</option>
+              </select>
+            </div>
+            <div class="fg"><label>PER versé en 2025 (déductible €)</label>
+              <input type="number" id="ir25-per" value="0" step="500" oninput="calcIR2025()">
+            </div>
+          </div>
+          <div id="ir25-result" style="margin-top:10px"></div>
+        </div>
+
         <div class="card">
           <div class="card-t">⚙️ Paramètres fiscaux</div>
           <div class="fg"><label>PAS mensuel (€)</label>
@@ -973,6 +1002,84 @@ const BAREME_2026 = [
   {min:180294, max:Infinity,taux:0.45}
 ];
 
+// ════════════════════════════════════════
+// CALCUL IR 2025 — ÉCHÉANCES SEPT/OCT/NOV/DEC 2026
+// ════════════════════════════════════════
+function calcIR2025(){
+  const rev25 = parseFloat(document.getElementById('ir25-revenus')?.value)||0;
+  const acomptes25 = parseFloat(document.getElementById('ir25-acomptes')?.value)||0;
+  const parts25 = parseFloat(document.getElementById('ir25-parts')?.value)||3;
+  const per25 = parseFloat(document.getElementById('ir25-per')?.value)||0;
+
+  if(!rev25){
+    const el=document.getElementById('ir25-result');
+    if(el) el.innerHTML='<div style="font-size:12px;color:var(--t2)">Saisissez vos revenus 2025 pour calculer les échéances</div>';
+    return;
+  }
+
+  // Calcul IR 2025 (barème 2026 appliqué aux revenus 2025 — approximation)
+  const abatt25 = Math.min(Math.round(rev25*0.10), 14171);
+  const revImp25 = Math.max(0, rev25 - abatt25 - per25);
+  const ir25 = calcIRBrut(revImp25, parts25);
+
+  // Solde = IR calculé - acomptes déjà versés
+  const solde25 = Math.max(0, ir25 - acomptes25);
+
+  // Mensualisation des acomptes 2027 (basés sur IR 2025)
+  // En France : si IR > 305€, acomptes = IR/12 par mois (prélèvement mensuel)
+  // ou IR*1/3 en fév + IR*1/3 en mai (si pas de mensualisation)
+  const acompte27mensuel = Math.ceil(ir25/12);
+  const acompte27trim = Math.ceil(ir25/3);
+
+  // Construction du calendrier des échéances
+  const echeances = [
+    {mois:'Septembre 2026', montant:solde25, type:'Solde IR 2025', couleur:'var(--red)', urgent:true},
+    {mois:'Octobre 2026',   montant:acompte27mensuel, type:'1er acompte 2027 (si mensuel)', couleur:'#854F0B', urgent:false},
+    {mois:'Novembre 2026',  montant:acompte27mensuel, type:'2e acompte 2027 (si mensuel)', couleur:'#854F0B', urgent:false},
+    {mois:'Décembre 2026',  montant:acompte27mensuel, type:'3e acompte 2027 (si mensuel)', couleur:'#854F0B', urgent:false},
+  ];
+  const totalEch = echeances.reduce((s,e)=>s+e.montant,0);
+
+  const el=document.getElementById('ir25-result');
+  if(!el) return;
+
+  el.innerHTML =
+    '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px">'
+    +'<div style="background:var(--s2);border-radius:8px;padding:10px">'
+    +'<div style="font-size:10px;color:var(--t2);text-transform:uppercase;margin-bottom:4px">IR brut 2025</div>'
+    +'<div style="font-family:monospace;font-size:18px;color:var(--red)">'+ir25.toLocaleString('fr-FR')+' €</div>'
+    +'</div>'
+    +'<div style="background:var(--s2);border-radius:8px;padding:10px">'
+    +'<div style="font-size:10px;color:var(--t2);text-transform:uppercase;margin-bottom:4px">Acomptes versés 2025</div>'
+    +'<div style="font-family:monospace;font-size:18px;color:var(--grn)">'+acomptes25.toLocaleString('fr-FR')+' €</div>'
+    +'</div>'
+    +'<div style="background:var(--rdd);border-radius:8px;padding:10px;border:1px solid var(--red)">'
+    +'<div style="font-size:10px;color:var(--red);text-transform:uppercase;margin-bottom:4px">Solde à payer sept. 2026</div>'
+    +'<div style="font-family:monospace;font-size:18px;font-weight:600;color:var(--red)">'+solde25.toLocaleString('fr-FR')+' €</div>'
+    +'</div>'
+    +'</div>'
+
+    // Calendrier des échéances
+    +'<div style="font-size:11px;font-weight:600;color:var(--t2);text-transform:uppercase;margin-bottom:8px">Calendrier des versements</div>'
+    +echeances.map(e=>
+      '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:'+(e.urgent?'var(--rdd)':'var(--s2)')+';border-radius:7px;margin-bottom:6px;border-left:3px solid '+e.couleur+'">'
+      +'<div><div style="font-size:12px;font-weight:600;color:'+e.couleur+'">'+e.mois+'</div>'
+      +'<div style="font-size:10px;color:var(--t2)">'+e.type+'</div></div>'
+      +'<div style="font-family:monospace;font-size:14px;font-weight:600;color:'+e.couleur+'">'+e.montant.toLocaleString('fr-FR')+' €</div>'
+      +'</div>'
+    ).join('')
+
+    +'<div style="display:flex;justify-content:space-between;padding:10px;background:var(--s3);border-radius:7px;margin-top:4px;font-weight:600;font-size:13px">'
+    +'<span>Total sept → déc 2026</span>'
+    +'<span style="font-family:monospace;color:var(--red)">'+totalEch.toLocaleString('fr-FR')+' €</span>'
+    +'</div>'
+
+    +'<div style="margin-top:10px;padding:8px;background:var(--acd);border-radius:6px;font-size:11px;color:var(--acc)">'
+    +'💡 Acomptes 2027 basés sur IR 2025 — option mensuelle (÷12) vs trimestrielle (÷3 en fév+mai). '
+    +'Acompte trimestriel : '+acompte27trim.toLocaleString('fr-FR')+'€ × 2 (fév+mai 2027)'
+    +'</div>';
+}
+
 function calcIRBrut(revenuImposable, parts){
   // Quotient familial
   const qi = revenuImposable / parts;
@@ -1123,7 +1230,7 @@ function showSection(s){
   const titles={dashboard:'Vue 12 mois',fixes:'Charges fixes',variables:'Dépenses variables',dettes:'Dettes & impôts',projets:'Projets & objectifs',impots:'Impôts & optimisation'};
   document.getElementById('tb-title').textContent=titles[s]||s;
   if(s==='variables') initVariablesSection();
-  if(s==='impots') setTimeout(calcIR,100);
+  if(s==='impots'){setTimeout(calcIR,100);setTimeout(calcIR2025,150);}
 }
 
 
