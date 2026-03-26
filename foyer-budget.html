@@ -89,6 +89,7 @@
   <button class="gbtn" onclick="showSection('variables')">🛒 Dépenses variables</button>
   <button class="gbtn" onclick="showSection('dettes')">🔴 Dettes &amp; impôts</button>
   <button class="gbtn" onclick="showSection('projets')">🎯 Projets &amp; objectifs</button>
+  <button class="gbtn" onclick="showSection('impots')">🧮 Impôts &amp; optimisation</button>
   <div style="flex:1"></div>
   <div style="padding:10px 8px;border-top:1px solid #2A3045">
     <a href="/dashboard-groupe.html" style="display:flex;align-items:center;gap:6px;padding:7px 10px;color:#7A849E;text-decoration:none;font-size:11px;border-radius:6px;transition:background .15s" onmouseover="this.style.background='#1E2334'" onmouseout="this.style.background='none'">← Dashboard Pro</a>
@@ -335,6 +336,97 @@
     </div></div>
     <div class="card"><div id="projets-list"><div style="text-align:center;padding:2rem;color:var(--t2)"><span class="spin"></span></div></div></div>
   </div>
+
+  <!-- IMPOTS & OPTIMISATION -->
+  <div class="pv cnt" id="s-impots">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+      <div>
+        <div style="font-size:16px;font-weight:600">🧮 Impôts &amp; optimisation fiscale</div>
+        <div style="font-size:11px;color:var(--t2);margin-top:2px">IR prévisionnel · 3 parts · Barème 2026 · Provision PAS</div>
+      </div>
+      <button class="btn btn-p btn-sm" onclick="calcIR()">🔄 Recalculer</button>
+    </div>
+
+    <!-- KPIs -->
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:1rem">
+      <div class="kc" style="border-left:3px solid #2C2C2A">
+        <div class="kl">PAS mensuel</div>
+        <div class="kv" style="color:#2C2C2A" id="ir-pas-mensuel">1 000 €</div>
+        <div class="ks">Provision volontaire</div>
+      </div>
+      <div class="kc" style="border-left:3px solid #185FA5">
+        <div class="kl">Provision annuelle</div>
+        <div class="kv" style="color:#185FA5" id="ir-provision-an">12 000 €</div>
+        <div class="ks">PAS × 12 mois</div>
+      </div>
+      <div class="kc" style="border-left:3px solid var(--red)">
+        <div class="kl">IR estimé</div>
+        <div class="kv" style="color:var(--red)" id="ir-estime">—</div>
+        <div class="ks">Barème progressif 2026</div>
+      </div>
+      <div class="kc" id="ir-solde-kc">
+        <div class="kl">Solde provision</div>
+        <div class="kv" id="ir-solde">—</div>
+        <div class="ks" id="ir-solde-label">vs IR estimé</div>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <!-- Panneau gauche : paramètres -->
+      <div>
+        <div class="card">
+          <div class="card-t">⚙️ Paramètres fiscaux</div>
+          <div class="fg"><label>PAS mensuel (€)</label>
+            <input type="number" id="ir-pas-input" value="1000" min="0" step="100" oninput="calcIR()">
+          </div>
+          <div class="fg"><label>Nombre de parts fiscales</label>
+            <select id="ir-parts" onchange="calcIR()">
+              <option value="1">1 part (célibataire)</option>
+              <option value="1.5">1,5 parts</option>
+              <option value="2">2 parts (couple)</option>
+              <option value="2.5">2,5 parts (couple + 1 enfant)</option>
+              <option value="3" selected>3 parts (couple + 2 enfants)</option>
+              <option value="3.5">3,5 parts (couple + 3 enfants)</option>
+              <option value="4">4 parts (couple + 4 enfants)</option>
+            </select>
+          </div>
+          <div class="fg"><label>Revenus imposables (€/an) — auto-calculé</label>
+            <input type="number" id="ir-revenus" placeholder="Calculé depuis la tréso" oninput="calcIR()">
+            <div style="font-size:10px;color:var(--t2);margin-top:3px">Laisser vide = utilise les revenus versés des 12 prochains mois</div>
+          </div>
+          <div class="fg"><label>Versement PER (€/an) — déductible</label>
+            <input type="number" id="ir-per" value="0" min="0" step="500" oninput="calcIR()">
+          </div>
+          <div class="fg"><label>Autres déductions (€/an)</label>
+            <input type="number" id="ir-deductions" value="0" min="0" step="100" oninput="calcIR()">
+          </div>
+        </div>
+
+        <div class="card" style="margin-top:0">
+          <div class="card-t">💡 Optimisation</div>
+          <div id="ir-optim-content" style="font-size:12px;color:var(--t2)">Calculez l'IR pour voir les recommandations</div>
+        </div>
+      </div>
+
+      <!-- Panneau droit : détail calcul -->
+      <div>
+        <div class="card">
+          <div class="card-t">📊 Détail du calcul</div>
+          <div id="ir-detail-content">
+            <div style="text-align:center;padding:2rem;color:var(--t2)">Cliquez sur Recalculer</div>
+          </div>
+        </div>
+
+        <div class="card" style="margin-top:0">
+          <div class="card-t">📅 Provision mensuelle recommandée</div>
+          <div id="ir-provision-content">
+            <div style="font-size:12px;color:var(--t2)">Calcul en attente</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
 
 </div><!-- /ma -->
 </div><!-- /layout -->
@@ -868,13 +960,171 @@ async function saveEditProjet(id, src){
   renderProjets();renderProjetsMini();renderChart();renderKPIs();renderDetail();
 }
 
+// ════════════════════════════════════════
+// CALCUL IR — BAREME 2026 — 3 PARTS
+// ════════════════════════════════════════
+
+// Barème IR 2026 (tranches sur 1 part)
+const BAREME_2026 = [
+  {min:0,      max:11497,  taux:0},
+  {min:11497,  max:29315,  taux:0.11},
+  {min:29315,  max:83823,  taux:0.30},
+  {min:83823,  max:180294, taux:0.41},
+  {min:180294, max:Infinity,taux:0.45}
+];
+
+function calcIRBrut(revenuImposable, parts){
+  // Quotient familial
+  const qi = revenuImposable / parts;
+  let impot1part = 0;
+  for(const t of BAREME_2026){
+    if(qi <= t.min) break;
+    const base = Math.min(qi, t.max) - t.min;
+    impot1part += base * t.taux;
+  }
+  // Impôt total = impôt sur 1 part × nb parts
+  let irBrut = impot1part * parts;
+  // Plafonnement du quotient familial (2 demi-parts au-delà de 2 parts = 1794€/demi-part en 2026)
+  if(parts > 2){
+    const demiparts = (parts - 2) * 2; // nombre de demi-parts supplémentaires
+    const plafond = demiparts * 1794; // plafond de réduction par demi-part 2026
+    // Calcul sans les parts sup
+    const ir2parts = calcIRBrut(revenuImposable, 2);
+    const reductionReelle = ir2parts - irBrut;
+    if(reductionReelle > plafond){
+      irBrut = ir2parts - plafond;
+    }
+  }
+  // Décote (si IR < 1929€ pour couple)
+  const seuilDecote = parts >= 2 ? 1929 : 1444;
+  if(irBrut > 0 && irBrut < seuilDecote * 1.5){
+    const decote = parts >= 2 ? 1929 - 0.4541*irBrut : 1444 - 0.4541*irBrut;
+    irBrut = Math.max(0, irBrut - Math.max(0, decote));
+  }
+  return Math.round(irBrut);
+}
+
+function calcIR(){
+  const pasMensuel = parseFloat(document.getElementById('ir-pas-input')?.value)||1000;
+  const parts = parseFloat(document.getElementById('ir-parts')?.value)||3;
+  const perAnnuel = parseFloat(document.getElementById('ir-per')?.value)||0;
+  const autresDeductions = parseFloat(document.getElementById('ir-deductions')?.value)||0;
+
+  // Revenus imposables : saisis ou auto depuis tréso
+  let revBrut = parseFloat(document.getElementById('ir-revenus')?.value)||0;
+  if(!revBrut){
+    // Auto : somme des revenus versés sur 12 mois depuis le dashboard
+    revBrut = months.reduce((s,_,i)=>s+revNecessaire(i),0);
+  }
+
+  // Abattement frais pro 10% (plafonné à 14 171€ en 2026)
+  const abattementFrais = Math.min(Math.round(revBrut*0.10), 14171);
+  // Déductions PER + autres
+  const totalDeductions = perAnnuel + autresDeductions;
+  const revImposable = Math.max(0, revBrut - abattementFrais - totalDeductions);
+
+  const irBrut = calcIRBrut(revImposable, parts);
+  const cssg = Math.round(revBrut * 0.097); // CSG/CRDS non déductible ~9.7% (simplifié)
+  const irTotal = irBrut; // IR seul (PS séparés pour les revenus du capital)
+
+  const provisionAn = pasMensuel * 12;
+  const solde = provisionAn - irTotal;
+
+  // Mise à jour KPIs
+  const elPas = document.getElementById('ir-pas-mensuel');
+  const elProv = document.getElementById('ir-provision-an');
+  const elEst = document.getElementById('ir-estime');
+  const elSolde = document.getElementById('ir-solde');
+  const elSoldeLabel = document.getElementById('ir-solde-label');
+  const elSoldeKc = document.getElementById('ir-solde-kc');
+
+  if(elPas) elPas.textContent = pasMensuel.toLocaleString('fr-FR')+' €';
+  if(elProv) elProv.textContent = provisionAn.toLocaleString('fr-FR')+' €';
+  if(elEst) elEst.textContent = irTotal.toLocaleString('fr-FR')+' €';
+  if(elSolde){
+    elSolde.textContent = (solde>=0?'+':'')+Math.round(solde).toLocaleString('fr-FR')+' €';
+    elSolde.style.color = solde>=0?'var(--grn)':'var(--red)';
+  }
+  if(elSoldeLabel) elSoldeLabel.textContent = solde>=0?'Surplus de provision':'Manque à provisionner';
+  if(elSoldeKc) elSoldeKc.style.borderLeft = '3px solid '+(solde>=0?'var(--grn)':'var(--red)');
+
+  // Détail calcul
+  const rows = [
+    ['Revenus bruts annuels', revBrut.toLocaleString('fr-FR')+' €'],
+    ['Abattement frais pro (10%, plaf. 14 171€)', '− '+abattementFrais.toLocaleString('fr-FR')+' €'],
+    perAnnuel>0?['Versement PER déductible', '− '+perAnnuel.toLocaleString('fr-FR')+' €']:null,
+    autresDeductions>0?['Autres déductions', '− '+autresDeductions.toLocaleString('fr-FR')+' €']:null,
+    ['= Revenu net imposable', '<strong>'+revImposable.toLocaleString('fr-FR')+' €</strong>'],
+    ['Quotient familial ('+parts+' parts)', (revImposable/parts).toLocaleString('fr-FR',{maximumFractionDigits:0})+' €/part'],
+    ['IR brut (barème progressif)', irBrut.toLocaleString('fr-FR')+' €'],
+    ['= IR à payer estimé', '<strong style="color:var(--red)">'+irTotal.toLocaleString('fr-FR')+' €</strong>'],
+    ['PAS provisionné ('+pasMensuel.toLocaleString('fr-FR')+'€ × 12)', provisionAn.toLocaleString('fr-FR')+' €'],
+    ['Écart', '<strong style="color:'+(solde>=0?'var(--grn)':'var(--red)')+'">'+((solde>=0?'+':'')+Math.round(solde).toLocaleString('fr-FR'))+' €</strong>']
+  ].filter(Boolean);
+
+  const detailEl = document.getElementById('ir-detail-content');
+  if(detailEl) detailEl.innerHTML = rows.map(([k,v])=>`
+    <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--b1);font-size:12px">
+      <span style="color:var(--t2)">${k}</span><span>${v}</span>
+    </div>`).join('');
+
+  // Provision mensuelle recommandée
+  const provRecMensuel = Math.ceil(irTotal/12);
+  const diffMensuel = provRecMensuel - pasMensuel;
+  const provEl = document.getElementById('ir-provision-content');
+  if(provEl) provEl.innerHTML = `
+    <div style="font-size:28px;font-weight:500;font-family:monospace;color:${diffMensuel<=0?'var(--grn)':'var(--red)'};text-align:center;padding:8px 0">
+      ${provRecMensuel.toLocaleString('fr-FR')} €/mois
+    </div>
+    <div style="text-align:center;font-size:12px;color:var(--t2);margin-bottom:12px">
+      Pour couvrir exactement l'IR estimé de ${irTotal.toLocaleString('fr-FR')} €
+    </div>
+    <div style="padding:10px;background:${diffMensuel<=0?'var(--grd)':'var(--rdd)'};border-radius:8px;font-size:12px;color:${diffMensuel<=0?'var(--grn)':'var(--red)'}">
+      ${diffMensuel<=0
+        ? '✅ Votre PAS actuel ('+pasMensuel.toLocaleString('fr-FR')+'€/m) est suffisant — surplus '+Math.abs(diffMensuel).toLocaleString('fr-FR')+'€/m'
+        : '⚠️ Augmentez le PAS de '+Math.abs(diffMensuel).toLocaleString('fr-FR')+'€/m pour couvrir l'IR'}
+    </div>`;
+
+  // Recommandations optimisation
+  const optimEl = document.getElementById('ir-optim-content');
+  if(optimEl){
+    const recs = [];
+    // PER : 10% des revenus plafond
+    const plafondPER = Math.min(Math.round(revBrut*0.10), 32908);
+    const gainPER = calcIRBrut(revImposable, parts) - calcIRBrut(Math.max(0,revImposable-plafondPER), parts);
+    if(gainPER>0&&perAnnuel<plafondPER) recs.push({
+      icon:'🏦', titre:'PER — Plan Épargne Retraite',
+      detail:`Plafond déductible : ${plafondPER.toLocaleString('fr-FR')}€/an. Économie IR potentielle : <strong>${gainPER.toLocaleString('fr-FR')}€</strong>`
+    });
+    if(solde<0) recs.push({
+      icon:'📈', titre:'Augmenter le PAS',
+      detail:`Manque de ${Math.abs(solde).toLocaleString('fr-FR')}€ sur l'année. Passer à ${provRecMensuel.toLocaleString('fr-FR')}€/mois`
+    });
+    if(solde>2000) recs.push({
+      icon:'💰', titre:'Surplus plaçable chez CGW',
+      detail:`${Math.round(solde).toLocaleString('fr-FR')}€ de provision excédentaire → placer en CGW Sovereign (95 jours, 9.5%)`
+    });
+    // SARL Guiraud : charges déductibles
+    recs.push({
+      icon:'🏢', titre:'Optimisation SARL Guiraud',
+      detail:`Les charges URSSAF, IS et frais professionnels réduisent l'assiette IR. Consultez un expert-comptable pour arbitrage salaire/dividendes.`
+    });
+    optimEl.innerHTML = recs.map(r=>`
+      <div style="padding:10px;background:var(--s2);border-radius:8px;margin-bottom:8px">
+        <div style="font-weight:600;font-size:12px;margin-bottom:4px">${r.icon} ${r.titre}</div>
+        <div style="font-size:11px;color:var(--t2)">${r.detail}</div>
+      </div>`).join('');
+  }
+}
+
 function showSection(s){
   document.querySelectorAll('.pv').forEach(p=>p.classList.remove('active'));
   document.getElementById('s-'+s).classList.add('active');
   document.querySelectorAll('.gbtn').forEach(b=>b.classList.remove('active'));
-  const titles={dashboard:'Vue 12 mois',fixes:'Charges fixes',variables:'Dépenses variables',dettes:'Dettes & impôts',projets:'Projets & objectifs'};
+  const titles={dashboard:'Vue 12 mois',fixes:'Charges fixes',variables:'Dépenses variables',dettes:'Dettes & impôts',projets:'Projets & objectifs',impots:'Impôts & optimisation'};
   document.getElementById('tb-title').textContent=titles[s]||s;
   if(s==='variables') initVariablesSection();
+  if(s==='impots') setTimeout(calcIR,100);
 }
 
 
