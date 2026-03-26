@@ -304,7 +304,7 @@
   <div class="pv cnt" id="s-dettes">
     <div style="font-size:16px;font-weight:600;margin-bottom:1rem">Dettes personnelles &amp; impôts</div>
     <div class="card"><div class="card-t">Dettes perso actives</div>
-      <div style="overflow-x:auto"><table><thead><tr><th>Créancier</th><th>Nature</th><th style="text-align:right">Restant</th><th style="text-align:right">/mois</th><th>Début</th><th>Fin</th><th>Statut</th></tr></thead>
+      <div style="overflow-x:auto"><table><thead><tr><th>Créancier</th><th>Nature</th><th style="text-align:right">Restant</th><th style="text-align:right">/mois</th><th>Début</th><th>Fin</th><th>Statut</th><th></th></tr></thead>
       <tbody id="dettes-tbody"><tr><td colspan="7" style="text-align:center;padding:1.5rem"><span class="spin"></span></td></tr></tbody></table></div>
     </div>
     <div class="card"><div class="card-t">Dossiers fiscaux</div>
@@ -539,12 +539,17 @@ function renderDettes(){
   const sc={en_cours:'br',en_negociation:'ba',solde:'bg'};
   const sl={en_cours:'En cours',en_negociation:'Négociation',solde:'Soldé'};
   el.innerHTML=D.dettes.map(d=>`
-    <tr><td><strong>${d.debiteur}</strong></td><td style="font-size:11px;color:var(--t2)">${d.nature||'—'}</td>
-    <td class="mono" style="text-align:right;color:#A32D2D">${fmt(d.amount_remaining)}</td>
-    <td class="mono" style="text-align:right">${d.monthly_amount?fmt(d.monthly_amount)+'/m':'—'}</td>
-    <td style="font-size:11px">${d.start_date||'—'}</td><td style="font-size:11px">${d.end_date||'—'}</td>
-    <td><span class="badge ${sc[d.status]||'ba'}">${sl[d.status]||d.status}</span></td></tr>
-  `).join('')||'<tr><td colspan="7" style="text-align:center;padding:1.5rem;color:var(--t2)">Aucune</td></tr>';
+    <tr>
+      <td><strong>${d.debiteur}</strong></td>
+      <td style="font-size:11px;color:var(--t2)">${d.nature||'—'}</td>
+      <td class="mono" style="text-align:right;color:#A32D2D">${fmt(d.amount_remaining)}</td>
+      <td class="mono" style="text-align:right">${d.monthly_amount?fmt(d.monthly_amount)+'/m':'—'}</td>
+      <td style="font-size:11px">${d.start_date||'—'}</td>
+      <td style="font-size:11px">${d.end_date||'—'}</td>
+      <td><span class="badge ${sc[d.status]||'ba'}">${sl[d.status]||d.status}</span></td>
+      <td><button class="btn btn-g btn-sm" onclick="openEditDette('${d.id}')">✏️</button></td>
+    </tr>
+  `).join('')||'<tr><td colspan="8" style="text-align:center;padding:1.5rem;color:var(--t2)">Aucune</td></tr>';
   const taxEl=document.getElementById('tax-tbody'); if(!taxEl)return; taxEl.innerHTML=D.impots.map(t=>`
     <tr><td>${t.label}</td><td class="mono" style="text-align:right;color:#A32D2D">${fmt(t.amount_due)}</td>
     <td style="font-size:11px">${t.due_date||'—'}</td>
@@ -569,7 +574,8 @@ function renderProjets(){
         <span>Objectif : ${fmt(tot)}</span><span>${p.date_debut||p.target_date||'—'}</span>
       </div>
       <div class="proj-bar"><div class="proj-fill" style="width:${pct}%"></div></div>
-      <div style="display:flex;justify-content:flex-end;margin-top:6px">
+      <div style="display:flex;justify-content:flex-end;gap:6px;margin-top:6px">
+        <button class="btn btn-g btn-sm" onclick="openEditProjet('${p.id}','${p.src||'projets_perso'}')">✏️ Modifier</button>
         <button class="btn btn-r btn-sm" onclick="delProjet('${p.id}','${p.src||'projets_perso'}')">Supprimer</button>
       </div>
     </div>`;
@@ -678,6 +684,125 @@ async function delProjet(id,src){
 }
 
 // Navigation
+// ── Modal générique ──
+function modal(html){
+  const m=document.createElement('div');
+  m.id='edit-modal';
+  m.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:300;display:flex;align-items:center;justify-content:center;padding:1rem';
+  m.innerHTML='<div style="background:var(--s1);border:1px solid var(--b1);border-radius:14px;padding:1.5rem;width:100%;max-width:560px;max-height:90vh;overflow-y:auto">'+html+'</div>';
+  document.body.appendChild(m);
+}
+function closeModal(){document.getElementById('edit-modal')?.remove();}
+
+// ════════════════════════════════
+// ÉDITION DETTE
+// ════════════════════════════════
+function openEditDette(id){
+  const d=D.dettes.find(x=>x.id===id);
+  if(!d){toast('Dette non trouvée');return;}
+  const statusOpts=['en_cours','en_negociation','suspendu','solde'].map(s=>`<option value="${s}"${d.status===s?' selected':''}>${{en_cours:'En cours',en_negociation:'En négociation',suspendu:'Suspendu',solde:'Soldé'}[s]}</option>`).join('');
+  modal(`
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+      <div style="font-size:15px;font-weight:600">✏️ Modifier la dette</div>
+      <button onclick="closeModal()" style="border:none;background:none;font-size:20px;cursor:pointer;color:var(--t2)">✕</button>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="fg" style="grid-column:span 2"><label>Créancier</label><input id="ed-debiteur" value="${d.debiteur||''}"></div>
+      <div class="fg" style="grid-column:span 2"><label>Nature</label><input id="ed-nature" value="${d.nature||''}"></div>
+      <div class="fg"><label>Montant restant (€)</label><input type="number" id="ed-remaining" value="${d.amount_remaining||0}"></div>
+      <div class="fg"><label>Mensualité (€)</label><input type="number" id="ed-monthly" value="${d.monthly_amount||0}"></div>
+      <div class="fg"><label>Date début</label><input type="date" id="ed-start" value="${d.start_date||''}"></div>
+      <div class="fg"><label>Date fin</label><input type="date" id="ed-end" value="${d.end_date||''}"></div>
+      <div class="fg"><label>Statut</label><select id="ed-status">${statusOpts}</select></div>
+      <div class="fg"><label>Jour de paiement</label><input type="number" id="ed-payday" min="1" max="31" value="${d.payment_day||10}"></div>
+      <div class="fg" style="grid-column:span 2"><label>Notes</label><input id="ed-notes" value="${d.notes||''}"></div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:12px">
+      <button class="btn btn-p" onclick="saveEditDette('${id}')">💾 Enregistrer</button>
+      <button class="btn btn-g" onclick="closeModal()">Annuler</button>
+    </div>
+    <div style="margin-top:10px;padding:8px;background:var(--acd);border-radius:6px;font-size:11px;color:var(--acc)">
+      💡 Les modifications s'appliquent sur les deux dashboards (Pro + Perso) via Supabase
+    </div>`);
+}
+
+async function saveEditDette(id){
+  const payload={
+    debiteur:document.getElementById('ed-debiteur').value.trim(),
+    nature:document.getElementById('ed-nature').value.trim(),
+    amount_remaining:parseFloat(document.getElementById('ed-remaining').value)||0,
+    monthly_amount:parseFloat(document.getElementById('ed-monthly').value)||0,
+    start_date:document.getElementById('ed-start').value||null,
+    end_date:document.getElementById('ed-end').value||null,
+    status:document.getElementById('ed-status').value,
+    payment_day:parseInt(document.getElementById('ed-payday').value)||10,
+    notes:document.getElementById('ed-notes').value||null
+  };
+  const{error}=await sb.from('debts').update(payload).eq('id',id);
+  if(error){toast('Erreur: '+error.message);return;}
+  closeModal();
+  toast('✅ Dette mise à jour — synchronisée sur les deux dashboards');
+  const{data}=await sb.from('debts').select('*').eq('company_id','perso').not('status','eq','solde');
+  D.dettes=data||[];
+  renderDettes();renderKPIs();renderDetail();renderChart();
+}
+
+// ════════════════════════════════
+// ÉDITION PROJET
+// ════════════════════════════════
+function openEditProjet(id, src){
+  const p=D.projets.find(x=>x.id===id);
+  if(!p){toast('Projet non trouvé');return;}
+  const cout=p.cout_total||p.budget||0;
+  const duree=p.duree_mois||1;
+  const debut=p.date_debut?p.date_debut.slice(0,7):'';
+  modal(`
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+      <div style="font-size:15px;font-weight:600">✏️ Modifier le projet</div>
+      <button onclick="closeModal()" style="border:none;background:none;font-size:20px;cursor:pointer;color:var(--t2)">✕</button>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="fg" style="grid-column:span 2"><label>Nom du projet</label><input id="ep-nom" value="${p.name||p.nom||''}"></div>
+      <div class="fg"><label>Coût total (€)</label><input type="number" id="ep-cout" value="${cout}" oninput="calcEditProj()"></div>
+      <div class="fg"><label>Durée (mois)</label><input type="number" id="ep-duree" value="${duree}" min="1" oninput="calcEditProj()"></div>
+      <div class="fg"><label>Date de début</label><input type="month" id="ep-debut" value="${debut}"></div>
+      <div class="fg"><label>Mensualité calculée</label>
+        <div id="ep-mensuel" style="padding:8px;background:var(--acd);border-radius:6px;font-family:monospace;font-size:13px;color:var(--acc)">${Math.ceil(cout/duree).toLocaleString('fr-FR')} €/mois</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:12px">
+      <button class="btn btn-p" onclick="saveEditProjet('${id}','${src}')">💾 Enregistrer</button>
+      <button class="btn btn-g" onclick="closeModal()">Annuler</button>
+    </div>`);
+}
+
+function calcEditProj(){
+  const c=parseFloat(document.getElementById('ep-cout')?.value)||0;
+  const d=parseInt(document.getElementById('ep-duree')?.value)||1;
+  const el=document.getElementById('ep-mensuel');
+  if(el&&c&&d) el.textContent=Math.ceil(c/d).toLocaleString('fr-FR')+' €/mois';
+}
+
+async function saveEditProjet(id, src){
+  const nom=document.getElementById('ep-nom').value.trim();
+  const cout=parseFloat(document.getElementById('ep-cout').value)||0;
+  const duree=parseInt(document.getElementById('ep-duree').value)||1;
+  const debutStr=document.getElementById('ep-debut').value;
+  if(!nom||!cout){toast('Remplissez le nom et le coût');return;}
+  const mensuel=Math.ceil(cout/duree);
+  const table=src==='projects'?'projects':'projets_perso';
+  const payload=src==='projects'
+    ?{name:nom,budget:cout,monthly_provision:mensuel}
+    :{nom,cout_total:cout,duree_mois:duree,date_debut:debutStr?debutStr+'-01':null,mensuel};
+  const{error}=await sb.from(table).update(payload).eq('id',id);
+  if(error){toast('Erreur: '+error.message);return;}
+  closeModal();
+  toast('✅ Projet mis à jour');
+  const[{data:p1},{data:p2}]=await Promise.all([sb.from('projects').select('*'),sb.from('projets_perso').select('*')]);
+  D.projets=[...(p1||[]).map(p=>({...p,src:'projects'})),...(p2||[]).map(p=>({...p,src:'projets_perso'}))];
+  renderProjets();renderProjetsMini();renderChart();renderKPIs();renderDetail();
+}
+
 function showSection(s){
   document.querySelectorAll('.pv').forEach(p=>p.classList.remove('active'));
   document.getElementById('s-'+s).classList.add('active');
