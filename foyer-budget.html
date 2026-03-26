@@ -1031,14 +1031,18 @@ function calcIR2025(){
   const acompte27mensuel = Math.ceil(ir25/12);
   const acompte27trim = Math.ceil(ir25/3);
 
-  // Construction du calendrier des échéances
+  // Solde IR 2025 étalé en 4 mensualités égales : sept / oct / nov / déc 2026
+  const mensualiteSolde = Math.ceil(solde25 / 4);
+  // Correction arrondi : les 3 premiers = ceil, le dernier = ce qui reste
+  const m1=mensualiteSolde, m2=mensualiteSolde, m3=mensualiteSolde;
+  const m4=solde25-(m1+m2+m3);
   const echeances = [
-    {mois:'Septembre 2026', montant:solde25, type:'Solde IR 2025', couleur:'var(--red)', urgent:true},
-    {mois:'Octobre 2026',   montant:acompte27mensuel, type:'1er acompte 2027 (si mensuel)', couleur:'#854F0B', urgent:false},
-    {mois:'Novembre 2026',  montant:acompte27mensuel, type:'2e acompte 2027 (si mensuel)', couleur:'#854F0B', urgent:false},
-    {mois:'Décembre 2026',  montant:acompte27mensuel, type:'3e acompte 2027 (si mensuel)', couleur:'#854F0B', urgent:false},
+    {mois:'Septembre 2026', montant:m1, type:'Solde IR 2025 — versement 1/4', couleur:'var(--red)', urgent:true},
+    {mois:'Octobre 2026',   montant:m2, type:'Solde IR 2025 — versement 2/4', couleur:'var(--red)', urgent:true},
+    {mois:'Novembre 2026',  montant:m3, type:'Solde IR 2025 — versement 3/4', couleur:'var(--red)', urgent:true},
+    {mois:'Décembre 2026',  montant:Math.max(0,m4), type:'Solde IR 2025 — versement 4/4', couleur:'var(--red)', urgent:true},
   ];
-  const totalEch = echeances.reduce((s,e)=>s+e.montant,0);
+  const totalEch = solde25; // = somme des 4 mensualités
 
   const el=document.getElementById('ir25-result');
   if(!el) return;
@@ -1070,13 +1074,14 @@ function calcIR2025(){
     ).join('')
 
     +'<div style="display:flex;justify-content:space-between;padding:10px;background:var(--s3);border-radius:7px;margin-top:4px;font-weight:600;font-size:13px">'
-    +'<span>Total sept → déc 2026</span>'
+    +'<span>Total solde IR 2025 (÷4 mois)</span>'
     +'<span style="font-family:monospace;color:var(--red)">'+totalEch.toLocaleString('fr-FR')+' €</span>'
     +'</div>'
 
     +'<div style="margin-top:10px;padding:8px;background:var(--acd);border-radius:6px;font-size:11px;color:var(--acc)">'
-    +'💡 Acomptes 2027 basés sur IR 2025 — option mensuelle (÷12) vs trimestrielle (÷3 en fév+mai). '
-    +'Acompte trimestriel : '+acompte27trim.toLocaleString('fr-FR')+'€ × 2 (fév+mai 2027)'
+    +'💡 Le solde IR 2025 est étalé sur 4 mensualités (sept → déc 2026). '
+    +'Dès janvier 2027, de nouveaux acomptes seront prélevés basés sur votre IR 2025 : '
+    +acompte27mensuel.toLocaleString('fr-FR')+'€/mois (mensuel) ou '+acompte27trim.toLocaleString('fr-FR')+'€/trimestre (fév+mai 2027).'
     +'</div>';
 }
 
