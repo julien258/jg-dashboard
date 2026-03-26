@@ -1072,18 +1072,17 @@ function calcIR(){
   const provRecMensuel = Math.ceil(irTotal/12);
   const diffMensuel = provRecMensuel - pasMensuel;
   const provEl = document.getElementById('ir-provision-content');
-  if(provEl) provEl.innerHTML = `
-    <div style="font-size:28px;font-weight:500;font-family:monospace;color:${diffMensuel<=0?'var(--grn)':'var(--red)'};text-align:center;padding:8px 0">
-      ${provRecMensuel.toLocaleString('fr-FR')} €/mois
-    </div>
-    <div style="text-align:center;font-size:12px;color:var(--t2);margin-bottom:12px">
-      Pour couvrir exactement l'IR estimé de ${irTotal.toLocaleString('fr-FR')} €
-    </div>
-    <div style="padding:10px;background:${diffMensuel<=0?'var(--grd)':'var(--rdd)'};border-radius:8px;font-size:12px;color:${diffMensuel<=0?'var(--grn)':'var(--red)'}">
-      ${diffMensuel<=0
-        ? '✅ Votre PAS actuel ('+pasMensuel.toLocaleString('fr-FR')+'€/m) est suffisant — surplus '+Math.abs(diffMensuel).toLocaleString('fr-FR')+'€/m'
-        : '⚠️ Augmentez le PAS de '+Math.abs(diffMensuel).toLocaleString('fr-FR')+'€/m pour couvrir l'IR'}
-    </div>`;
+  if(provEl){
+    const cProv=diffMensuel<=0?'var(--grn)':'var(--red)';
+    const bProv=diffMensuel<=0?'var(--grd)':'var(--rdd)';
+    const mProv=diffMensuel<=0
+      ?'✅ PAS actuel ('+pasMensuel.toLocaleString('fr-FR')+'€/m) suffisant — surplus '+Math.abs(diffMensuel).toLocaleString('fr-FR')+'€/m'
+      :'⚠️ Augmentez le PAS de '+Math.abs(diffMensuel).toLocaleString('fr-FR')+'€/m pour couvrir l&#39;IR';
+    provEl.innerHTML=
+      '<div style="font-size:28px;font-weight:500;font-family:monospace;color:'+cProv+';text-align:center;padding:8px 0">'+provRecMensuel.toLocaleString('fr-FR')+' €/mois</div>'
+      +'<div style="text-align:center;font-size:12px;color:var(--t2);margin-bottom:12px">Pour couvrir l\'IR estimé de '+irTotal.toLocaleString('fr-FR')+' €</div>'
+      +'<div style="padding:10px;background:'+bProv+';border-radius:8px;font-size:12px;color:'+cProv+'">'+mProv+'</div>';
+  }
 
   // Recommandations optimisation
   const optimEl = document.getElementById('ir-optim-content');
