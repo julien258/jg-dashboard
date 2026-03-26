@@ -4755,7 +4755,7 @@ async function loadTresoChart(){
     const excVente=Math.max(0,v-buffer);
     [{seuil:100000,couleur:'#F39C12',label:'100k€'},{seuil:200000,couleur:'#2ECC71',label:'200k€'}].forEach(({seuil,couleur,label})=>{
       const key=`vente${seuil}_${i}`;
-      if(excVente>=seuil&&!annotations[`pl${seuil}`]){
+      if(excVente>=seuil){
         annotations[key]={type:'line',xMin:i,xMax:i,borderColor:couleur,borderWidth:3,borderDash:[3,2],
           label:{content:`💰 ${label} CGW possible`,display:true,position:'end',
             backgroundColor:couleur,color:'#fff',font:{size:10,weight:'bold'},padding:{x:6,y:4},borderRadius:4}};
