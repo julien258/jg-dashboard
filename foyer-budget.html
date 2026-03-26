@@ -534,16 +534,18 @@ function renderVars(){
 }
 
 function renderDettes(){
+  const el=document.getElementById('dettes-tbody');
+  if(!el)return;
   const sc={en_cours:'br',en_negociation:'ba',solde:'bg'};
   const sl={en_cours:'En cours',en_negociation:'Négociation',solde:'Soldé'};
-  document.getElementById('dettes-tbody').innerHTML=D.dettes.map(d=>`
+  el.innerHTML=D.dettes.map(d=>`
     <tr><td><strong>${d.debiteur}</strong></td><td style="font-size:11px;color:var(--t2)">${d.nature||'—'}</td>
     <td class="mono" style="text-align:right;color:#A32D2D">${fmt(d.amount_remaining)}</td>
     <td class="mono" style="text-align:right">${d.monthly_amount?fmt(d.monthly_amount)+'/m':'—'}</td>
     <td style="font-size:11px">${d.start_date||'—'}</td><td style="font-size:11px">${d.end_date||'—'}</td>
     <td><span class="badge ${sc[d.status]||'ba'}">${sl[d.status]||d.status}</span></td></tr>
   `).join('')||'<tr><td colspan="7" style="text-align:center;padding:1.5rem;color:var(--t2)">Aucune</td></tr>';
-  document.getElementById('tax-tbody').innerHTML=D.impots.map(t=>`
+  const taxEl=document.getElementById('tax-tbody'); if(!taxEl)return; taxEl.innerHTML=D.impots.map(t=>`
     <tr><td>${t.label}</td><td class="mono" style="text-align:right;color:#A32D2D">${fmt(t.amount_due)}</td>
     <td style="font-size:11px">${t.due_date||'—'}</td>
     <td><span class="badge ${t.status==='en_retard'?'br':'ba'}">${t.status}</span></td></tr>
@@ -552,6 +554,7 @@ function renderDettes(){
 
 function renderProjets(){
   const el=document.getElementById('projets-list');
+  if(!el)return;
   if(!D.projets.length){el.innerHTML='<div style="text-align:center;padding:2rem;color:var(--t2)">Aucun projet — ajoutez des objectifs pour les voir dans la tréso</div>';return;}
   el.innerHTML=D.projets.map(p=>{
     const m=p.mensuel||p.monthly_provision||Math.ceil((p.cout_total||p.budget||0)/(p.duree_mois||1));
@@ -575,6 +578,7 @@ function renderProjets(){
 
 function renderProjetsMini(){
   const el=document.getElementById('projets-mini');
+  if(!el)return;
   const pj=D.projets.filter(p=>projetsMois(selM)>0||p.monthly_provision>0);
   if(!pj.length){el.innerHTML='<div style="font-size:12px;color:var(--t2);padding:4px 0">Aucun projet ce mois</div>';return;}
   el.innerHTML=D.projets.map(p=>`
@@ -948,9 +952,9 @@ async function renderCalendrier(){
   const today = new Date();
   const isCurrentMonth = today.getFullYear()===calYear&&today.getMonth()===calMonth;
 
-  let html = '<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-bottom:6px;width:100%">'
+  let html = '<div style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px;margin-bottom:6px;width:100%">'
     +['Lun','Mar','Mer','Jeu','Ven','Sam','Dim'].map(j=>`<div style="text-align:center;font-size:10px;color:var(--t2);padding:4px;font-weight:500">${j}</div>`).join('')
-    +'</div><div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px">';
+    +'</div><div style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px;width:100%">';
 
   for(let i=0;i<offset;i++) html+='<div></div>';
 
