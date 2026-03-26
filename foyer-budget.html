@@ -428,9 +428,8 @@ function projetsMois(i){
         if(d.getFullYear()===m.getFullYear()&&d.getMonth()===m.getMonth())
           t+=Math.ceil((p.cout_total||p.budget||0)/p.duree_mois);
       }
-    } else if(p.monthly_provision>0){
-      t+=Number(p.monthly_provision);
     }
+    // Pas de fallback mensuel sans date — un projet DOIT avoir date_debut+duree_mois
   });
   return t;
 }
@@ -791,10 +790,22 @@ async function saveEditProjet(id, src){
   if(!nom||!cout){toast('Remplissez le nom et le coût');return;}
   const mensuel=Math.ceil(cout/duree);
   const table=src==='projects'?'projects':'projets_perso';
-  const payload=src==='projects'
-    ?{name:nom,budget:cout,monthly_provision:mensuel}
-    :{nom,cout_total:cout,duree_mois:duree,date_debut:debutStr?debutStr+'-01':null,mensuel};
-  const{error}=await sb.from(table).update(payload).eq('id',id);
+  let error;
+  if(src==='projects'){
+    // Table projects: mise à jour des champs disponibles
+    ({error}=await sb.from('projects').update({name:nom,budget:cout,monthly_provision:mensuel}).eq('id',id));
+    // Créer ou mettre à jour la version enrichie dans projets_perso si date fournie
+    if(!error&&debutStr){
+      const{data:existing}=await sb.from('projets_perso').select('id').eq('nom',nom).limit(1);
+      if(existing?.length){
+        await sb.from('projets_perso').update({cout_total:cout,duree_mois:duree,date_debut:debutStr+'-01',mensuel}).eq('id',existing[0].id);
+      } else {
+        await sb.from('projets_perso').insert({nom,cout_total:cout,duree_mois:duree,date_debut:debutStr+'-01',mensuel});
+      }
+    }
+  } else {
+    ({error}=await sb.from('projets_perso').update({nom,cout_total:cout,duree_mois:duree,date_debut:debutStr?debutStr+'-01':null,mensuel}).eq('id',id));
+  }
   if(error){toast('Erreur: '+error.message);return;}
   closeModal();
   toast('✅ Projet mis à jour');
