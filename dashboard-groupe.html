@@ -3936,14 +3936,38 @@ function fillPlacementFromProduct(){
   const opt=sel.options[sel.selectedIndex];
   if(!opt||!opt.value)return;
   const rate=opt.getAttribute('data-rate');
-  const trail=opt.getAttribute('data-trail');
   const freq=opt.getAttribute('data-freq');
-  // Pré-remplit commission upfront
+  const rendClient=opt.getAttribute('data-rend-client');
+  const freqClient=opt.getAttribute('data-freq-client');
+  const dureeJ=opt.getAttribute('data-duree-jours');
+
+  // Commission Living (upfront)
   document.getElementById('pl-com-pct').value=rate||'';
-  // Fréquence rappels trailing
-  if(freq&&freq!=='none'){
-    document.getElementById('pl-freq').value=freq==='quarterly'?'quarterly':freq==='semi_annual'?'semi_annual':'annual';
+
+  // Rendement CLIENT (ce que le client perçoit)
+  if(rendClient){
+    document.getElementById('pl-rendement').value=rendClient;
+    // Forcer "sur la période" (CGW = taux fixe sur la durée, pas annualisé)
+    const rp=document.getElementById('pl-taux-periode');
+    if(rp)rp.checked=true;
   }
+
+  // Fréquence coupon client : toujours à l'échéance pour CGW (in fine)
+  document.getElementById('pl-freq').value=freqClient||'a_echeance';
+
+  // Fréquence trailing commission Living
+  if(freq&&freq!=='none'){
+    // On stocke ça dans un data attr pour savePlacement
+    sel.setAttribute('data-trailing-freq',freq);
+  }
+
+  // Calculer date sortie automatiquement si date entrée connue
+  if(dureeJ&&document.getElementById('pl-entree').value){
+    const entree=new Date(document.getElementById('pl-entree').value);
+    entree.setDate(entree.getDate()+parseInt(dureeJ));
+    document.getElementById('pl-sortie').value=entree.toISOString().split('T')[0];
+  }
+
   calcPlacementCommission();
   calcCouponPreview();
 }
@@ -4435,7 +4459,19 @@ async function loadTresoChart(){
     const capital=Number(p.capital||0);
     const rend=Number(p.rendement_pct||0)/100;
     const freq={monthly:1,quarterly:3,semi_annual:6,annual:12,a_echeance:0}[p.coupon_frequency]||0;
-    if(freq===0)return;
+    // Coupon in fine (a_echeance) : versé à la date de sortie
+    if(freq===0){
+      if(p.coupon_frequency==='a_echeance'&&p.date_sortie&&rend>0){
+        const sortie=new Date(p.date_sortie);
+        months.forEach((m,i)=>{
+          if(m.getMonth()===sortie.getMonth()&&m.getFullYear()===sortie.getFullYear()){
+            // Taux sur la période (pas annualisé)
+            revenusPlac[i]+=capital*rend;
+          }
+        });
+      }
+      return;
+    }
     const couponParFreq=capital*rend/(12/freq);
     months.forEach((m,i)=>{
       const entree=p.date_entree?new Date(p.date_entree):null;
