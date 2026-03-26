@@ -703,10 +703,36 @@ function closeModal(){document.getElementById('edit-modal')?.remove();}
 // ════════════════════════════════
 // ÉDITION DETTE
 // ════════════════════════════════
+function calcDetteAuto(){
+  const start=document.getElementById('ed-start')?.value;
+  const nbMois=parseInt(document.getElementById('ed-nb-mois')?.value)||0;
+  const remaining=parseFloat(document.getElementById('ed-remaining')?.value)||0;
+  if(start&&nbMois>0){
+    // Calculer date fin
+    const d=new Date(start);
+    d.setMonth(d.getMonth()+nbMois);
+    const fin=d.toISOString().split('T')[0];
+    document.getElementById('ed-end').value=fin;
+    // Calculer mensualité
+    if(remaining>0){
+      const mensuel=Math.ceil(remaining/nbMois);
+      document.getElementById('ed-monthly').value=mensuel;
+      document.getElementById('ed-calc-preview').textContent=
+        remaining.toLocaleString('fr-FR')+'€ ÷ '+nbMois+' mois = '+mensuel.toLocaleString('fr-FR')+'€/mois — fin le '+fin;
+    }
+  }
+}
+
 function openEditDette(id){
   const d=D.dettes.find(x=>x.id===id);
   if(!d){toast('Dette non trouvée');return;}
   const statusOpts=['en_cours','en_negociation','suspendu','solde'].map(s=>`<option value="${s}"${d.status===s?' selected':''}>${{en_cours:'En cours',en_negociation:'En négociation',suspendu:'Suspendu',solde:'Soldé'}[s]}</option>`).join('');
+  // Calculer nb mois existant depuis start+end
+  let nbMoisActuel=0;
+  if(d.start_date&&d.end_date){
+    const s=new Date(d.start_date),e=new Date(d.end_date);
+    nbMoisActuel=Math.round((e.getFullYear()-s.getFullYear())*12+(e.getMonth()-s.getMonth()));
+  }
   modal(`
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
       <div style="font-size:15px;font-weight:600">✏️ Modifier la dette</div>
@@ -715,21 +741,27 @@ function openEditDette(id){
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
       <div class="fg" style="grid-column:span 2"><label>Créancier</label><input id="ed-debiteur" value="${d.debiteur||''}"></div>
       <div class="fg" style="grid-column:span 2"><label>Nature</label><input id="ed-nature" value="${d.nature||''}"></div>
-      <div class="fg"><label>Montant restant (€)</label><input type="number" id="ed-remaining" value="${d.amount_remaining||0}"></div>
-      <div class="fg"><label>Mensualité (€)</label><input type="number" id="ed-monthly" value="${d.monthly_amount||0}"></div>
-      <div class="fg"><label>Date début</label><input type="date" id="ed-start" value="${d.start_date||''}"></div>
-      <div class="fg"><label>Date fin</label><input type="date" id="ed-end" value="${d.end_date||''}"></div>
+      <div class="fg"><label>Montant restant (€)</label><input type="number" id="ed-remaining" value="${d.amount_remaining||0}" oninput="calcDetteAuto()"></div>
+      <div class="fg"><label>Mensualité calculée (€)</label><input type="number" id="ed-monthly" value="${d.monthly_amount||0}" style="background:var(--grd);font-weight:600"></div>
+      <div class="fg"><label>Date de début du plan</label><input type="date" id="ed-start" value="${d.start_date||''}" oninput="calcDetteAuto()"></div>
+      <div class="fg"><label>Nombre de mois</label><input type="number" id="ed-nb-mois" value="${nbMoisActuel||''}" min="1" max="120" placeholder="Ex: 12" oninput="calcDetteAuto()"></div>
+      <div class="fg"><label>Date de fin calculée</label><input type="date" id="ed-end" value="${d.end_date||''}" style="background:var(--grd)"></div>
+      <div class="fg"><label>Jour de prélèvement</label><input type="number" id="ed-payday" min="1" max="31" value="${d.payment_day||10}"></div>
       <div class="fg"><label>Statut</label><select id="ed-status">${statusOpts}</select></div>
-      <div class="fg"><label>Jour de paiement</label><input type="number" id="ed-payday" min="1" max="31" value="${d.payment_day||10}"></div>
+      <div class="fg"></div>
       <div class="fg" style="grid-column:span 2"><label>Notes</label><input id="ed-notes" value="${d.notes||''}"></div>
     </div>
+    <div id="ed-calc-preview" style="padding:8px;background:var(--acd);border-radius:6px;font-size:12px;color:var(--acc);margin-top:8px;min-height:28px"></div>
     <div style="display:flex;gap:8px;margin-top:12px">
       <button class="btn btn-p" onclick="saveEditDette('${id}')">💾 Enregistrer</button>
       <button class="btn btn-g" onclick="closeModal()">Annuler</button>
     </div>
-    <div style="margin-top:10px;padding:8px;background:var(--acd);border-radius:6px;font-size:11px;color:var(--acc)">
-      💡 Les modifications s'appliquent sur les deux dashboards (Pro + Perso) via Supabase
+    <div style="margin-top:8px;padding:8px;background:var(--s3);border-radius:6px;font-size:11px;color:var(--t2)">
+      💡 Saisir montant restant + date début + nb mois → calcul automatique mensualité et date fin
+      <br>Synchronisé sur Pro + Perso via Supabase
     </div>`);
+  // Déclencher le calcul si données complètes
+  if(nbMoisActuel>0) setTimeout(calcDetteAuto,50);
 }
 
 async function saveEditDette(id){
