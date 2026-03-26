@@ -4412,10 +4412,6 @@ async function loadTresoChart(){
   revenusTrailing.forEach((v,i)=>{
     if(v>0&&revenusParSoc['sas-living'])revenusParSoc['sas-living'][i]+=v;
   });
-  // Ajoute revenus ventes (La Meulette = biens immo)
-  revenusVente.forEach((v,i)=>{
-    if(v>0&&revenusParSoc['meulette'])revenusParSoc['meulette'][i]+=v;
-  });
 
   // Revenus vente actifs patrimoniaux
   const revenusVente=new Array(12).fill(0);
@@ -4431,6 +4427,11 @@ async function loadTresoChart(){
     months.forEach((m,i)=>{
       if(m.getMonth()===vd.getMonth()&&m.getFullYear()===vd.getFullYear())revenusVente[i]+=net;
     });
+  });
+
+  // Injecter revenus ventes dans La Meulette
+  revenusVente.forEach((v,i)=>{
+    if(v>0&&revenusParSoc['meulette'])revenusParSoc['meulette'][i]+=v;
   });
 
   // Calcul dépenses par mois — séparé en dettes mensuelles + factures ponctuelles
