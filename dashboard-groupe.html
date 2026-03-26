@@ -1145,6 +1145,16 @@
 
           <!-- Résultat calculé -->
           <div id="as-equity-preview" style="grid-column:1/-1;padding:12px;background:var(--b2);border-radius:8px;font-size:13px;display:none"></div>
+          <!-- VENTE PRÉVUE -->
+          <div class="fg" style="grid-column:1/-1;padding:12px;background:var(--grd);border-radius:8px;border:1px solid var(--grn)">
+            <div style="font-size:12px;color:var(--grn);font-weight:600;margin-bottom:10px">💰 Vente prévue (T2 2026 objectif)</div>
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
+              <div class="fg"><label>Date vente prévue</label><input type="date" id="as-date-vente" oninput="calcVenteNette()"></div>
+              <div class="fg"><label>Prix vente prévu (€)</label><input type="number" id="as-prix-vente" placeholder="Auto = valeur marché" oninput="calcVenteNette()"></div>
+              <div class="fg"><label>Net perçu estimé (€)</label><input type="number" id="as-net-vente" placeholder="Calculé auto" style="border-color:var(--acc)" readonly></div>
+            </div>
+            <div id="as-vente-detail" style="font-size:11px;color:var(--t2);margin-top:6px"></div>
+          </div>
           <div class="fg" style="grid-column:1/-1"><label>Notes</label><textarea id="as-notes" style="min-height:50px"></textarea></div>
         </div>
         <div style="display:flex;gap:8px;margin-top:12px">
@@ -1182,6 +1192,34 @@
 
     <!-- Grille des actifs -->
     <div id="assets-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:16px"></div>
+  </div>
+
+  <!-- SIMULATEUR CGW POST-VENTE -->
+  <div id="simul-cgw-vente" class="card" style="margin-top:1.5rem;display:none">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+      <div><div class="card-t" style="margin:0">💰 Simulation placement CGW post-vente — Objectif T2 2026</div>
+      <div style="font-size:12px;color:var(--t2);margin-top:2px">Financer Velomotion · Maximiser cash Q2</div></div>
+      <button class="btn btn-g btn-sm" onclick="document.getElementById('simul-cgw-vente').style.display='none'">✕</button>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+      <div>
+        <div style="font-size:11px;color:var(--t2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px">Produit des ventes prévues</div>
+        <div id="simul-ventes-list" style="margin-bottom:16px;font-size:12px;color:var(--t2)">Aucune vente planifiée — renseignez des dates de vente dans vos actifs.</div>
+        <div class="fg"><label>Dettes à rembourser sur le produit (€)</label><input type="number" id="simul-dettes" placeholder="0" oninput="runSimulCGW()"></div>
+        <div class="fg"><label>Charges immédiates Q2 (€)</label><input type="number" id="simul-charges" placeholder="0" oninput="runSimulCGW()"></div>
+        <div class="fg"><label>Durée placement CGW</label>
+          <select id="simul-duree" onchange="runSimulCGW()">
+            <option value="3">3 mois (8%)</option>
+            <option value="6" selected>6 mois (16% Diamond)</option>
+            <option value="12">12 mois</option>
+          </select>
+        </div>
+        <div class="fg"><label>Taux CGW (%)</label><input type="number" id="simul-taux" value="16" step="0.5" oninput="runSimulCGW()"></div>
+      </div>
+      <div id="simul-cgw-result" style="background:var(--s2);border-radius:10px;padding:16px">
+        <div style="text-align:center;color:var(--t2);font-size:13px;padding:2rem 0">Renseignez des dates de vente sur vos actifs puis cliquez sur CGW ↗</div>
+      </div>
+    </div>
   </div>
 
   <!-- APUREMENT DETTES -->
@@ -2089,7 +2127,8 @@ function toggleAssetForm(){
   if(show){f._editId=null;document.getElementById('asset-form-title').textContent='Nouvel actif patrimonial';
     ['as-nom','as-description','as-preteur','as-ref-pret','as-notes'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
     ['as-val-acq','as-frais-acq','as-val-marche','as-montant-finance','as-capital-restant','as-taux','as-mensualite'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
-    ['as-date-acq','as-val-marche-date','as-capital-date','as-fin-pret'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+    ['as-date-acq','as-val-marche-date','as-capital-date','as-fin-pret','as-date-vente','as-prix-vente','as-net-vente'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+    const vd=document.getElementById('as-vente-detail');if(vd)vd.textContent='';
     document.getElementById('as-financement').checked=false;document.getElementById('as-financement-fields').style.display='none';document.getElementById('as-equity-preview').style.display='none';}
 }
 function toggleFinancementFields(){const show=document.getElementById('as-financement').checked;document.getElementById('as-financement-fields').style.display=show?'block':'none';calcAssetEquity();}
@@ -2144,7 +2183,10 @@ async function saveAsset(){
     assurance_valeur_assuree:parseFloat(document.getElementById('as-assurance-valeur').value)||0,
     assurance_contact:document.getElementById('as-assurance-contact').value||null,
     notes:document.getElementById('as-notes').value||null,
-    statut:'detenu'
+    statut:'detenu',
+    date_vente_prevue:document.getElementById('as-date-vente')?.value||null,
+    prix_vente_prevu:parseFloat(document.getElementById('as-prix-vente')?.value)||null,
+    net_vente_estime:parseFloat(document.getElementById('as-net-vente')?.value)||null
   };
   let error,data;
   if(editId){({error}=await sb.from('assets').update(payload).eq('id',editId));data={id:editId};}
@@ -2210,7 +2252,8 @@ async function loadAssets(){
     html+='</div>';
     html+='<div style="display:flex;gap:6px">';
     html+='<button onclick="editAsset(\''+a.id+'\')" style="border:none;background:none;cursor:pointer;color:var(--acc);font-size:14px" title="Modifier">&#9998;</button>';
-    html+='<button onclick="showVenteSimul(\''+a.id+'\')" style="border:none;background:none;cursor:pointer;color:var(--grn);font-size:13px" title="Simulation vente">&#128176;</button>';
+    html+='<button onclick="showVenteSimul(\''+a.id+'\')" style="border:none;background:none;cursor:pointer;color:var(--grn);font-size:13px" title="Simulation vente">&#128176;</button>'
+          +(a.date_vente_prevue?'<button onclick="openSimulCGW()" style="border:none;background:var(--acd);color:var(--acc);font-size:10px;padding:2px 6px;border-radius:4px;cursor:pointer;margin-left:4px">CGW ↗</button>':'');
     html+='<button onclick="delAsset(\''+a.id+'\')" style="border:none;background:none;cursor:pointer;color:var(--t2);font-size:14px" title="Supprimer">&#x2715;</button>';
     html+='</div></div>';
     // Values grid
@@ -2310,6 +2353,64 @@ async function showVenteSimul(id){
   const fNLine=fN?'\nFrais notaire (~1,5%) : -'+fN.toLocaleString('fr-FR')+' \u20ac':'';
   const netSign=net>=0?'+':'';
   alert('Simulation vente - '+a.nom+'\n'+sep+'\nPrix de vente : '+Math.round(vm).toLocaleString('fr-FR')+' \u20ac\nCapital restant : -'+Math.round(cr).toLocaleString('fr-FR')+' \u20ac\nFrais agence (~5%) : -'+fA.toLocaleString('fr-FR')+' \u20ac'+fNLine+'\nPV brute : '+pvLine+' \u20ac'+impotLine+'\n'+sep+'\nNET PERCU ESTIME : '+netSign+Math.round(net).toLocaleString('fr-FR')+' \u20ac');
+}
+function calcVenteNette(){
+  const vm=parseFloat(document.getElementById('as-prix-vente')?.value)||parseFloat(document.getElementById('as-val-marche')?.value)||0;
+  const cr=parseFloat(document.getElementById('as-capital-restant')?.value)||0;
+  const va=(parseFloat(document.getElementById('as-val-acq')?.value)||0)+(parseFloat(document.getElementById('as-frais-acq')?.value)||0);
+  const regime=document.getElementById('as-regime')?.value||'ir';
+  const type=document.getElementById('as-type')?.value||'';
+  if(!vm){document.getElementById('as-net-vente').value='';document.getElementById('as-vente-detail').textContent='';return;}
+  const fA=Math.round(vm*0.05),fN=type==='immobilier'?Math.round(vm*0.015):0;
+  const pv=vm-va,impot=pv>0?(regime==='is'?Math.round(pv*0.25):Math.round(pv*0.36)):0;
+  const net=vm-cr-fA-fN-impot;
+  document.getElementById('as-net-vente').value=Math.round(net);
+  document.getElementById('as-vente-detail').textContent=`Prix ${Math.round(vm).toLocaleString('fr-FR')}€ − Capital dû ${Math.round(cr).toLocaleString('fr-FR')}€ − Agence ${fA.toLocaleString('fr-FR')}€${fN?' − Notaire '+fN.toLocaleString('fr-FR')+'€':''} − Impôt PV ${impot.toLocaleString('fr-FR')}€ = Net ${net>=0?'+':''}${Math.round(net).toLocaleString('fr-FR')}€`;
+}
+async function openSimulCGW(){
+  const{data:av}=await sb.from('assets').select('id,nom,date_vente_prevue,net_vente_estime,valeur_marche,capital_restant,valeur_acquisition,frais_acquisition,regime_fiscal,type_asset').not('date_vente_prevue','is','null');
+  const panel=document.getElementById('simul-cgw-vente');
+  if(!panel){toast('Allez dans la section Patrimoine');showPatrimoine();return;}
+  panel.style.display='block';panel.scrollIntoView({behavior:'smooth'});
+  let totalNet=0;
+  const list=document.getElementById('simul-ventes-list');
+  list.innerHTML=(av||[]).map(a=>{
+    let net=Number(a.net_vente_estime||0);
+    if(!net){const vm=Number(a.valeur_marche||0),cr=Number(a.capital_restant||0),va=Number(a.valeur_acquisition||0)+Number(a.frais_acquisition||0),fA=Math.round(vm*0.05),fN=a.type_asset==='immobilier'?Math.round(vm*0.015):0,pv=vm-va,impot=pv>0?(a.regime_fiscal==='is'?Math.round(pv*0.25):Math.round(pv*0.36)):0;net=vm-cr-fA-fN-impot;}
+    totalNet+=net;
+    const dl=a.date_vente_prevue?new Date(a.date_vente_prevue).toLocaleDateString('fr-FR',{month:'short',year:'numeric'}):'';
+    return `<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--b1);font-size:12px"><span>${a.nom} <span style="color:var(--t2)">${dl}</span></span><span style="font-family:'IBM Plex Mono',monospace;color:var(--grn);font-weight:600">+${Math.round(net).toLocaleString('fr-FR')} €</span></div>`;
+  }).join('')+`<div style="display:flex;justify-content:space-between;padding:8px 0;font-weight:700;font-size:13px"><span>Total net estimé</span><span style="font-family:'IBM Plex Mono',monospace;color:var(--grn)">+${Math.round(totalNet).toLocaleString('fr-FR')} €</span></div>`;
+  panel._totalNet=totalNet;runSimulCGW();
+}
+function runSimulCGW(){
+  const totalNet=document.getElementById('simul-cgw-vente')?._totalNet||0;
+  const dettes=parseFloat(document.getElementById('simul-dettes')?.value)||0;
+  const charges=parseFloat(document.getElementById('simul-charges')?.value)||0;
+  const duree=parseInt(document.getElementById('simul-duree')?.value)||6;
+  const taux=parseFloat(document.getElementById('simul-taux')?.value)||16;
+  const excedent=totalNet-dettes-charges;
+  const coupon=Math.round(excedent*(taux/100)*(duree/12));
+  const velomoto=Math.round(30000000*0.03);
+  const result=document.getElementById('simul-cgw-result');
+  if(!result)return;
+  result.innerHTML=`<div style="font-size:11px;color:var(--t2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px">Résultat simulation</div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <div style="display:flex;justify-content:space-between;font-size:12px"><span>Produit net ventes</span><span style="font-family:'IBM Plex Mono',monospace;color:var(--grn)">+${Math.round(totalNet).toLocaleString('fr-FR')} €</span></div>
+      <div style="display:flex;justify-content:space-between;font-size:12px"><span>Dettes à rembourser</span><span style="font-family:'IBM Plex Mono',monospace;color:var(--red)">−${Math.round(dettes).toLocaleString('fr-FR')} €</span></div>
+      <div style="display:flex;justify-content:space-between;font-size:12px"><span>Charges Q2</span><span style="font-family:'IBM Plex Mono',monospace;color:var(--red)">−${Math.round(charges).toLocaleString('fr-FR')} €</span></div>
+      <div style="display:flex;justify-content:space-between;font-size:13px;font-weight:700;border-top:1px solid var(--b1);padding-top:8px"><span>Excédent à placer</span><span style="font-family:'IBM Plex Mono',monospace;color:${excedent>=0?'var(--grn)':'var(--red)'}">${excedent>=0?'+':''}${Math.round(excedent).toLocaleString('fr-FR')} €</span></div>
+      ${excedent>0?`<div style="background:var(--acd);border-radius:8px;padding:12px;margin-top:4px">
+        <div style="font-size:11px;color:var(--acc);font-weight:600;margin-bottom:8px">CGW ${duree} mois à ${taux}%</div>
+        <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span>Coupon estimé</span><span style="font-family:'IBM Plex Mono',monospace;color:var(--grn)">+${coupon.toLocaleString('fr-FR')} €</span></div>
+        <div style="display:flex;justify-content:space-between;font-size:14px;font-weight:800;border-top:1px solid var(--acc);padding-top:8px"><span>Total récupéré</span><span style="font-family:'IBM Plex Mono',monospace;color:var(--grn)">${(excedent+coupon).toLocaleString('fr-FR')} €</span></div>
+      </div>
+      <div style="background:var(--grd);border-radius:8px;padding:10px;border-left:3px solid var(--grn)">
+        <div style="font-size:11px;color:var(--grn);font-weight:600;margin-bottom:4px">🚗 Couverture Velomotion</div>
+        <div style="font-size:11px;color:var(--t2)">Commission LLD 30M€ : <strong style="color:var(--grn)">${velomoto.toLocaleString('fr-FR')} €</strong></div>
+        <div style="font-size:11px;color:var(--t2);margin-top:2px">CGW + Velomotion = <strong style="color:var(--grn)">${(coupon+velomoto).toLocaleString('fr-FR')} €</strong></div>
+      </div>`:'<div style="background:var(--rdd);border-radius:8px;padding:10px;color:var(--red);font-size:12px;margin-top:8px">⚠ Excédent insuffisant</div>'}
+    </div>`;
 }
 async function delAsset(id){if(!confirm('Supprimer cet actif ?'))return;await sb.from('assets').delete().eq('id',id);loadAssets();toast('Supprimé');}
 
@@ -4222,13 +4323,14 @@ async function loadTresoChart(){
   }
 
   // Charge toutes les données en parallèle
-  const[{data:contracts},{data:debts},{data:placements},{data:payables},{data:receivables},{data:charges}]=await Promise.all([
+  const[{data:contracts},{data:debts},{data:placements},{data:payables},{data:receivables},{data:charges},{data:assetsVente}]=await Promise.all([
     sb.from('contracts').select('*,products(category,trailing_rate,trailing_frequency)').not('status','eq','termine'),
     sb.from('debts').select('*').not('status','in','("solde","en_negociation","suspendu")'),
     sb.from('placements').select('*').eq('statut','actif'),
     sb.from('payables').select('*').eq('status','a_payer'),
     sb.from('receivables').select('*').not('status','eq','payee'),
-    sb.from('recurring_charges').select('*').eq('status','actif')
+    sb.from('recurring_charges').select('*').eq('status','actif'),
+    sb.from('assets').select('id,nom,date_vente_prevue,prix_vente_prevu,net_vente_estime,valeur_marche,capital_restant,valeur_acquisition,frais_acquisition,regime_fiscal,type_asset').not('date_vente_prevue','is','null')
   ]);
 
   const coColors={'sas-living':'#2ECC71','sarl-guiraud':'#3D8EF0','real-gains':'#9B59B6','meulette':'#F39C12'};
@@ -4318,6 +4420,27 @@ async function loadTresoChart(){
   // Ajoute les trailing aux revenus SAS Living
   revenusTrailing.forEach((v,i)=>{
     if(v>0&&revenusParSoc['sas-living'])revenusParSoc['sas-living'][i]+=v;
+  });
+  // Ajoute revenus ventes (La Meulette = biens immo)
+  revenusVente.forEach((v,i)=>{
+    if(v>0&&revenusParSoc['meulette'])revenusParSoc['meulette'][i]+=v;
+  });
+
+  // Revenus vente actifs patrimoniaux
+  const revenusVente=new Array(12).fill(0);
+  (assetsVente||[]).forEach(a=>{
+    if(!a.date_vente_prevue)return;
+    const vd=new Date(a.date_vente_prevue);
+    let net=Number(a.net_vente_estime||0);
+    if(!net){
+      const vm=Number(a.prix_vente_prevu||a.valeur_marche||0),cr=Number(a.capital_restant||0),va=Number(a.valeur_acquisition||0)+Number(a.frais_acquisition||0);
+      const fA=Math.round(vm*0.05),fN=a.type_asset==='immobilier'?Math.round(vm*0.015):0;
+      const pv=vm-va,impot=pv>0?(a.regime_fiscal==='is'?Math.round(pv*0.25):Math.round(pv*0.36)):0;
+      net=vm-cr-fA-fN-impot;
+    }
+    months.forEach((m,i)=>{
+      if(m.getMonth()===vd.getMonth()&&m.getFullYear()===vd.getFullYear())revenusVente[i]+=net;
+    });
   });
 
   // Calcul dépenses par mois — séparé en dettes mensuelles + factures ponctuelles
