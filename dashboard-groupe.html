@@ -2374,6 +2374,73 @@ async function openSimulCGW(){
   }).join('')+`<div style="display:flex;justify-content:space-between;padding:8px 0;font-weight:700;font-size:13px"><span>Total net estimé</span><span style="font-family:'IBM Plex Mono',monospace;color:var(--grn)">+${Math.round(totalNet).toLocaleString('fr-FR')} €</span></div>`;
   panel._totalNet=totalNet;runSimulCGW();
 }
+async function creerContratCGW(capital, duree, taux){
+  const coupon=Math.round(capital*(taux/100)*(duree/12));
+  const prodLabel=duree<=3?'CGW Sovereign 95XX (3 mois)':duree<=6?'CGW Elite Diamond Series (6 mois)':'CGW Elite Black Label (12 mois)';
+  const dateSign=new Date().toISOString().split('T')[0];
+  const dp=new Date(); dp.setMonth(dp.getMonth()+duree);
+  const datePay=dp.toISOString().split('T')[0];
+
+  const modal=document.createElement('div');
+  modal.id='cgw-confirm-modal';
+  modal.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:300;display:flex;align-items:center;justify-content:center;padding:1rem';
+  modal.innerHTML='<div style="background:var(--s1);border:1px solid var(--b1);border-radius:16px;padding:1.5rem;width:100%;max-width:520px">'
+    +'<div style="font-size:16px;font-weight:700;margin-bottom:4px">Créer le contrat CGW</div>'
+    +'<div style="font-size:12px;color:var(--t2);margin-bottom:20px">Simulation → Contrat réel dans le CRM</div>'
+    +'<div style="background:var(--acd);border-left:3px solid var(--acc);border-radius:0 8px 8px 0;padding:12px;margin-bottom:16px;font-size:12px">'
+    +'<div style="font-weight:600;color:var(--acc);margin-bottom:8px">📋 Recommandation</div>'
+    +'<div style="display:flex;justify-content:space-between;margin-bottom:4px"><span>Produit</span><strong>'+prodLabel+'</strong></div>'
+    +'<div style="display:flex;justify-content:space-between;margin-bottom:4px"><span>Capital</span><strong>'+capital.toLocaleString('fr-FR')+' €</strong></div>'
+    +'<div style="display:flex;justify-content:space-between;margin-bottom:4px"><span>Durée</span><strong>'+duree+' mois à '+taux+'%</strong></div>'
+    +'<div style="display:flex;justify-content:space-between;border-top:1px solid var(--acc);padding-top:6px;margin-top:6px"><span>Coupon estimé</span><strong style="color:var(--grn)">+'+coupon.toLocaleString('fr-FR')+' €</strong></div>'
+    +'</div>'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">'
+    +'<div><div style="font-size:11px;color:var(--t2);margin-bottom:5px;text-transform:uppercase">Client investisseur</div>'
+    +'<select id="cgw-client-select" style="width:100%;padding:8px;border:1px solid var(--b1);border-radius:7px;background:var(--s2);color:var(--t1)"><option value="">Chargement...</option></select></div>'
+    +'<div><div style="font-size:11px;color:var(--t2);margin-bottom:5px;text-transform:uppercase">Société facturante</div>'
+    +'<select id="cgw-billing-select" style="width:100%;padding:8px;border:1px solid var(--b1);border-radius:7px;background:var(--s2);color:var(--t1)">'
+    +'<option value="sas-living">SAS Living</option><option value="sarl-guiraud">SARL Guiraud</option></select></div>'
+    +'<div><div style="font-size:11px;color:var(--t2);margin-bottom:5px;text-transform:uppercase">Date souscription</div>'
+    +'<input type="date" id="cgw-date-sign" value="'+dateSign+'" style="width:100%;padding:8px;border:1px solid var(--b1);border-radius:7px;background:var(--s2);color:var(--t1)"></div>'
+    +'<div><div style="font-size:11px;color:var(--t2);margin-bottom:5px;text-transform:uppercase">Date paiement prévu</div>'
+    +'<input type="date" id="cgw-date-pay" value="'+datePay+'" style="width:100%;padding:8px;border:1px solid var(--b1);border-radius:7px;background:var(--s2);color:var(--t1)"></div>'
+    +'</div>'
+    +'<div style="display:flex;gap:8px">'
+    +'<button onclick="confirmCGWContract('+capital+','+duree+','+taux+','+coupon+')" style="flex:1;padding:11px;background:var(--acc);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer">✅ Créer le contrat</button>'
+    +'<button onclick="document.getElementById('cgw-confirm-modal').remove()" style="padding:11px 16px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;cursor:pointer;font-size:13px">Annuler</button>'
+    +'</div></div>';
+  document.body.appendChild(modal);
+
+  const{data:cls}=await sb.from('clients').select('id,name,company_name').eq('active',true).order('name');
+  const sel=document.getElementById('cgw-client-select');
+  if(sel)sel.innerHTML=(cls||[]).map(cl=>'<option value="'+cl.id+'">'+cl.name+(cl.company_name?' — '+cl.company_name:'')+'</option>').join('');
+}
+
+async function confirmCGWContract(capital, duree, taux, coupon){
+  const clientId=document.getElementById('cgw-client-select')?.value;
+  const billing=document.getElementById('cgw-billing-select')?.value||'sas-living';
+  const dateSigne=document.getElementById('cgw-date-sign')?.value;
+  const datePay=document.getElementById('cgw-date-pay')?.value;
+  if(!clientId){toast('Sélectionnez un client');return;}
+  const{data:prods}=await sb.from('products').select('id').eq('category','cgw').eq('active',true).limit(1);
+  const prodId=prods?.[0]?.id||null;
+  const prodLabel=duree<=3?'CGW Sovereign 95XX':duree<=6?'CGW Elite Diamond Series':'CGW Elite Black Label';
+  const payload={
+    client_id:clientId,product_id:prodId,
+    label:prodLabel+' — '+capital.toLocaleString('fr-FR')+'€',
+    amount:capital,commission_amount:coupon,
+    billing_company_id:billing,status:'signe',invoice_status:'a_emettre',
+    signed_date:dateSigne||null,payment_expected_date:datePay||null,tva_rate:0,recurrence:null,
+    notes:'Contrat créé depuis simulateur CGW. Durée: '+duree+' mois, Taux: '+taux+'%. Coupon estimé: '+coupon.toLocaleString('fr-FR')+'€'
+  };
+  const{error}=await sb.from('contracts').insert(payload);
+  if(error){toast('Erreur: '+error.message);return;}
+  document.getElementById('cgw-confirm-modal')?.remove();
+  toast('✅ Contrat CGW créé — visible dans le CRM et la tréso');
+  if(typeof loadTresoChart==='function')loadTresoChart();
+  if(typeof loadCRMData==='function')loadCRMData();
+}
+
 function runSimulCGW(){
   const totalNet=document.getElementById('simul-cgw-vente')?._totalNet||0;
   const dettes=parseFloat(document.getElementById('simul-dettes')?.value)||0;
@@ -2400,8 +2467,10 @@ function runSimulCGW(){
         <div style="font-size:11px;color:var(--grn);font-weight:600;margin-bottom:4px">🚗 Couverture Velomotion</div>
         <div style="font-size:11px;color:var(--t2)">Commission LLD 30M€ : <strong style="color:var(--grn)">${velomoto.toLocaleString('fr-FR')} €</strong></div>
         <div style="font-size:11px;color:var(--t2);margin-top:2px">CGW + Velomotion = <strong style="color:var(--grn)">${(coupon+velomoto).toLocaleString('fr-FR')} €</strong></div>
-      </div>`:'<div style="background:var(--rdd);border-radius:8px;padding:10px;color:var(--red);font-size:12px;margin-top:8px">⚠ Excédent insuffisant</div>'}
-    </div>`;
+      </div>`:'<div style="background:var(--rdd);border-radius:8px;padding:10px;color:var(--red);font-size:12px;margin-top:8px">⚠ Excédent insuffisant — augmentez le net vendeur ou réduisez les dettes</div>'}
+    </div>
+    ${excedent>=100000?`<button onclick="creerContratCGW(${Math.round(excedent)},${duree},${taux})" style="width:100%;margin-top:12px;padding:12px;background:var(--acc);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer">➕ Créer le contrat CGW dans le CRM (simulation → réel)</button>`:''}
+    `;
 }
 async function delAsset(id){if(!confirm('Supprimer cet actif ?'))return;await sb.from('assets').delete().eq('id',id);loadAssets();toast('Supprimé');}
 
@@ -4664,8 +4733,9 @@ async function loadTresoChart(){
   // Tréso excédentaire plaçable par mois
   const tresoPlagable=tresoCumul.map((v,i)=>Math.max(0,v-seuilPlacement[i]));
 
-  // Détecte les premiers mois où on peut placer 100k€ et 200k€
+  // Détecte les mois plaçables : cumulatif + ventes directes
   const annotations={};
+  // Source A : tréso cumulée excédentaire
   [{seuil:100000,couleur:'#F39C12',label:'100k€'},{seuil:200000,couleur:'#2ECC71',label:'200k€'}].forEach(({seuil,couleur,label})=>{
     const moisOk=tresoPlagable.findIndex(v=>v>=seuil);
     if(moisOk>=0){
@@ -4678,7 +4748,22 @@ async function loadTresoChart(){
       };
     }
   });
-  if(window._tresoCumulObj)window._tresoCumulObj.destroy();
+  // Source B : mois de vente directe
+  revenusVente.forEach((v,i)=>{
+    if(v<=0)return;
+    const buffer=(depenses[i]||0)*2;
+    const excVente=Math.max(0,v-buffer);
+    [{seuil:100000,couleur:'#F39C12',label:'100k€'},{seuil:200000,couleur:'#2ECC71',label:'200k€'}].forEach(({seuil,couleur,label})=>{
+      const key=`vente${seuil}_${i}`;
+      if(excVente>=seuil&&!annotations[`pl${seuil}`]){
+        annotations[key]={type:'line',xMin:i,xMax:i,borderColor:couleur,borderWidth:3,borderDash:[3,2],
+          label:{content:`💰 ${label} CGW possible`,display:true,position:'end',
+            backgroundColor:couleur,color:'#fff',font:{size:10,weight:'bold'},padding:{x:6,y:4},borderRadius:4}};
+      }
+    });
+  });
+
+    if(window._tresoCumulObj)window._tresoCumulObj.destroy();
   const cumulEl=document.getElementById('tresoCumulChart');
   if(cumulEl){
     window._tresoCumulObj=new Chart(cumulEl.getContext('2d'),{
