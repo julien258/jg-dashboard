@@ -263,7 +263,7 @@
     </div>
 
     <!-- BLOC 4 : CALENDRIER -->
-    <div style="background:var(--s1);border:1px solid var(--b1);border-radius:10px;margin-bottom:12px;padding:1.1rem;width:100%">
+    <div style="background:var(--s1);border:1px solid var(--b1);border-radius:10px;margin-bottom:12px;padding:1.1rem;box-sizing:border-box;width:100%;overflow-x:auto">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
         <div style="font-size:13px;font-weight:600;color:var(--t1)">📅 Calendrier des dépenses</div>
         <div style="display:flex;gap:8px;align-items:center">
@@ -272,7 +272,7 @@
           <button class="btn btn-g btn-sm" onclick="calNext()">›</button>
         </div>
       </div>
-      <div id="cal-grid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px;width:100%"></div>
+      <div id="cal-grid" style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px;width:100%"></div>
       <div style="display:flex;gap:14px;margin-top:10px;font-size:11px;color:var(--t2)">
         <span style="display:flex;align-items:center;gap:4px"><span style="width:8px;height:8px;border-radius:50%;background:var(--red);display:inline-block"></span>Dettes</span>
         <span style="display:flex;align-items:center;gap:4px"><span style="width:8px;height:8px;border-radius:50%;background:var(--acc);display:inline-block"></span>Variable engagée</span>
@@ -521,8 +521,10 @@ function renderFixes(){
 function renderVars(){
   const ta=D.vars.reduce((s,v)=>s+Number(v.amount_2026||0),0);
   const tm=D.vars.filter(v=>v.frequency==='mensuel').reduce((s,v)=>s+Number(v.amount_2026||0)/12,0);
-  document.getElementById('vars-total-an').textContent=fmt(ta);
-  document.getElementById('vars-total-m').textContent=fmt(tm)+'/m';
+  const elAn=document.getElementById('vars-total-an');
+  const elM=document.getElementById('vars-total-m');
+  if(elAn)elAn.textContent=fmt(ta);
+  if(elM)elM.textContent=fmt(tm)+'/m';
   document.getElementById('vars-tbody').innerHTML=D.vars.map(v=>`
     <tr><td>${v.icon||''} ${v.name}</td><td><span class="badge bb">${v.category||'—'}</span></td>
     <td class="mono" style="text-align:right">${fmt(v.amount_2026||0)}</td>
@@ -907,7 +909,7 @@ function calNext(){calMonth++;if(calMonth>11){calMonth=0;calYear++;}renderCalend
 
 async function renderCalendrier(){
   const MN2=['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
-  document.getElementById('cal-label').textContent = MN2[calMonth]+' '+calYear;
+  const calLbl=document.getElementById('cal-label'); if(calLbl)calLbl.textContent=MN2[calMonth]+' '+calYear;
 
   const firstDay = new Date(calYear, calMonth, 1).getDay();
   const offset = (firstDay===0?6:firstDay-1); // Lundi=0
@@ -946,7 +948,7 @@ async function renderCalendrier(){
   const today = new Date();
   const isCurrentMonth = today.getFullYear()===calYear&&today.getMonth()===calMonth;
 
-  let html = '<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:6px">'
+  let html = '<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-bottom:6px;width:100%">'
     +['Lun','Mar','Mer','Jeu','Ven','Sam','Dim'].map(j=>`<div style="text-align:center;font-size:10px;color:var(--t2);padding:4px;font-weight:500">${j}</div>`).join('')
     +'</div><div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px">';
 
@@ -963,7 +965,7 @@ async function renderCalendrier(){
     </div>`;
   }
   html+='</div>';
-  document.getElementById('cal-grid').innerHTML=html;
+  const calEl=document.getElementById('cal-grid'); if(calEl)calEl.innerHTML=html;
 }
 
 function calDayClick(day){
