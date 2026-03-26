@@ -982,9 +982,9 @@ async function render12Mois(){
     const mensuel=p.mensuel||p.monthly_provision||Math.ceil((p.cout_total||p.budget||0)/(p.duree_mois||1));
     if(!mensuel)return;
     const mois=cols.map(m=>{
-      if(!p.date_debut)return mensuel;
+      if(!p.date_debut||!p.duree_mois) return 0; // pas de date = on n'affiche rien
       const debut=new Date(p.date_debut);
-      const fin=new Date(debut.getFullYear(),debut.getMonth()+(p.duree_mois||12),1);
+      const fin=new Date(debut.getFullYear(),debut.getMonth()+(p.duree_mois||1),1);
       return(m>=new Date(debut.getFullYear(),debut.getMonth(),1)&&m<fin)?mensuel:0;
     });
     const tot=mois.reduce((a,b)=>a+b,0);
