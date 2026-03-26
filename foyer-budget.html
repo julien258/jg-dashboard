@@ -376,13 +376,12 @@ async function loadAll(){
   D.vars=r2.data||[];
   D.dettes=r3.data||[];
   D.impots=r4.data||[];
-  // Charger les deux sources
-  const projSrc=[...(r5.data||[]).map(p=>({...p,src:'projects'}))];
-  const projPerso=[...(r7.data||[]).map(p=>({...p,src:'projets_perso'}))];
-  // Dédupliquer : si projets_perso a un nom identique à projects, on garde projets_perso uniquement
+  // Source unique : projects (avec date_debut+duree_mois désormais) + projets_perso pour les nouveaux
+  const projSrc=[...(r5.data||[]).map(p=>({...p,src:'projects',nom:p.name,cout_total:p.budget}))];
+  const projPerso=[...(r7.data||[]).map(p=>({...p,src:'projets_perso',name:p.nom}))];
+  // Dédupliquer par nom : projets_perso écrase projects si même nom
   const nomsCoverts=new Set(projPerso.map(p=>(p.nom||p.name||'').toLowerCase()));
-  const projSrcFiltered=projSrc.filter(p=>!nomsCoverts.has((p.name||p.nom||'').toLowerCase()));
-  D.projets=[...projSrcFiltered,...projPerso];
+  D.projets=[...projSrc.filter(p=>!nomsCoverts.has((p.name||'').toLowerCase())),...projPerso];
   D.mensuel={};(r6.data||[]).forEach(m=>{D.mensuel[m.mois]=m;});
   D.settings={};(r8.data||[]).forEach(s=>{D.settings[s.key]=s.value;});
   document.getElementById('conn-dot').style.background='#18A85A';
@@ -428,14 +427,16 @@ function projetsMois(i){
   let t=0;
   D.projets.forEach(p=>{
     if(p.date_debut&&p.duree_mois){
+      const cout=p.cout_total||p.budget||0;
+      const mensuelP=Math.ceil(cout/p.duree_mois);
       for(let k=0;k<p.duree_mois;k++){
-        const d=new Date(p.date_debut);
-        d.setMonth(d.getMonth()+k);
-        if(d.getFullYear()===m.getFullYear()&&d.getMonth()===m.getMonth())
-          t+=Math.ceil((p.cout_total||p.budget||0)/p.duree_mois);
+        const dd=new Date(p.date_debut);
+        dd.setMonth(dd.getMonth()+k);
+        if(dd.getFullYear()===m.getFullYear()&&dd.getMonth()===m.getMonth())
+          t+=mensuelP;
       }
     }
-    // Pas de fallback mensuel sans date — un projet DOIT avoir date_debut+duree_mois
+    // Sans date_debut+duree_mois : projet non comptabilisé dans la tréso
   });
   return t;
 }
@@ -758,12 +759,9 @@ async function saveEditDette(id){
 function openEditProjet(id, src){
   const p=D.projets.find(x=>x.id===id);
   if(!p){toast('Projet non trouvé');return;}
-  // Chercher une version enrichie dans projets_perso si c'est un projet "projects"
-  const enrichi=src==='projects'?D.projets.find(x=>x.src==='projets_perso'&&(x.nom||x.name||'').toLowerCase()===(p.name||p.nom||'').toLowerCase()):null;
-  const ref=enrichi||p;
-  const cout=ref.cout_total||ref.budget||0;
-  const duree=ref.duree_mois||1;
-  const debut=ref.date_debut?ref.date_debut.slice(0,7):'';
+  const cout=p.cout_total||p.budget||0;
+  const duree=p.duree_mois||1;
+  const debut=p.date_debut?p.date_debut.slice(0,7):'';
   modal(`
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
       <div style="font-size:15px;font-weight:600">✏️ Modifier le projet</div>
@@ -801,19 +799,17 @@ async function saveEditProjet(id, src){
   const table=src==='projects'?'projects':'projets_perso';
   let error;
   if(src==='projects'){
-    // Mettre à jour projects (champs basiques)
-    ({error}=await sb.from('projects').update({name:nom,budget:cout,monthly_provision:mensuel}).eq('id',id));
-    // Toujours upsert dans projets_perso par nom pour stocker date_debut+duree_mois
-    if(!error){
-      const{data:existing}=await sb.from('projets_perso').select('id').ilike('nom',nom).limit(1);
-      if(existing?.length){
-        await sb.from('projets_perso').update({nom,cout_total:cout,duree_mois:duree,date_debut:debutStr?debutStr+'-01':null,mensuel}).eq('id',existing[0].id);
-      } else {
-        await sb.from('projets_perso').insert({nom,cout_total:cout,duree_mois:duree,date_debut:debutStr?debutStr+'-01':null,mensuel});
-      }
-    }
+    // Maintenant projects a date_debut+duree_mois — on sauvegarde tout là
+    ({error}=await sb.from('projects').update({
+      name:nom, budget:cout, monthly_provision:mensuel,
+      date_debut:debutStr?debutStr+'-01':null,
+      duree_mois:duree
+    }).eq('id',id));
   } else {
-    ({error}=await sb.from('projets_perso').update({nom,cout_total:cout,duree_mois:duree,date_debut:debutStr?debutStr+'-01':null,mensuel}).eq('id',id));
+    ({error}=await sb.from('projets_perso').update({
+      nom, cout_total:cout, duree_mois:duree,
+      date_debut:debutStr?debutStr+'-01':null, mensuel
+    }).eq('id',id));
   }
   if(error){toast('Erreur: '+error.message);return;}
   closeModal();
