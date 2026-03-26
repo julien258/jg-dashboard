@@ -376,7 +376,13 @@ async function loadAll(){
   D.vars=r2.data||[];
   D.dettes=r3.data||[];
   D.impots=r4.data||[];
-  D.projets=[...(r5.data||[]).map(p=>({...p,src:'projects'})),...(r7.data||[]).map(p=>({...p,src:'projets_perso'}))];
+  // Charger les deux sources
+  const projSrc=[...(r5.data||[]).map(p=>({...p,src:'projects'}))];
+  const projPerso=[...(r7.data||[]).map(p=>({...p,src:'projets_perso'}))];
+  // Dédupliquer : si projets_perso a un nom identique à projects, on garde projets_perso uniquement
+  const nomsCoverts=new Set(projPerso.map(p=>(p.nom||p.name||'').toLowerCase()));
+  const projSrcFiltered=projSrc.filter(p=>!nomsCoverts.has((p.name||p.nom||'').toLowerCase()));
+  D.projets=[...projSrcFiltered,...projPerso];
   D.mensuel={};(r6.data||[]).forEach(m=>{D.mensuel[m.mois]=m;});
   D.settings={};(r8.data||[]).forEach(s=>{D.settings[s.key]=s.value;});
   document.getElementById('conn-dot').style.background='#18A85A';
@@ -752,9 +758,12 @@ async function saveEditDette(id){
 function openEditProjet(id, src){
   const p=D.projets.find(x=>x.id===id);
   if(!p){toast('Projet non trouvé');return;}
-  const cout=p.cout_total||p.budget||0;
-  const duree=p.duree_mois||1;
-  const debut=p.date_debut?p.date_debut.slice(0,7):'';
+  // Chercher une version enrichie dans projets_perso si c'est un projet "projects"
+  const enrichi=src==='projects'?D.projets.find(x=>x.src==='projets_perso'&&(x.nom||x.name||'').toLowerCase()===(p.name||p.nom||'').toLowerCase()):null;
+  const ref=enrichi||p;
+  const cout=ref.cout_total||ref.budget||0;
+  const duree=ref.duree_mois||1;
+  const debut=ref.date_debut?ref.date_debut.slice(0,7):'';
   modal(`
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
       <div style="font-size:15px;font-weight:600">✏️ Modifier le projet</div>
@@ -792,15 +801,15 @@ async function saveEditProjet(id, src){
   const table=src==='projects'?'projects':'projets_perso';
   let error;
   if(src==='projects'){
-    // Table projects: mise à jour des champs disponibles
+    // Mettre à jour projects (champs basiques)
     ({error}=await sb.from('projects').update({name:nom,budget:cout,monthly_provision:mensuel}).eq('id',id));
-    // Créer ou mettre à jour la version enrichie dans projets_perso si date fournie
-    if(!error&&debutStr){
-      const{data:existing}=await sb.from('projets_perso').select('id').eq('nom',nom).limit(1);
+    // Toujours upsert dans projets_perso par nom pour stocker date_debut+duree_mois
+    if(!error){
+      const{data:existing}=await sb.from('projets_perso').select('id').ilike('nom',nom).limit(1);
       if(existing?.length){
-        await sb.from('projets_perso').update({cout_total:cout,duree_mois:duree,date_debut:debutStr+'-01',mensuel}).eq('id',existing[0].id);
+        await sb.from('projets_perso').update({nom,cout_total:cout,duree_mois:duree,date_debut:debutStr?debutStr+'-01':null,mensuel}).eq('id',existing[0].id);
       } else {
-        await sb.from('projets_perso').insert({nom,cout_total:cout,duree_mois:duree,date_debut:debutStr+'-01',mensuel});
+        await sb.from('projets_perso').insert({nom,cout_total:cout,duree_mois:duree,date_debut:debutStr?debutStr+'-01':null,mensuel});
       }
     }
   } else {
