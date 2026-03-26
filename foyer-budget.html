@@ -190,7 +190,10 @@
         <div class="card-t" style="margin:0">📝 Soumettre une dépense</div>
         <select id="req-submitted-by" style="width:auto;padding:4px 8px;font-size:11px">
           <option value="julien">Julien</option>
-          <option value="madame">Madame</option>
+          <option value="candice">Candice</option>
+          <option value="heline">Héline</option>
+          <option value="liv">Liv</option>
+          <option value="famille">Famille</option>
         </select>
       </div>
       <div class="g3">
@@ -260,16 +263,16 @@
     </div>
 
     <!-- BLOC 4 : CALENDRIER -->
-    <div class="card">
+    <div style="background:var(--s1);border:1px solid var(--b1);border-radius:10px;margin-bottom:12px;padding:1.1rem;width:100%">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-        <div class="card-t" style="margin:0">📅 Calendrier des dépenses</div>
+        <div style="font-size:13px;font-weight:600;color:var(--t1)">📅 Calendrier des dépenses</div>
         <div style="display:flex;gap:8px;align-items:center">
           <button class="btn btn-g btn-sm" onclick="calPrev()">‹</button>
           <span id="cal-label" style="font-size:13px;font-weight:500;min-width:100px;text-align:center"></span>
           <button class="btn btn-g btn-sm" onclick="calNext()">›</button>
         </div>
       </div>
-      <div id="cal-grid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px"></div>
+      <div id="cal-grid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px;width:100%"></div>
       <div style="display:flex;gap:14px;margin-top:10px;font-size:11px;color:var(--t2)">
         <span style="display:flex;align-items:center;gap:4px"><span style="width:8px;height:8px;border-radius:50%;background:var(--red);display:inline-block"></span>Dettes</span>
         <span style="display:flex;align-items:center;gap:4px"><span style="width:8px;height:8px;border-radius:50%;background:var(--acc);display:inline-block"></span>Variable engagée</span>
@@ -761,44 +764,77 @@ async function validateRequest(id, accept){
 }
 
 // ── Tableau 12 mois ──
+// Mapping catégories recurring_expenses → natures
+const CAT_COLOR = {
+  alimentation:'#3B6D11', transport:'#854F0B', sante:'#185FA5',
+  loisirs:'#6B3A8E', vetements:'#A32D2D', maison:'#0C6B5A',
+  enfants:'#BA7517', autre:'#5F5E5A'
+};
+const CAT_NAT = {
+  'Alimentation':'alimentation','Transport':'transport','Santé':'sante',
+  'Loisirs':'loisirs','Vêtements':'vetements','Logement':'maison',
+  'Shopping':'vetements','Beauté':'autre','Divers':'autre'
+};
+
 async function render12Mois(){
-  // Charger dépenses validées
+  // Charger dépenses validées depuis expense_requests
   const{data:reqs} = await sb.from('expense_requests').select('*').eq('statut','valide');
   const validated = reqs||[];
 
-  // Headers
   const MN2=['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
   const now2 = new Date();
   const cols = Array.from({length:12},(_,i)=>new Date(now2.getFullYear(),now2.getMonth()+i,1));
   const colLabels = cols.map(d=>MN2[d.getMonth()]+'&nbsp;'+String(d.getFullYear()).slice(2));
 
   document.getElementById('vars-12-head').innerHTML =
-    '<tr><th style="min-width:130px">Poste</th>'+colLabels.map(l=>'<th style="text-align:right;min-width:70px">'+l+'</th>').join('')+'<th style="text-align:right">Total</th></tr>';
+    '<tr><th style="min-width:150px">Poste</th>'+colLabels.map(l=>'<th style="text-align:right;min-width:65px;font-size:10px">'+l+'</th>').join('')+'<th style="text-align:right;font-size:10px">Total/an</th></tr>';
 
-  // Lignes : dépenses variables validées (récurrentes)
   const rows = [];
 
-  // Grouper par nature
-  const natMap = {};
-  validated.forEach(r=>{
-    if(!r.recurrent)return;
-    if(!natMap[r.nature]) natMap[r.nature]=[];
-    natMap[r.nature].push(r);
+  // ── Source A : recurring_expenses existantes (données Candice + relevés) ──
+  // Grouper par nature/catégorie avec montant mensuel 2026
+  const natAgg = {}; // nature → montant mensuel
+  D.vars.forEach(v=>{
+    if(!v.active)return;
+    const nat = CAT_NAT[v.category]||'autre';
+    const mMensuel = v.frequency==='mensuel' ? Number(v.amount_2026||0)/12
+      : v.frequency==='annuel' ? Number(v.amount_2026||0)/12
+      : 0;
+    if(mMensuel>0){
+      if(!natAgg[nat])natAgg[nat]=0;
+      natAgg[nat]+=mMensuel;
+    }
   });
 
-  Object.entries(natMap).forEach(([nat, list])=>{
-    const mois = cols.map(m=>{
-      return list.filter(r=>{
-        if(!r.date_prevue)return true;
-        const dp = new Date(r.date_prevue);
-        return m >= new Date(dp.getFullYear(),dp.getMonth(),1);
-      }).reduce((s,r)=>s+Number(r.montant),0);
+  // Ordre d'affichage des natures
+  const NATURES_ORDER=['alimentation','transport','sante','loisirs','vetements','maison','enfants','autre'];
+  const NATURES_LABEL={alimentation:'🛒 Alimentation',transport:'🚗 Transport',sante:'💊 Santé',
+    loisirs:'🎭 Loisirs',vetements:'👕 Vêtements / Shopping',maison:'🏠 Maison',
+    enfants:'👶 Enfants',autre:'📦 Divers'};
+
+  NATURES_ORDER.forEach(nat=>{
+    let base = natAgg[nat]||0;
+
+    // ── Source B : expense_requests validées récurrentes pour cette nature ──
+    const reqsNat = validated.filter(r=>r.recurrent&&r.nature===nat);
+
+    const mois = cols.map((m,i)=>{
+      let total = base; // recurring_expenses comme base
+      // Ajouter les validées récurrentes qui ont démarré
+      reqsNat.forEach(r=>{
+        if(!r.date_prevue)total+=Number(r.montant);
+        else{
+          const dp=new Date(r.date_prevue);
+          if(m>=new Date(dp.getFullYear(),dp.getMonth(),1))total+=Number(r.montant);
+        }
+      });
+      return Math.round(total);
     });
     const tot = mois.reduce((a,b)=>a+b,0);
-    rows.push({label:nat, mois, tot, color:'var(--acc)', ponctuel:false});
+    if(tot>0) rows.push({label:NATURES_LABEL[nat], mois, tot, color:CAT_COLOR[nat]||'var(--t2)'});
   });
 
-  // Ponctuelles : placer dans le bon mois
+  // ── Source C : ponctuelles validées ──
   const ponctuelles = validated.filter(r=>!r.recurrent);
   if(ponctuelles.length){
     const mois = cols.map(m=>ponctuelles.filter(r=>{
@@ -807,10 +843,10 @@ async function render12Mois(){
       return dp.getFullYear()===m.getFullYear()&&dp.getMonth()===m.getMonth();
     }).reduce((s,r)=>s+Number(r.montant),0));
     const tot=mois.reduce((a,b)=>a+b,0);
-    if(tot>0) rows.push({label:'Ponctuelles',mois,tot,color:'var(--t2)',ponctuel:true});
+    if(tot>0) rows.push({label:'⚡ Ponctuelles',mois,tot,color:'var(--t2)'});
   }
 
-  // Projets
+  // ── Projets ──
   D.projets.forEach(p=>{
     const mensuel=p.mensuel||p.monthly_provision||Math.ceil((p.cout_total||p.budget||0)/(p.duree_mois||1));
     if(!mensuel)return;
@@ -821,26 +857,25 @@ async function render12Mois(){
       return(m>=new Date(debut.getFullYear(),debut.getMonth(),1)&&m<fin)?mensuel:0;
     });
     const tot=mois.reduce((a,b)=>a+b,0);
-    if(tot>0) rows.push({label:(p.name||p.nom)+' (projet)',mois,tot,color:'#185FA5',ponctuel:false});
+    if(tot>0) rows.push({label:'🎯 '+(p.name||p.nom),mois,tot,color:'#185FA5'});
   });
 
-  // Total
   const totLine = Array(12).fill(0);
   rows.forEach(r=>r.mois.forEach((v,i)=>totLine[i]+=v));
 
   const tbody = rows.map(r=>`<tr>
-    <td style="font-size:11px"><span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:${r.color};margin-right:5px;vertical-align:middle"></span>${r.label}</td>
-    ${r.mois.map(v=>`<td class="mono" style="text-align:right;font-size:11px;color:${v?'var(--t1)':'var(--t3)'}">${v?fmt(v):'—'}</td>`).join('')}
-    <td class="mono" style="text-align:right;font-size:11px;font-weight:600">${fmt(r.tot)}</td>
+    <td style="font-size:12px;padding:7px 10px"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${r.color};margin-right:6px;vertical-align:middle"></span>${r.label}</td>
+    ${r.mois.map(v=>`<td class="mono" style="text-align:right;font-size:11px;padding:7px 6px;color:${v?'var(--t1)':'var(--t3)'}">${v?fmt(v):'—'}</td>`).join('')}
+    <td class="mono" style="text-align:right;font-size:11px;font-weight:600;padding:7px 10px">${fmt(r.tot)}</td>
   </tr>`).join('');
 
   const totRow = `<tr style="background:var(--s3);font-weight:600">
-    <td style="padding:8px 10px;font-size:12px">Total</td>
-    ${totLine.map(v=>`<td class="mono" style="text-align:right;font-size:12px;padding:8px 10px">${fmt(v)}</td>`).join('')}
-    <td class="mono" style="text-align:right;font-size:12px;padding:8px 10px">${fmt(totLine.reduce((a,b)=>a+b,0))}</td>
+    <td style="padding:9px 10px;font-size:12px">Total mensuel</td>
+    ${totLine.map(v=>`<td class="mono" style="text-align:right;font-size:12px;padding:9px 6px">${fmt(v)}</td>`).join('')}
+    <td class="mono" style="text-align:right;font-size:12px;padding:9px 10px">${fmt(totLine.reduce((a,b)=>a+b,0))}</td>
   </tr>`;
 
-  document.getElementById('vars-12-body').innerHTML = (rows.length?tbody:'<tr><td colspan="14" style="text-align:center;padding:1.5rem;color:var(--t2)">Aucune dépense variable engagée — soumettez et validez des dépenses</td></tr>') + totRow;
+  document.getElementById('vars-12-body').innerHTML = tbody + totRow;
 }
 
 function toggleHistorique(){
@@ -921,8 +956,8 @@ async function renderCalendrier(){
     const isToday=isCurrentMonth&&d===today.getDate();
     const evts=events[d]||[];
     const hasEvt=evts.length>0;
-    html+=`<div onclick="calDayClick(${d})" style="min-height:56px;border:1px solid ${isToday?'var(--acc)':hasEvt?'var(--b2)':'var(--b1)'};border-radius:6px;padding:4px;cursor:pointer;background:${isToday?'var(--acd)':'var(--s1)'};transition:background .15s" onmouseover="this.style.background='var(--s2)'" onmouseout="this.style.background='${isToday?'var(--acd)':'var(--s1)'}'">
-      <div style="font-size:11px;font-weight:${isToday?'700':'400'};color:${isToday?'var(--acc)':'var(--t1)'};margin-bottom:3px">${d}</div>
+    html+=`<div onclick="calDayClick(${d})" style="min-height:80px;border:1px solid ${isToday?'var(--acc)':hasEvt?'var(--b2)':'var(--b1)'};border-radius:8px;padding:6px;cursor:pointer;background:${isToday?'var(--acd)':'var(--s1)'};transition:background .15s" onmouseover="this.style.background='var(--s2)'" onmouseout="this.style.background='${isToday?'var(--acd)':'var(--s1)'}'">
+      <div style="font-size:13px;font-weight:${isToday?'700':'500'};color:${isToday?'var(--acc)':'var(--t1)'};margin-bottom:4px">${d}</div>
       ${evts.slice(0,2).map(e=>`<div style="font-size:9px;padding:1px 3px;border-radius:3px;background:${e.color}22;color:${e.color};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:1px">${e.label}</div>`).join('')}
       ${evts.length>2?`<div style="font-size:9px;color:var(--t2)">+${evts.length-2}</div>`:''}
     </div>`;
