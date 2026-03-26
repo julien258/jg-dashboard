@@ -178,24 +178,126 @@
   <!-- VARIABLES -->
   <div class="pv cnt" id="s-variables">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
-      <div style="font-size:16px;font-weight:600">Dépenses variables</div>
-      <button class="btn btn-p btn-sm" onclick="toggleForm('var-form')">+ Ajouter</button>
-    </div>
-    <div id="var-form" style="display:none;margin-bottom:1rem"><div class="card">
-      <div class="g3">
-        <div class="fg"><label>Libellé</label><input type="text" id="vr-nom" placeholder="Courses, Restaurant..."></div>
-        <div class="fg"><label>Budget 2026 (€/an)</label><input type="number" id="vr-mt" placeholder="0" step="100"></div>
-        <div class="fg"><label>Fréquence</label><select id="vr-freq"><option value="mensuel">Mensuel</option><option value="annuel">Annuel</option><option value="ponctuel">Ponctuel</option></select></div>
+      <div>
+        <div style="font-size:16px;font-weight:600">Dépenses variables</div>
+        <div style="font-size:11px;color:var(--t2);margin-top:2px">Soumission · Validation · Calendrier 12 mois</div>
       </div>
-      <div style="display:flex;gap:8px"><button class="btn btn-p btn-sm" onclick="saveVar()">Enregistrer</button><button class="btn btn-g btn-sm" onclick="toggleForm('var-form')">Annuler</button></div>
-    </div></div>
-    <div class="card"><table><thead><tr><th>Libellé</th><th>Catégorie</th><th style="text-align:right">2026 (annuel)</th><th style="text-align:right">≈/mois</th><th></th></tr></thead>
-    <tbody id="vars-tbody"><tr><td colspan="5" style="text-align:center;padding:1.5rem"><span class="spin"></span></td></tr></tbody>
-    <tfoot><tr style="background:var(--s3)"><td colspan="2" style="font-weight:600;padding:9px 10px">Total</td><td style="text-align:right;font-family:monospace;font-weight:600;padding:9px 10px" id="vars-total-an"></td><td style="text-align:right;font-family:monospace;font-weight:600;padding:9px 10px" id="vars-total-m"></td><td></td></tr></tfoot>
-    </table></div>
+    </div>
+
+    <!-- BLOC 1 : FORMULAIRE SOUMISSION -->
+    <div class="card" style="border-left:3px solid var(--acc)">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+        <div class="card-t" style="margin:0">📝 Soumettre une dépense</div>
+        <select id="req-submitted-by" style="width:auto;padding:4px 8px;font-size:11px">
+          <option value="julien">Julien</option>
+          <option value="madame">Madame</option>
+        </select>
+      </div>
+      <div class="g3">
+        <div class="fg"><label>Nature</label>
+          <select id="req-nature">
+            <option value="alimentation">Alimentation</option>
+            <option value="transport">Transport</option>
+            <option value="sante">Santé</option>
+            <option value="loisirs">Loisirs</option>
+            <option value="vetements">Vêtements</option>
+            <option value="maison">Maison</option>
+            <option value="enfants">Enfants</option>
+            <option value="autre">Autre</option>
+          </select>
+        </div>
+        <div class="fg"><label>Nom / Libellé</label><input type="text" id="req-nom" placeholder="Courses, Médecin..."></div>
+        <div class="fg"><label>Montant (€)</label><input type="number" id="req-montant" placeholder="0" min="0" step="1"></div>
+        <div class="fg"><label>Date prévue</label><input type="date" id="req-date"></div>
+        <div class="fg"><label>Type</label>
+          <select id="req-recurrent" onchange="toggleRecurrentFields()">
+            <option value="false">Ponctuel</option>
+            <option value="true">Récurrent</option>
+          </select>
+        </div>
+        <div class="fg" id="req-freq-block" style="display:none"><label>Fréquence</label>
+          <select id="req-frequence">
+            <option value="monthly">Mensuel</option>
+            <option value="quarterly">Trimestriel</option>
+            <option value="annual">Annuel</option>
+          </select>
+        </div>
+        <div class="fg" id="req-prelevement-block" style="display:none"><label>Jour de prélèvement</label>
+          <input type="number" id="req-prelevement" placeholder="Ex: 5" min="1" max="31">
+        </div>
+        <div class="fg" style="grid-column:span 3"><label>Notes (optionnel)</label>
+          <input type="text" id="req-notes" placeholder="Précisions...">
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:4px">
+        <button class="btn btn-p" onclick="submitExpenseRequest()">📤 Soumettre</button>
+        <div id="req-preview" style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--t2)"></div>
+      </div>
+    </div>
+
+    <!-- BLOC 2 : DEMANDES EN ATTENTE (validation Julien) -->
+    <div class="card" id="validation-block" style="border-left:3px solid var(--amb);display:none">
+      <div class="card-t">⏳ En attente de validation — <span id="pending-count">0</span> demande(s)</div>
+      <div id="pending-list"></div>
+    </div>
+
+    <!-- BLOC 3 : TABLEAU 12 MOIS -->
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <div class="card-t" style="margin:0">📊 Budget variables — 12 mois</div>
+        <div style="display:flex;gap:6px;align-items:center;font-size:11px;color:var(--t2)">
+          <span><span class="ls" style="background:var(--acc)"></span>Engagé</span>
+          <span><span class="ls" style="background:#185FA5"></span>Projets</span>
+          <span><span class="ls" style="background:var(--s3);border:1px solid var(--b1)"></span>Historique 2025</span>
+        </div>
+      </div>
+      <div style="overflow-x:auto">
+        <table id="vars-12-table">
+          <thead id="vars-12-head"></thead>
+          <tbody id="vars-12-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- BLOC 4 : CALENDRIER -->
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <div class="card-t" style="margin:0">📅 Calendrier des dépenses</div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <button class="btn btn-g btn-sm" onclick="calPrev()">‹</button>
+          <span id="cal-label" style="font-size:13px;font-weight:500;min-width:100px;text-align:center"></span>
+          <button class="btn btn-g btn-sm" onclick="calNext()">›</button>
+        </div>
+      </div>
+      <div id="cal-grid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px"></div>
+      <div style="display:flex;gap:14px;margin-top:10px;font-size:11px;color:var(--t2)">
+        <span style="display:flex;align-items:center;gap:4px"><span style="width:8px;height:8px;border-radius:50%;background:var(--red);display:inline-block"></span>Dettes</span>
+        <span style="display:flex;align-items:center;gap:4px"><span style="width:8px;height:8px;border-radius:50%;background:var(--acc);display:inline-block"></span>Variable engagée</span>
+        <span style="display:flex;align-items:center;gap:4px"><span style="width:8px;height:8px;border-radius:50%;background:#185FA5;display:inline-block"></span>Projet</span>
+        <span style="display:flex;align-items:center;gap:4px"><span style="width:8px;height:8px;border-radius:50%;background:#BA7517;display:inline-block"></span>Charge fixe</span>
+        <span style="margin-left:auto"><button class="btn btn-p btn-sm" onclick="syncGcal()">🔄 Sync Google Cal</button></span>
+      </div>
+    </div>
+
+    <!-- Historique 2025 (repli) -->
+    <div class="card" style="opacity:.7">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <div class="card-t" style="margin:0">📁 Historique 2025 (relevés bancaires)</div>
+        <button class="btn btn-g btn-sm" onclick="toggleHistorique()">Afficher / Masquer</button>
+      </div>
+      <div id="histo-block" style="display:none">
+        <table><thead><tr><th>Libellé</th><th>Catégorie</th><th style="text-align:right">2025 (annuel)</th><th style="text-align:right">≈/mois</th></tr></thead>
+        <tbody id="histo-tbody"></tbody>
+        <tfoot><tr style="background:var(--s3)"><td colspan="2" style="font-weight:600;padding:9px 10px">Total 2025</td>
+        <td style="text-align:right;font-family:monospace;font-weight:600;padding:9px 10px" id="histo-total-an"></td>
+        <td style="text-align:right;font-family:monospace;font-weight:600;padding:9px 10px" id="histo-total-m"></td></tr></tfoot>
+        </table>
+      </div>
+    </div>
   </div>
 
-  <!-- DETTES -->
+
+    <!-- DETTES -->
   <div class="pv cnt" id="s-dettes">
     <div style="font-size:16px;font-weight:600;margin-bottom:1rem">Dettes personnelles &amp; impôts</div>
     <div class="card"><div class="card-t">Dettes perso actives</div>
@@ -573,7 +675,285 @@ function showSection(s){
   document.querySelectorAll('.gbtn').forEach(b=>b.classList.remove('active'));
   const titles={dashboard:'Vue 12 mois',fixes:'Charges fixes',variables:'Dépenses variables',dettes:'Dettes & impôts',projets:'Projets & objectifs'};
   document.getElementById('tb-title').textContent=titles[s]||s;
+  if(s==='variables') initVariablesSection();
 }
+
+
+// ══════════════════════════════════════
+// DÉPENSES VARIABLES — NOUVELLE SECTION
+// ══════════════════════════════════════
+
+function toggleRecurrentFields(){
+  const rec = document.getElementById('req-recurrent').value === 'true';
+  document.getElementById('req-freq-block').style.display = rec ? 'block' : 'none';
+  document.getElementById('req-prelevement-block').style.display = rec ? 'block' : 'none';
+}
+
+// Pré-remplir la date avec aujourd'hui
+(function initReqDate(){
+  const el = document.getElementById('req-date');
+  if(el) el.value = new Date().toISOString().split('T')[0];
+})();
+
+// ── Soumission ──
+async function submitExpenseRequest(){
+  const nom = document.getElementById('req-nom').value.trim();
+  const montant = parseFloat(document.getElementById('req-montant').value)||0;
+  const date = document.getElementById('req-date').value;
+  if(!nom||!montant){toast('Remplissez le nom et le montant');return;}
+  const payload = {
+    submitted_by: document.getElementById('req-submitted-by').value,
+    nature: document.getElementById('req-nature').value,
+    nom, montant, date_prevue: date||null,
+    recurrent: document.getElementById('req-recurrent').value === 'true',
+    frequence: document.getElementById('req-recurrent').value==='true' ? document.getElementById('req-frequence').value : null,
+    date_prelevement: parseInt(document.getElementById('req-prelevement')?.value)||null,
+    notes: document.getElementById('req-notes').value||null,
+    statut: 'en_attente'
+  };
+  const{error} = await sb.from('expense_requests').insert(payload);
+  if(error){toast('Erreur: '+error.message);return;}
+  document.getElementById('req-nom').value='';
+  document.getElementById('req-montant').value='';
+  document.getElementById('req-notes').value='';
+  toast('✅ Dépense soumise — en attente de validation');
+  loadExpenseRequests();
+}
+
+// ── Chargement demandes en attente ──
+async function loadExpenseRequests(){
+  const{data} = await sb.from('expense_requests').select('*').eq('statut','en_attente').order('created_at',{ascending:false});
+  const pending = data||[];
+  const block = document.getElementById('validation-block');
+  const count = document.getElementById('pending-count');
+  if(!pending.length){block.style.display='none';return;}
+  block.style.display='block';
+  count.textContent = pending.length;
+  document.getElementById('pending-list').innerHTML = pending.map(r=>`
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--b1);font-size:12px">
+      <div>
+        <span style="font-weight:600">${r.nom}</span>
+        <span class="badge bb" style="margin-left:6px">${r.nature}</span>
+        <span style="color:var(--t2);margin-left:6px">${r.submitted_by}</span>
+        ${r.recurrent?'<span class="badge ba" style="margin-left:4px">récurrent</span>':''}
+      </div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span class="mono" style="font-weight:600">${fmt(r.montant)}</span>
+        <span style="color:var(--t2)">${r.date_prevue||'—'}</span>
+        <button class="btn btn-p btn-sm" onclick="validateRequest('${r.id}',true)">✅ Valider</button>
+        <button class="btn btn-r btn-sm" onclick="validateRequest('${r.id}',false)">✕</button>
+      </div>
+    </div>`).join('');
+}
+
+async function validateRequest(id, accept){
+  if(accept){
+    await sb.from('expense_requests').update({statut:'valide',validated_at:new Date().toISOString()}).eq('id',id);
+    toast('✅ Dépense validée — ajoutée au budget');
+  } else {
+    await sb.from('expense_requests').update({statut:'refuse'}).eq('id',id);
+    toast('Dépense refusée');
+  }
+  loadExpenseRequests();
+  render12Mois();
+  renderCalendrier();
+  renderHistorique();
+}
+
+// ── Tableau 12 mois ──
+async function render12Mois(){
+  // Charger dépenses validées
+  const{data:reqs} = await sb.from('expense_requests').select('*').eq('statut','valide');
+  const validated = reqs||[];
+
+  // Headers
+  const MN2=['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
+  const now2 = new Date();
+  const cols = Array.from({length:12},(_,i)=>new Date(now2.getFullYear(),now2.getMonth()+i,1));
+  const colLabels = cols.map(d=>MN2[d.getMonth()]+'&nbsp;'+String(d.getFullYear()).slice(2));
+
+  document.getElementById('vars-12-head').innerHTML =
+    '<tr><th style="min-width:130px">Poste</th>'+colLabels.map(l=>'<th style="text-align:right;min-width:70px">'+l+'</th>').join('')+'<th style="text-align:right">Total</th></tr>';
+
+  // Lignes : dépenses variables validées (récurrentes)
+  const rows = [];
+
+  // Grouper par nature
+  const natMap = {};
+  validated.forEach(r=>{
+    if(!r.recurrent)return;
+    if(!natMap[r.nature]) natMap[r.nature]=[];
+    natMap[r.nature].push(r);
+  });
+
+  Object.entries(natMap).forEach(([nat, list])=>{
+    const mois = cols.map(m=>{
+      return list.filter(r=>{
+        if(!r.date_prevue)return true;
+        const dp = new Date(r.date_prevue);
+        return m >= new Date(dp.getFullYear(),dp.getMonth(),1);
+      }).reduce((s,r)=>s+Number(r.montant),0);
+    });
+    const tot = mois.reduce((a,b)=>a+b,0);
+    rows.push({label:nat, mois, tot, color:'var(--acc)', ponctuel:false});
+  });
+
+  // Ponctuelles : placer dans le bon mois
+  const ponctuelles = validated.filter(r=>!r.recurrent);
+  if(ponctuelles.length){
+    const mois = cols.map(m=>ponctuelles.filter(r=>{
+      if(!r.date_prevue)return false;
+      const dp=new Date(r.date_prevue);
+      return dp.getFullYear()===m.getFullYear()&&dp.getMonth()===m.getMonth();
+    }).reduce((s,r)=>s+Number(r.montant),0));
+    const tot=mois.reduce((a,b)=>a+b,0);
+    if(tot>0) rows.push({label:'Ponctuelles',mois,tot,color:'var(--t2)',ponctuel:true});
+  }
+
+  // Projets
+  D.projets.forEach(p=>{
+    const mensuel=p.mensuel||p.monthly_provision||Math.ceil((p.cout_total||p.budget||0)/(p.duree_mois||1));
+    if(!mensuel)return;
+    const mois=cols.map(m=>{
+      if(!p.date_debut)return mensuel;
+      const debut=new Date(p.date_debut);
+      const fin=new Date(debut.getFullYear(),debut.getMonth()+(p.duree_mois||12),1);
+      return(m>=new Date(debut.getFullYear(),debut.getMonth(),1)&&m<fin)?mensuel:0;
+    });
+    const tot=mois.reduce((a,b)=>a+b,0);
+    if(tot>0) rows.push({label:(p.name||p.nom)+' (projet)',mois,tot,color:'#185FA5',ponctuel:false});
+  });
+
+  // Total
+  const totLine = Array(12).fill(0);
+  rows.forEach(r=>r.mois.forEach((v,i)=>totLine[i]+=v));
+
+  const tbody = rows.map(r=>`<tr>
+    <td style="font-size:11px"><span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:${r.color};margin-right:5px;vertical-align:middle"></span>${r.label}</td>
+    ${r.mois.map(v=>`<td class="mono" style="text-align:right;font-size:11px;color:${v?'var(--t1)':'var(--t3)'}">${v?fmt(v):'—'}</td>`).join('')}
+    <td class="mono" style="text-align:right;font-size:11px;font-weight:600">${fmt(r.tot)}</td>
+  </tr>`).join('');
+
+  const totRow = `<tr style="background:var(--s3);font-weight:600">
+    <td style="padding:8px 10px;font-size:12px">Total</td>
+    ${totLine.map(v=>`<td class="mono" style="text-align:right;font-size:12px;padding:8px 10px">${fmt(v)}</td>`).join('')}
+    <td class="mono" style="text-align:right;font-size:12px;padding:8px 10px">${fmt(totLine.reduce((a,b)=>a+b,0))}</td>
+  </tr>`;
+
+  document.getElementById('vars-12-body').innerHTML = (rows.length?tbody:'<tr><td colspan="14" style="text-align:center;padding:1.5rem;color:var(--t2)">Aucune dépense variable engagée — soumettez et validez des dépenses</td></tr>') + totRow;
+}
+
+function toggleHistorique(){
+  const el=document.getElementById('histo-block');
+  el.style.display=el.style.display==='none'?'block':'none';
+  if(el.style.display==='block') renderHistorique();
+}
+
+function renderHistorique(){
+  // Données 2025 issues de recurring_expenses (amount_2025)
+  const items=D.vars.filter(v=>v.amount_2025>0);
+  const ta=items.reduce((s,v)=>s+Number(v.amount_2025||0),0);
+  const tm=items.filter(v=>v.frequency==='mensuel').reduce((s,v)=>s+Number(v.amount_2025||0)/12,0);
+  document.getElementById('histo-total-an').textContent=fmt(ta);
+  document.getElementById('histo-total-m').textContent=fmt(tm)+'/m';
+  document.getElementById('histo-tbody').innerHTML=items.map(v=>`
+    <tr style="opacity:.7"><td>${v.icon||''} ${v.name}</td><td><span class="badge" style="background:var(--s3);color:var(--t2)">${v.category||'—'}</span></td>
+    <td class="mono" style="text-align:right">${fmt(v.amount_2025||0)}</td>
+    <td class="mono" style="text-align:right">${v.frequency==='mensuel'?fmt((v.amount_2025||0)/12)+'/m':'—'}</td></tr>
+  `).join('')||'<tr><td colspan="4" style="text-align:center;color:var(--t2);padding:1rem">Aucun historique 2025</td></tr>';
+}
+
+// ── Calendrier ──
+let calYear = new Date().getFullYear();
+let calMonth = new Date().getMonth();
+
+function calPrev(){calMonth--;if(calMonth<0){calMonth=11;calYear--;}renderCalendrier();}
+function calNext(){calMonth++;if(calMonth>11){calMonth=0;calYear++;}renderCalendrier();}
+
+async function renderCalendrier(){
+  const MN2=['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+  document.getElementById('cal-label').textContent = MN2[calMonth]+' '+calYear;
+
+  const firstDay = new Date(calYear, calMonth, 1).getDay();
+  const offset = (firstDay===0?6:firstDay-1); // Lundi=0
+  const daysInMonth = new Date(calYear, calMonth+1, 0).getDate();
+
+  // Charger les événements du mois
+  const monthStr = `${calYear}-${String(calMonth+1).padStart(2,'0')}`;
+  const[{data:reqs},{data:dettes2}] = await Promise.all([
+    sb.from('expense_requests').select('*').eq('statut','valide').gte('date_prevue',monthStr+'-01').lte('date_prevue',monthStr+'-31'),
+    sb.from('debts').select('*').eq('company_id','perso').not('status','eq','solde')
+  ]);
+
+  // Indexer par jour
+  const events = {};
+  (reqs||[]).forEach(r=>{
+    if(!r.date_prevue)return;
+    const d = parseInt(r.date_prevue.split('-')[2]);
+    if(!events[d])events[d]=[];
+    events[d].push({label:r.nom,color:'var(--acc)',montant:r.montant});
+  });
+
+  // Charges fixes : jour de prélèvement
+  D.fixes.forEach(f=>{
+    const d=f.debit_day||5;
+    if(!events[d])events[d]=[];
+    events[d].push({label:f.name,color:'#BA7517',montant:f.amount});
+  });
+
+  // Dettes perso : jour de paiement
+  (dettes2||[]).filter(d=>d.frequency==='monthly').forEach(dt=>{
+    const d=dt.payment_day||10;
+    if(!events[d])events[d]=[];
+    events[d].push({label:dt.debiteur,color:'var(--red)',montant:dt.monthly_amount});
+  });
+
+  const today = new Date();
+  const isCurrentMonth = today.getFullYear()===calYear&&today.getMonth()===calMonth;
+
+  let html = '<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:6px">'
+    +['Lun','Mar','Mer','Jeu','Ven','Sam','Dim'].map(j=>`<div style="text-align:center;font-size:10px;color:var(--t2);padding:4px;font-weight:500">${j}</div>`).join('')
+    +'</div><div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px">';
+
+  for(let i=0;i<offset;i++) html+='<div></div>';
+
+  for(let d=1;d<=daysInMonth;d++){
+    const isToday=isCurrentMonth&&d===today.getDate();
+    const evts=events[d]||[];
+    const hasEvt=evts.length>0;
+    html+=`<div onclick="calDayClick(${d})" style="min-height:56px;border:1px solid ${isToday?'var(--acc)':hasEvt?'var(--b2)':'var(--b1)'};border-radius:6px;padding:4px;cursor:pointer;background:${isToday?'var(--acd)':'var(--s1)'};transition:background .15s" onmouseover="this.style.background='var(--s2)'" onmouseout="this.style.background='${isToday?'var(--acd)':'var(--s1)'}'">
+      <div style="font-size:11px;font-weight:${isToday?'700':'400'};color:${isToday?'var(--acc)':'var(--t1)'};margin-bottom:3px">${d}</div>
+      ${evts.slice(0,2).map(e=>`<div style="font-size:9px;padding:1px 3px;border-radius:3px;background:${e.color}22;color:${e.color};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:1px">${e.label}</div>`).join('')}
+      ${evts.length>2?`<div style="font-size:9px;color:var(--t2)">+${evts.length-2}</div>`:''}
+    </div>`;
+  }
+  html+='</div>';
+  document.getElementById('cal-grid').innerHTML=html;
+}
+
+function calDayClick(day){
+  // Pré-remplir le formulaire avec la date cliquée
+  showSection('variables');
+  const dateStr=`${calYear}-${String(calMonth+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+  document.getElementById('req-date').value=dateStr;
+  document.getElementById('req-nom').focus();
+  document.getElementById('req-nom').scrollIntoView({behavior:'smooth'});
+  toast('📅 Date pré-remplie — renseignez la dépense');
+}
+
+async function syncGcal(){
+  toast('🔄 Sync Google Calendar — fonctionnalité à venir (OAuth requis)');
+  // TODO: créer événements via Netlify function + Google Calendar API
+  // Les IDs gcal_event_id seront stockés dans expense_requests
+}
+
+// ── Init section variables ──
+async function initVariablesSection(){
+  await loadExpenseRequests();
+  await render12Mois();
+  await renderCalendrier();
+}
+
 
 // Init
 (function initProjForm(){
