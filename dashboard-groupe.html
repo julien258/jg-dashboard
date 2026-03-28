@@ -3620,7 +3620,7 @@ async function loadDebts(){
       const moisLabel = moisNoms[d.getMonth()+1]+' '+d.getFullYear();
       const statColors={a_payer:'br',paye:'bg',reporte:'ba'};
       const statLabels={a_payer:'À payer',paye:'Payé',reporte:'Reporté'};
-      return '<tr>'        +'<td style="font-weight:600">'+moisLabel+'</td>'        +'<td style="font-size:12px;color:var(--t2)">'+p.label+'</td>'        +'<td style="text-align:right;font-family:'IBM Plex Mono',monospace;color:var(--red);font-weight:600">'+Math.round(Number(p.amount_ttc)).toLocaleString('fr-FR')+' €</td>'        +'<td><span class="badge '+(statColors[p.status]||'bz')+'">'+( statLabels[p.status]||p.status)+'</span></td>'        +'</tr>';
+      return '<tr>'        +'<td style="font-weight:600">'+moisLabel+'</td>'        +'<td style="font-size:12px;color:var(--t2)">'+p.label+'</td>'        +'<td style="text-align:right;font-family:monospace;color:var(--red);font-weight:600">'+Math.round(Number(p.amount_ttc)).toLocaleString('fr-FR')+' €</td>'        +'<td><span class="badge '+(statColors[p.status]||'bz')+'">'+( statLabels[p.status]||p.status)+'</span></td>'        +'</tr>';
     }).join('');
   } else if(ir2025card){
     ir2025card.style.display='none';
