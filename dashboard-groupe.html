@@ -715,7 +715,7 @@
         <div style="max-height:300px;overflow-y:auto">
           <table>
             <thead style="position:sticky;top:0;background:var(--s1);z-index:1">
-              <tr><th>Mois</th><th style="text-align:right">CA brut</th><th style="text-align:right;color:var(--red)">Intra-groupe</th><th style="text-align:right;color:var(--grn)">CA net</th><th style="text-align:right">Dépenses</th><th style="text-align:right">Solde mois</th><th style="text-align:right;color:var(--acc)">Cumulé</th><th>Statut</th></tr>
+              <tr><th>Mois</th><th style="text-align:right">CA brut</th><th style="text-align:right;color:var(--red)">Fact. SARL GJ</th><th style="text-align:right;color:var(--grn)">CA net</th><th style="text-align:right">Dépenses</th><th style="text-align:right">Solde mois</th><th style="text-align:right;color:var(--acc)">Cumulé</th><th style="text-align:right;color:var(--amb)">⚠ TVA nette</th><th>Statut</th></tr>
             </thead>
             <tbody id="treso-detail-table"></tbody>
           </table>
@@ -4049,8 +4049,15 @@ async function loadTresoChart(){
     }
   });
 
-  // TVA collectée M -> reversée M+1 à la DGFiP
+  // === TVA PAR MOIS ===
+  // TVA collectée sur ventes (contrats avec tva_taux)
   const tvaCollectee=new Array(12).fill(0);
+  // TVA déductible sur achats fournisseurs (payables avec amount_ht + amount_ttc)
+  const tvaDeductible=new Array(12).fill(0);
+  // TVA intra-groupe (SARL Guiraud facture avec TVA → Living récupère en déductible)
+  const tvaIntraGroupe=new Array(12).fill(0);
+
+  // TVA sur contrats actifs
   (contracts||[]).forEach(c=>{
     const tvaTaux=Number(c.tva_taux||0);
     if(tvaTaux===0)return;
@@ -4063,9 +4070,7 @@ async function loadTresoChart(){
         const mNum=months[i].getMonth();
         const startM=c.signed_date?new Date(c.signed_date).getMonth():0;
         if(freq===1||(freq===3&&(mNum-startM+12)%3===0)||(freq===6&&(mNum-startM+12)%6===0)||(freq===12&&mNum===startM)){
-          // TVA collectée ce mois -> reversée mois suivant
           if(i+1<12)tvaCollectee[i+1]+=tva;
-          // Encaissement TTC ce mois (en revenus)
           revenusParSoc[c.billing_company_id]&&(revenusParSoc[c.billing_company_id][i]+=tva);
         }
       });
@@ -4079,6 +4084,21 @@ async function loadTresoChart(){
       });
     }
   });
+
+  // TVA intra-groupe : SARL Guiraud facture SAS Living avec TVA 20%
+  // → Living déduit, SARL collecte → net = 0 pour le groupe, mais chaque société gère sa TVA
+  months.forEach((m,i)=>{
+    const tvaIntra=Math.round(intraGroupe[i]*0.20); // 20% sur facturation SARL Guiraud
+    tvaIntraGroupe[i]=tvaIntra;
+    // SAS Living: TVA déductible sur facture SARL Guiraud (M+1)
+    if(i+1<12)tvaDeductible[i+1]+=tvaIntra;
+    // SARL Guiraud: TVA collectée sur sa facturation (M+1)
+    if(i+1<12)tvaCollectee[i+1]+=tvaIntra; // déjà dans tvaCollectee globale
+  });
+
+  // TVA nette à décaisser (collectée - déductible) → mise de côté obligatoire
+  const tvaNette=months.map((_,i)=>Math.max(0,tvaCollectee[i]-tvaDeductible[i]));
+
   // Ajoute TVA reversée dans les dépenses M+1
   tvaCollectee.forEach((v,i)=>depenses[i]+=v);
 
@@ -4126,38 +4146,19 @@ async function loadTresoChart(){
   });
 
   // ---- FLUX INTRA-GROUPE (neutralisation) ----
-  // Identifie les contrats entre sociétés du groupe
-  // = contrats dont le client est une société du groupe
-  const groupeClientIds = [];
-  try {
-    const{data:groupClients}=await sb.from('clients').select('id').in('company_name',['SAS LIVING — RCS Toulouse 983940958','SARL GUIRAUD JULIEN — Holding','SARL DE FAMILLE LA MEULETTE — RCS Libourne','REAL GAINS — RCS Paris 837895721','FCR — Levée de fonds']);
-    if(groupClients)groupClients.forEach(c=>groupeClientIds.push(c.id));
-  } catch(e){}
+  // = Facturation réelle SARL Guiraud → SAS Living ce mois
+  // Calculé depuis : paye_perso + dettes perso actives ce mois (même logique que loadApurement)
+  const payePersoTreso = parseFloat((await sb.from('settings').select('value').eq('key','paye_perso').single()).data?.value||0)||0;
+  const {data:dettesPersoAll} = await sb.from('debts').select('*').eq('company_id','perso').eq('status','en_cours');
 
-  // Flux intra-groupe par mois (management fees SARL Guiraud ← Living etc.)
-  const intraGroupe=new Array(12).fill(0);
-  (contracts||[]).forEach(c=>{
-    if(!groupeClientIds.includes(c.client_id))return;
-    const soc=c.billing_company_id;
-    if(!revenusParSoc[soc])return;
-    const freq={monthly:1,quarterly:3,semi_annual:6,annual:12}[c.recurrence]||0;
-    const com=Number(c.commission_amount||0);
-    if(c.recurrence&&freq>0){
-      months.forEach((m,i)=>{
-        const mNum=m.getMonth();
-        const startM=c.signed_date?new Date(c.signed_date).getMonth():0;
-        if(freq===1||(freq===3&&(mNum-startM+12)%3===0)||(freq===6&&(mNum-startM+12)%6===0)||(freq===12&&mNum===startM)){
-          intraGroupe[i]+=com;
-        }
-      });
-    } else if(c.signed_date){
-      const sd=new Date(c.signed_date);
-      months.forEach((m,i)=>{
-        if(m.getMonth()===sd.getMonth()&&m.getFullYear()===sd.getFullYear()){
-          intraGroupe[i]+=com;
-        }
-      });
-    }
+  const intraGroupe=months.map(m=>{
+    const mY=m.getFullYear(), mM=m.getMonth();
+    const dettesPersoMoisM=(dettesPersoAll||[]).filter(d=>{
+      if(d.start_date){const s=new Date(d.start_date);if(mY<s.getUTCFullYear()||(mY===s.getUTCFullYear()&&mM<s.getUTCMonth()))return false;}
+      if(d.end_date){const e=new Date(d.end_date);if(mY>e.getUTCFullYear()||(mY===e.getUTCFullYear()&&mM>e.getUTCMonth()))return false;}
+      return true;
+    }).reduce((s,d)=>s+Number(d.monthly_amount||0),0);
+    return payePersoTreso + dettesPersoMoisM; // Facturation SARL Guiraud réelle
   });
 
   // CA net externe = total - intra-groupe
@@ -4204,6 +4205,7 @@ async function loadTresoChart(){
         <td style="text-align:right;font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--red)">${Math.round(dep).toLocaleString('fr-FR')} €</td>
         <td style="text-align:right;font-family:'IBM Plex Mono',monospace;font-weight:600;color:${solde>=0?'var(--grn)':'var(--red)'}">${(solde>=0?'+':'')+Math.round(solde).toLocaleString('fr-FR')} €</td>
         <td style="text-align:right;font-family:'IBM Plex Mono',monospace;font-weight:600;color:${cumul>=0?'var(--acc)':'var(--red)'}">${(cumul>=0?'+':'')+Math.round(cumul).toLocaleString('fr-FR')} €</td>
+        <td style="text-align:right;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--amb)">${tvaNette[i]>0?'⚠ '+Math.round(tvaNette[i]).toLocaleString('fr-FR')+' €':'—'}</td>
         <td><span class="badge ${solde>=0?'bg':'br'}">${solde>=0?'✓':'⚠'}</span></td>
       </tr>`;
     }).join('');
