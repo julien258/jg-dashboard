@@ -823,6 +823,17 @@
         <div class="card-t">Stock de dette — courbe d'apurement sur 12 mois</div>
         <div style="position:relative;height:200px"><canvas id="debtStockChart"></canvas></div>
       </div>
+      <!-- Échéances fiscales IR 2025 -->
+      <div class="card" style="margin-top:1rem" id="ir2025-card" style="display:none">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+          <div class="card-t" style="margin:0">🏛️ Échéances fiscales IR 2025 — sept→déc 2026</div>
+          <span style="font-size:11px;color:var(--t2)">Paramétré depuis Budget Personnel</span>
+        </div>
+        <div style="overflow-x:auto"><table>
+          <thead><tr><th>Échéance</th><th>Nature</th><th style="text-align:right">Montant</th><th>Statut</th></tr></thead>
+          <tbody id="ir2025-tbody"><tr><td colspan="4" style="text-align:center;color:var(--t2);padding:1rem">Paramétrez l'IR 2025 depuis l'onglet Budget Personnel → Impôts</td></tr></tbody>
+        </table></div>
+      </div>
     </div>
 
     <!-- PLACEMENTS -->
@@ -3596,6 +3607,24 @@ async function loadDebts(){
     stockTotal=Math.max(0,stockTotal-decaisse);
     stockParMois.push(Math.round(stockTotal));
   });
+
+  // Charger les payables IR2025
+  const {data: ir2025data} = await sb.from('payables').select('*').eq('label','IR 2025 — Solde sept→déc').order('due_date');
+  const ir2025card = document.getElementById('ir2025-card');
+  const ir2025tbody = document.getElementById('ir2025-tbody');
+  if(ir2025data?.length && ir2025card && ir2025tbody){
+    ir2025card.style.display='block';
+    const moisNoms={1:'Janvier',2:'Février',3:'Mars',4:'Avril',5:'Mai',6:'Juin',7:'Juillet',8:'Août',9:'Septembre',10:'Octobre',11:'Novembre',12:'Décembre'};
+    ir2025tbody.innerHTML = ir2025data.map(p=>{
+      const d = new Date(p.due_date);
+      const moisLabel = moisNoms[d.getMonth()+1]+' '+d.getFullYear();
+      const statColors={a_payer:'br',paye:'bg',reporte:'ba'};
+      const statLabels={a_payer:'À payer',paye:'Payé',reporte:'Reporté'};
+      return '<tr>'        +'<td style="font-weight:600">'+moisLabel+'</td>'        +'<td style="font-size:12px;color:var(--t2)">'+p.label+'</td>'        +'<td style="text-align:right;font-family:'IBM Plex Mono',monospace;color:var(--red);font-weight:600">'+Math.round(Number(p.amount_ttc)).toLocaleString('fr-FR')+' €</td>'        +'<td><span class="badge '+(statColors[p.status]||'bz')+'">'+( statLabels[p.status]||p.status)+'</span></td>'        +'</tr>';
+    }).join('');
+  } else if(ir2025card){
+    ir2025card.style.display='none';
+  }
 
   if(window._debtStockChart)window._debtStockChart.destroy();
   const el=document.getElementById('debtStockChart');
