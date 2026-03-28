@@ -2690,6 +2690,9 @@ async function loadApurement(){
 
     // Factures à payer : due_date dans ce mois OU en retard (pour M)
     const factures=allPayables.filter(p=>{
+      // Ignorer les payables incomplets (pas de montant ou pas de fournisseur valide)
+      if(!p.amount_ttc||Number(p.amount_ttc)<=0)return false;
+      if(!p.fournisseur||p.fournisseur==='null')return false;
       if(!p.due_date)return idx===0; // sans date → ce mois seulement
       const due=new Date(p.due_date);
       const mStart=new Date(now.getFullYear(),now.getMonth()+idx,1);
