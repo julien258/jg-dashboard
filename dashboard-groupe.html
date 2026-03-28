@@ -6518,6 +6518,10 @@ async function renderTimelinePaiements(moisOffset){
     if(!day||day<1||day>31)return;
     const montant=Number(d.monthly_amount||0);
     if(!montant)return;
+    // Vérifier start_date et end_date vs mois affiché
+    const mY=target.getFullYear(), mM=target.getMonth();
+    if(d.start_date){const s=new Date(d.start_date);if(mY<s.getUTCFullYear()||(mY===s.getUTCFullYear()&&mM<s.getUTCMonth()))return;}
+    if(d.end_date){const e=new Date(d.end_date);if(mY>e.getUTCFullYear()||(mY===e.getUTCFullYear()&&mM>e.getUTCMonth()))return;}
     const effDay=Math.min(day,daysInMonth);
     events.push({
       day:effDay,
