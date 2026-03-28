@@ -2705,16 +2705,20 @@ async function loadApurement(){
     const mColStart=new Date(now.getFullYear(),now.getMonth()+offset+m.idx,1);
     const mColEnd=new Date(now.getFullYear(),now.getMonth()+offset+m.idx+1,0);
     const isCurrentCol=m.isCurrent; // Vrai seulement pour le mois calendaire en cours
+    const isLeftCol=m.idx===-1; // Colonne gauche = reçoit tous les retards
     const factures=allPayables.filter(p=>{
       if(!p.amount_ttc||Number(p.amount_ttc)<=0)return false;
       if(!p.fournisseur||p.fournisseur==='null')return false;
       if(!p.due_date)return m.isCenter; // sans date → colonne centrale seulement
       const due=new Date(p.due_date);
-      if(isCurrentCol) return due<=mColEnd; // mois actuel : inclut les retards
-      return due>=mColStart&&due<=mColEnd; // autres mois : fenêtre exacte
+      const isOverdueItem=due<mColStart; // en retard par rapport à ce mois
+      // Colonne gauche : retards + son mois propre
+      if(isLeftCol) return due<=mColEnd;
+      // Colonne centre et droite : fenêtre exacte (pas de retards déjà dans gauche)
+      return due>=mColStart&&due<=mColEnd;
     });
     factures.forEach(p=>{
-      const isOverdue=p.due_date&&new Date(p.due_date)<now&&isCurrentCol;
+      const isOverdue=p.due_date&&new Date(p.due_date)<now;
       const bananes=Number(p.priority||0); // 0-3 bananes 🍌
       const labelVal=String(p.fournisseur||'').trim();
       const amountVal=parseFloat(p.amount_ttc);
