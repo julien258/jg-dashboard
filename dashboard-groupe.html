@@ -1717,6 +1717,18 @@
         <div class="fg"><label style="color:var(--acc)">Date signature ⚡ utilisée par la tréso</label><input type="date" id="ce-signed"></div>
         <div class="fg"><label style="color:var(--grn)">📅 Date paiement prévu</label><input type="date" id="ce-payment-expected"></div>
         <div class="fg"><label>✅ Date paiement réel</label><input type="date" id="ce-payment-actual"></div>
+        <div class="fg">
+          <label>🔄 Type de prestation</label>
+          <select id="ce-recurrence-type" onchange="toggleCeRecurrence()">
+            <option value="">Ponctuelle (unique)</option>
+            <option value="monthly">Récurrente — Mensuelle</option>
+            <option value="quarterly">Récurrente — Trimestrielle</option>
+            <option value="semi_annual">Récurrente — Semestrielle</option>
+            <option value="annual">Récurrente — Annuelle</option>
+          </select>
+        </div>
+        <div class="fg" id="ce-recurrence-start-fg" style="display:none"><label>📆 Date de début récurrence</label><input type="date" id="ce-recurrence-start"></div>
+        <div class="fg" id="ce-recurrence-end-fg" style="display:none"><label>📆 Date de fin récurrence</label><input type="date" id="ce-recurrence-end"></div>
         <div class="fg"><label>Prochain rappel</label><input type="date" id="ce-reminder"></div>
         <div class="fg" id="ce-trail-proba-fg" style="display:none">
           <label>Probabilité reconduction trailing (%)</label>
@@ -2623,6 +2635,16 @@ function updateApurAllChecks(){
     if(!document.querySelector('#apur-check-sum-'+mkey)) return;
     updateApurCheckByMkey(mkey);
   });
+}
+
+function toggleCeRecurrence(){
+  const val=document.getElementById('ce-recurrence-type').value;
+  const isRecurrent=val!=='';
+  document.getElementById('ce-recurrence-start-fg').style.display=isRecurrent?'block':'none';
+  document.getElementById('ce-recurrence-end-fg').style.display=isRecurrent?'block':'none';
+  // Si récurrent : masquer date paiement prévu (non pertinent)
+  const peFg=document.getElementById('ce-payment-expected')?.closest('.fg');
+  if(peFg)peFg.style.display=isRecurrent?'none':'block';
 }
 
 function updateApurCheck(cb){
@@ -3936,9 +3958,10 @@ async function loadTresoChart(){
         }
       });
     } else {
-      // Ponctuel : met sur le mois de signature
-      if(c.signed_date){
-        const sd=new Date(c.signed_date);
+      // Ponctuel : utilise payment_expected_date en priorité, sinon signed_date
+      const dateRef=c.payment_expected_date||c.signed_date;
+      if(dateRef){
+        const sd=new Date(dateRef);
         months.forEach((m,i)=>{
           if(m.getMonth()===sd.getMonth()&&m.getFullYear()===sd.getFullYear()){
             revenusParSoc[soc][i]+=com;
@@ -5009,6 +5032,10 @@ async function openContractEdit(id){
   document.getElementById('ce-signed').value=data.signed_date||'';
   document.getElementById('ce-payment-expected').value=data.payment_expected_date||'';
   document.getElementById('ce-payment-actual').value=data.payment_actual_date||'';
+  document.getElementById('ce-recurrence-type').value=data.recurrence||'';
+  document.getElementById('ce-recurrence-start').value=data.start_date||'';
+  document.getElementById('ce-recurrence-end').value=data.end_date||'';
+  toggleCeRecurrence();
   document.getElementById('ce-reminder').value=data.next_reminder||'';
   // Probabilité trailing — affiche seulement pour CGW
   const isCGWProduct=data.products?.category==='cgw';
@@ -5091,6 +5118,9 @@ async function saveContractEdit(){
     signed_date:document.getElementById('ce-signed').value||null,
     payment_expected_date:document.getElementById('ce-payment-expected').value||null,
     payment_actual_date:document.getElementById('ce-payment-actual').value||null,
+    recurrence:document.getElementById('ce-recurrence-type').value||null,
+    start_date:document.getElementById('ce-recurrence-start').value||null,
+    end_date:document.getElementById('ce-recurrence-end').value||null,
     next_reminder:document.getElementById('ce-reminder').value||null,
     trail_proba:parseInt(document.getElementById('ce-trail-proba')?.value||80),
     tva_taux:parseFloat(document.querySelector('input[name="ce-tva"]:checked')?.value||0),
