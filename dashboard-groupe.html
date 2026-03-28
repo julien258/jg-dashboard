@@ -4175,6 +4175,7 @@ async function loadTresoChart(){
   // TVA déductible pour Living = 20% sur HT facture SARL Guiraud
   const tvaDeductibleSarl=months.map((_,i)=>Math.round(intraGroupe[i]/1.20*0.20));
 
+  const caNetExterne=months.map((_,i)=>
     coIds.reduce((s,id)=>s+revenusParSoc[id][i],0)+revenusPlac[i]-intraGroupe[i]+encaissements[i]
   );
 
