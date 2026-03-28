@@ -401,6 +401,8 @@
             </div>
           </div>
           <div id="ir25-result" style="margin-top:10px"></div>
+          <button class="btn btn-p btn-sm" style="margin-top:8px;width:100%" onclick="saveIR2025()">💾 Enregistrer les paramètres IR 2025</button>
+          <div id="ir25-save-status" style="font-size:11px;color:var(--grn);margin-top:4px;text-align:center"></div>
         </div>
 
         <div class="card">
@@ -1051,6 +1053,77 @@ const BAREME_2026 = [
 // ════════════════════════════════════════
 // CALCUL IR 2025 — ÉCHÉANCES SEPT/OCT/NOV/DEC 2026
 // ════════════════════════════════════════
+async function saveIR2025(){
+  const data={
+    ir25_revenus: parseFloat(document.getElementById('ir25-revenus')?.value)||0,
+    ir25_acomptes: parseFloat(document.getElementById('ir25-acomptes')?.value)||0,
+    ir25_parts: parseFloat(document.getElementById('ir25-parts')?.value)||3,
+    ir25_per: parseFloat(document.getElementById('ir25-per')?.value)||0,
+  };
+  await sb.from('settings').upsert({key:'ir2025_params',value:JSON.stringify(data)},{onConflict:'key'});
+  // Aussi injecter les 4 payables dans la tréso
+  await injectIR2025Payables(data);
+  document.getElementById('ir25-save-status').textContent='✓ Enregistré et injecté dans la tréso';
+  setTimeout(()=>document.getElementById('ir25-save-status').textContent='',3000);
+}
+
+async function loadIR2025(){
+  try{
+    const{data}=await sb.from('settings').select('value').eq('key','ir2025_params').single();
+    if(!data?.value) return;
+    const p=JSON.parse(data.value);
+    if(p.ir25_revenus) document.getElementById('ir25-revenus').value=p.ir25_revenus;
+    if(p.ir25_acomptes) document.getElementById('ir25-acomptes').value=p.ir25_acomptes;
+    if(p.ir25_parts) document.getElementById('ir25-parts').value=p.ir25_parts;
+    if(p.ir25_per) document.getElementById('ir25-per').value=p.ir25_per;
+    calcIR2025();
+  }catch(e){}
+}
+
+async function injectIR2025Payables(p){
+  // Supprimer les anciens payables IR2025
+  await sb.from('payables').delete().eq('label','IR 2025 — Solde sept→déc');
+  // Calculer le solde
+  const rev25=p.ir25_revenus||0;
+  const acomptes25=p.ir25_acomptes||0;
+  const parts25=p.ir25_parts||3;
+  const per25=p.ir25_per||0;
+  const abatt=Math.min(Math.round(rev25*0.10),14171);
+  const revImp=Math.max(0,rev25-abatt-per25);
+  // Calcul barème IR simplifié
+  let ir=0;
+  const tranches=[[11294,0],[28797,0.11],[82341,0.30],[177106,0.41],[Infinity,0.45]];
+  let prev=0;
+  for(const[limite,taux]of tranches){
+    const tranche=Math.min(revImp/parts25,limite)-prev;
+    if(tranche<=0)break;
+    ir+=tranche*taux;
+    prev=limite;
+    if(revImp/parts25<=limite)break;
+  }
+  ir=Math.round(ir*parts25);
+  const solde=Math.max(0,ir-acomptes25);
+  if(solde===0)return;
+  const m=Math.ceil(solde/4);
+  const echeances=[
+    {due:'2026-09-15',montant:m},
+    {due:'2026-10-15',montant:m},
+    {due:'2026-11-15',montant:m},
+    {due:'2026-12-15',montant:Math.max(0,solde-(m*3))},
+  ];
+  for(const e of echeances){
+    if(e.montant<=0) continue;
+    await sb.from('payables').insert({
+      label:'IR 2025 — Solde sept→déc',
+      company_id:'perso',
+      amount_ttc:e.montant,
+      due_date:e.due,
+      payment_mode:'virement',
+      status:'a_payer'
+    });
+  }
+}
+
 function calcIR2025(){
   const rev25 = parseFloat(document.getElementById('ir25-revenus')?.value)||0;
   const acomptes25 = parseFloat(document.getElementById('ir25-acomptes')?.value)||0;
@@ -1304,7 +1377,7 @@ function showSection(s){
   const titles={dashboard:'Vue 12 mois',fixes:'Charges fixes',variables:'Dépenses variables',dettes:'Dettes & impôts',projets:'Projets & objectifs',impots:'Impôts & optimisation'};
   document.getElementById('tb-title').textContent=titles[s]||s;
   if(s==='variables') initVariablesSection();
-  if(s==='impots'){setTimeout(calcIR,100);setTimeout(calcIR2025,150);}
+  if(s==='impots'){setTimeout(calcIR,100);setTimeout(calcIR2025,150);setTimeout(loadIR2025,200);}
 }
 
 
