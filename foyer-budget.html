@@ -1060,11 +1060,12 @@ async function saveIR2025(){
     ir25_parts: parseFloat(document.getElementById('ir25-parts')?.value)||3,
     ir25_per: parseFloat(document.getElementById('ir25-per')?.value)||0,
   };
+  // Sauvegarder les paramètres
   await sb.from('settings').upsert({key:'ir2025_params',value:JSON.stringify(data)},{onConflict:'key'});
-  // Aussi injecter les 4 payables dans la tréso
-  await injectIR2025Payables(data);
-  document.getElementById('ir25-save-status').textContent='✓ Enregistré et injecté dans la tréso';
-  setTimeout(()=>document.getElementById('ir25-save-status').textContent='',3000);
+  // Créer une dette comme les autres
+  await injectIR2025CommeDette(data);
+  document.getElementById('ir25-save-status').textContent='✓ Enregistré — dette DGFiP créée dans Dettes & Impôts';
+  setTimeout(()=>document.getElementById('ir25-save-status').textContent='',4000);
 }
 
 async function loadIR2025(){
@@ -1078,6 +1079,55 @@ async function loadIR2025(){
     if(p.ir25_per) document.getElementById('ir25-per').value=p.ir25_per;
     calcIR2025();
   }catch(e){}
+}
+
+async function injectIR2025CommeDette(p){
+  // Supprimer l'ancienne dette IR2025 si elle existe
+  await sb.from('debts').delete().eq('nature','IR 2025 - Solde sept-dec 2026');
+
+  // Calculer le solde
+  const rev25=p.ir25_revenus||0;
+  const acomptes25=p.ir25_acomptes||0;
+  const parts25=p.ir25_parts||3;
+  const per25=p.ir25_per||0;
+  const abatt=Math.min(Math.round(rev25*0.10),14171);
+  const revImp=Math.max(0,rev25-abatt-per25);
+  // Barème IR
+  let ir=0;
+  const tranches=[[11294,0],[28797,0.11],[82341,0.30],[177106,0.41],[Infinity,0.45]];
+  let prev=0;
+  for(const[limite,taux]of tranches){
+    const tranche=Math.min(revImp/parts25,limite)-prev;
+    if(tranche<=0)break;
+    ir+=tranche*taux;
+    prev=limite;
+    if(revImp/parts25<=limite)break;
+  }
+  ir=Math.round(ir*parts25);
+  const solde=Math.max(0,ir-acomptes25);
+  if(solde===0)return;
+
+  const mensualite=Math.round(solde/4);
+
+  // Créer la dette comme les autres
+  const {error} = await sb.from('debts').insert({
+    company_id: 'perso',
+    debiteur: 'DGFiP',
+    nature: 'IR 2025 - Solde sept-dec 2026',
+    reference: 'Calculé depuis simulateur IR',
+    amount_total: solde,
+    amount_remaining: solde,
+    monthly_amount: mensualite,
+    frequency: 'monthly',
+    payment_day: 15,
+    start_date: '2026-09-01',
+    end_date: '2026-12-31',
+    status: 'en_cours',
+    urgency_level: 2,
+    notes: 'Généré automatiquement depuis le simulateur IR 2025'
+  });
+  if(error) console.error('Erreur création dette IR2025:', JSON.stringify(error));
+  else console.log('Dette IR2025 créée:', mensualite+'€/mois × 4 mois');
 }
 
 async function injectIR2025Payables(p){
