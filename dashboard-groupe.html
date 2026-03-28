@@ -4208,7 +4208,7 @@ async function loadTresoChart(){
   const totalRevenus12=Object.values(revenusParSoc).flat().reduce((s,v)=>s+v,0)+revenusPlac.reduce((s,v)=>s+v,0);
   const totalDepenses12=depenses.reduce((s,v)=>s+v,0);
   const soldeNet=totalRevenus12-totalIntraGroupe12-totalDepenses12;
-  document.getElementById('tk-revenus').textContent=Math.round(totalRevenus12-totalIntraGroupe12).toLocaleString('fr-FR')+' € net';
+  document.getElementById('tk-revenus').textContent=Math.round(totalRevenus12).toLocaleString('fr-FR')+' € brut';
   document.getElementById('tk-charges').textContent=Math.round(totalDepenses12).toLocaleString('fr-FR')+' €';
   const soldeEl=document.getElementById('tk-solde');
   soldeEl.textContent=(soldeNet>=0?'+':'')+Math.round(soldeNet).toLocaleString('fr-FR')+' €';
