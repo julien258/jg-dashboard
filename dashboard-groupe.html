@@ -715,7 +715,7 @@
         <div style="max-height:300px;overflow-y:auto">
           <table>
             <thead style="position:sticky;top:0;background:var(--s1);z-index:1">
-              <tr><th>Mois</th><th style="text-align:right">CA brut</th><th style="text-align:right;color:var(--red)">Fact. SARL GJ</th><th style="text-align:right;color:var(--grn)">CA net</th><th style="text-align:right">Dépenses</th><th style="text-align:right">Solde mois</th><th style="text-align:right;color:var(--acc)">Cumulé</th><th style="text-align:right;color:var(--amb)">⚠ TVA nette</th><th>Statut</th></tr>
+              <tr><th>Mois</th><th style="text-align:right">CA brut</th><th style="text-align:right;color:var(--red)">Fact. SARL GJ</th><th style="text-align:right;color:var(--grn)">CA net</th><th style="text-align:right">Dépenses</th><th style="text-align:right;color:var(--acc)">💰 Placé</th><th style="text-align:right">Solde mois</th><th style="text-align:right;color:var(--acc)">Cumulé</th><th style="text-align:right;color:var(--amb)">⚠ TVA nette</th><th>Statut</th></tr>
             </thead>
             <tbody id="treso-detail-table"></tbody>
           </table>
@@ -1964,7 +1964,7 @@ async function saveAsset(){
   const editId=document.getElementById('asset-form')._editId;
   const payload={
     company_id:document.getElementById('as-company').value,
-    statut:document.getElementById('as-statut')?.value||'detenu',
+    ...(document.getElementById('as-statut')?.value?{statut:document.getElementById('as-statut').value}:{}),
     date_vente_prevue:document.getElementById('as-date-vente-prevue')?.value||null,
     prix_vente_prevu:parseFloat(document.getElementById('as-prix-vente-prevu')?.value)||null,
     net_vente_estime:parseFloat(document.getElementById('as-net-vente-estime')?.value)||null,
@@ -4077,6 +4077,18 @@ async function loadTresoChart(){
     if(v>0&&revenusParSoc['sas-living'])revenusParSoc['sas-living'][i]+=v;
   });
 
+  // Placements = sortie de tréso au moment de l'entrée (capital placé ce mois)
+  const placementsEntrees=new Array(12).fill(0);
+  (placements||[]).forEach(p=>{
+    if(!p.date_entree)return;
+    const de=new Date(p.date_entree);
+    months.forEach((m,i)=>{
+      if(m.getFullYear()===de.getFullYear()&&m.getMonth()===de.getMonth()){
+        placementsEntrees[i]+=Number(p.capital||0);
+      }
+    });
+  });
+
   // Calcul dépenses par mois — séparé en dettes mensuelles + factures ponctuelles
   const depenses=new Array(12).fill(0);
   const depensesDettes=new Array(12).fill(0); // dettes lissées uniquement
@@ -4310,6 +4322,7 @@ async function loadTresoChart(){
         <td style="text-align:right;font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--red)">-${Math.round(intraGroupe[i]).toLocaleString('fr-FR')} €</td>
         <td style="text-align:right;font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--grn);font-weight:600">${Math.round(net).toLocaleString('fr-FR')} €</td>
         <td style="text-align:right;font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--red)">${Math.round(dep).toLocaleString('fr-FR')} €</td>
+        <td style="text-align:right;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--acc)">${placementsEntrees[i]>0?Math.round(placementsEntrees[i]).toLocaleString('fr-FR')+' €':'—'}</td>
         <td style="text-align:right;font-family:'IBM Plex Mono',monospace;font-weight:600;color:${solde>=0?'var(--grn)':'var(--red)'}">${(solde>=0?'+':'')+Math.round(solde).toLocaleString('fr-FR')} €</td>
         <td style="text-align:right;font-family:'IBM Plex Mono',monospace;font-weight:600;color:${cumul>=0?'var(--acc)':'var(--red)'}">${(cumul>=0?'+':'')+Math.round(cumul).toLocaleString('fr-FR')} €</td>
         <td style="text-align:right;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--amb)">${tvaNette[i]>0?'⚠ '+Math.round(tvaNette[i]).toLocaleString('fr-FR')+' €':'—'}</td>
