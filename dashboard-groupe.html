@@ -1964,7 +1964,7 @@ async function saveAsset(){
   const editId=document.getElementById('asset-form')._editId;
   const payload={
     company_id:document.getElementById('as-company').value,
-    ...(document.getElementById('as-statut')?.value?{statut:document.getElementById('as-statut').value}:{}),
+    statut:document.getElementById('as-statut')?.value||document.getElementById('asset-form')._currentStatut||'detenu',
     date_vente_prevue:document.getElementById('as-date-vente-prevue')?.value||null,
     prix_vente_prevu:parseFloat(document.getElementById('as-prix-vente-prevu')?.value)||null,
     net_vente_estime:parseFloat(document.getElementById('as-net-vente-estime')?.value)||null,
@@ -2147,6 +2147,7 @@ async function editAsset(id){
   Object.entries(fields).forEach(([k,id])=>{const el=document.getElementById(id);if(el)el.value=data[k]||'';});
   document.getElementById('as-financement').checked=data.financement||false;
   document.getElementById('as-financement-fields').style.display=data.financement?'block':'none';
+  document.getElementById('asset-form')._currentStatut=data.statut||'detenu'; // garde le statut DB
   toggleVenteFields();
   // Affiche noms docs existants
   if(data.doc_propriete_nom)document.getElementById('as-doc-propriete-nom').textContent='✓ '+data.doc_propriete_nom;
@@ -4364,11 +4365,10 @@ async function loadTresoChart(){
       }
       if(!netPercu)return;
       const moisVente=a.date_vente_prevue?new Date(a.date_vente_prevue):new Date(now.getFullYear(),now.getMonth()+3,1);
-      const coId=a.company_id||'meulette';
+      const coId=revenusParSoc[a.company_id]?a.company_id:'meulette';
       months.forEach((m,i)=>{
         if(m.getMonth()===moisVente.getMonth()&&m.getFullYear()===moisVente.getFullYear()){
           if(revenusParSoc[coId])revenusParSoc[coId][i]+=netPercu;
-          else revenusParSoc['meulette']&&(revenusParSoc['meulette'][i]+=netPercu);
         }
       });
     });
