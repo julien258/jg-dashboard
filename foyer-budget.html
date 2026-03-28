@@ -1082,7 +1082,7 @@ async function loadIR2025(){
 
 async function injectIR2025Payables(p){
   // Supprimer les anciens payables IR2025
-  await sb.from('payables').delete().eq('label','IR 2025 — Solde sept→déc');
+  await sb.from('payables').delete().eq('source','ir2025_auto');
   // Calculer le solde
   const rev25=p.ir25_revenus||0;
   const acomptes25=p.ir25_acomptes||0;
@@ -1106,20 +1106,23 @@ async function injectIR2025Payables(p){
   if(solde===0)return;
   const m=Math.ceil(solde/4);
   const echeances=[
-    {due:'2026-09-15',montant:m},
-    {due:'2026-10-15',montant:m},
-    {due:'2026-11-15',montant:m},
-    {due:'2026-12-15',montant:Math.max(0,solde-(m*3))},
+    {due:'2026-09-15',montant:m,label:'Solde IR 2025 — versement 1/4'},
+    {due:'2026-10-15',montant:m,label:'Solde IR 2025 — versement 2/4'},
+    {due:'2026-11-15',montant:m,label:'Solde IR 2025 — versement 3/4'},
+    {due:'2026-12-15',montant:Math.max(0,solde-(m*3)),label:'Solde IR 2025 — versement 4/4'},
   ];
   for(const e of echeances){
     if(e.montant<=0) continue;
     await sb.from('payables').insert({
-      label:'IR 2025 — Solde sept→déc',
+      fournisseur:'DGFiP',
+      label:e.label,
       company_id:'perso',
+      amount_ht:e.montant,
       amount_ttc:e.montant,
       due_date:e.due,
       payment_mode:'virement',
-      status:'a_payer'
+      status:'a_payer',
+      source:'ir2025_auto'
     });
   }
 }

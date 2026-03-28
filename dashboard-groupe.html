@@ -3609,7 +3609,7 @@ async function loadDebts(){
   });
 
   // Charger les payables IR2025
-  const {data: ir2025data} = await sb.from('payables').select('*').eq('label','IR 2025 — Solde sept→déc').order('due_date');
+  const {data: ir2025data} = await sb.from('payables').select('*').eq('source','ir2025_auto').order('due_date');
   const ir2025card = document.getElementById('ir2025-card');
   const ir2025tbody = document.getElementById('ir2025-tbody');
   if(ir2025data?.length && ir2025card && ir2025tbody){
