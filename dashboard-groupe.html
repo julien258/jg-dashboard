@@ -154,7 +154,6 @@
   <div style="flex:1"></div>
   <div style="padding:12px 8px;border-top:1px solid var(--b1)">
     <button class="gbtn" onclick="showJuridique()"><span>🏛️</span> Organigramme</button>
-    <button class="gbtn" id="btn-participations" onclick="showParticipations()"><span>🎯</span> Participations</button>
     <button class="gbtn" onclick="showCRM()"><span>💼</span> CRM centralisé</button>
     <button class="gbtn" onclick="window.open('/onboarding.html','_blank')"><span>📋</span> Onboarding CIF</button>
     <button class="gbtn" onclick="showTodos()"><span>✅</span> To-do général</button>
@@ -767,7 +766,6 @@
             <div class="fg"><label>Statut</label>
               <select id="debt-status">
                 <option value="en_cours">En cours</option>
-                <option value="en_negociation">En cours de négociation</option>
                 <option value="suspendu">Suspendu</option>
                 <option value="solde">Soldé</option>
               </select>
@@ -1145,16 +1143,6 @@
 
           <!-- Résultat calculé -->
           <div id="as-equity-preview" style="grid-column:1/-1;padding:12px;background:var(--b2);border-radius:8px;font-size:13px;display:none"></div>
-          <!-- VENTE PRÉVUE -->
-          <div class="fg" style="grid-column:1/-1;padding:12px;background:var(--grd);border-radius:8px;border:1px solid var(--grn)">
-            <div style="font-size:12px;color:var(--grn);font-weight:600;margin-bottom:10px">💰 Vente prévue (T2 2026 objectif)</div>
-            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
-              <div class="fg"><label>Date vente prévue</label><input type="date" id="as-date-vente" oninput="calcVenteNette()"></div>
-              <div class="fg"><label>Net vendeur (€) — après frais agence/notaire</label><input type="number" id="as-prix-vente" placeholder="Prix net vendeur" oninput="calcVenteNette()"></div>
-              <div class="fg"><label>Net perçu estimé (€)</label><input type="number" id="as-net-vente" placeholder="Calculé auto" style="border-color:var(--acc)" readonly></div>
-            </div>
-            <div id="as-vente-detail" style="font-size:11px;color:var(--t2);margin-top:6px"></div>
-          </div>
           <div class="fg" style="grid-column:1/-1"><label>Notes</label><textarea id="as-notes" style="min-height:50px"></textarea></div>
         </div>
         <div style="display:flex;gap:8px;margin-top:12px">
@@ -1194,34 +1182,6 @@
     <div id="assets-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:16px"></div>
   </div>
 
-  <!-- SIMULATEUR CGW POST-VENTE -->
-  <div id="simul-cgw-vente" class="card" style="margin-top:1.5rem;display:none">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
-      <div><div class="card-t" style="margin:0">💰 Simulation placement CGW post-vente — Objectif T2 2026</div>
-      <div style="font-size:12px;color:var(--t2);margin-top:2px">Financer Velomotion · Maximiser cash Q2</div></div>
-      <button class="btn btn-g btn-sm" onclick="document.getElementById('simul-cgw-vente').style.display='none'">✕</button>
-    </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
-      <div>
-        <div style="font-size:11px;color:var(--t2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px">Produit des ventes prévues</div>
-        <div id="simul-ventes-list" style="margin-bottom:16px;font-size:12px;color:var(--t2)">Aucune vente planifiée — renseignez des dates de vente dans vos actifs.</div>
-        <div class="fg"><label>Dettes à rembourser sur le produit (€)</label><input type="number" id="simul-dettes" placeholder="0" oninput="runSimulCGW()"></div>
-        <div class="fg"><label>Charges immédiates Q2 (€)</label><input type="number" id="simul-charges" placeholder="0" oninput="runSimulCGW()"></div>
-        <div class="fg"><label>Durée placement CGW</label>
-          <select id="simul-duree" onchange="runSimulCGW()">
-            <option value="3">3 mois (8%)</option>
-            <option value="6" selected>6 mois (16% Diamond)</option>
-            <option value="12">12 mois</option>
-          </select>
-        </div>
-        <div class="fg"><label>Taux CGW (%)</label><input type="number" id="simul-taux" value="16" step="0.5" oninput="runSimulCGW()"></div>
-      </div>
-      <div id="simul-cgw-result" style="background:var(--s2);border-radius:10px;padding:16px">
-        <div style="text-align:center;color:var(--t2);font-size:13px;padding:2rem 0">Renseignez des dates de vente sur vos actifs puis cliquez sur CGW ↗</div>
-      </div>
-    </div>
-  </div>
-
   <!-- APUREMENT DETTES -->
   <div class="pv cnt" id="v-apurement">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem">
@@ -1236,7 +1196,7 @@
       </div>
     </div>
     <!-- Grille principale -->
-    <div id="apurement-main" style="display:grid;grid-template-columns:280px 1fr 1fr 1fr;gap:14px;align-items:start;height:calc(100vh - 220px)"></div>
+    <div id="apurement-main" style="display:grid;grid-template-columns:280px 1fr 1fr 1fr;gap:14px;align-items:start"></div>
     <!-- Légende -->
     <div style="margin-top:12px;font-size:11px;color:var(--t2);display:flex;gap:16px;flex-wrap:wrap">
       <span>🌶️🌶️🌶️ Critique (URSSAF, impôts, huissiers)</span>
@@ -1433,142 +1393,6 @@
     </div>
   </div>
 
-  <!-- PARTICIPATIONS -->
-  <div class="pv cnt" id="v-participations">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem">
-      <div>
-        <div style="font-size:20px;font-weight:600">🎯 Participations &amp; Projets groupe</div>
-        <div style="font-size:12px;color:var(--t2);margin-top:2px">Suivi jalons · Management fees · Valorisation quote-part LIVING</div>
-      </div>
-      <button class="btn btn-p btn-sm" onclick="toggleForm('part-new-form')">+ Ajouter participation</button>
-    </div>
-
-    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:1.5rem">
-      <div class="kc" style="border-left:3px solid var(--acc)"><div class="kl">Participations actives</div><div class="kv" id="pk-nb">—</div><div class="ks">FCR · Clinique · MONIKAZA</div></div>
-      <div class="kc" style="border-left:3px solid var(--pur)"><div class="kl">Valeur quote-part LIVING</div><div class="kv" style="color:var(--pur);font-size:16px" id="pk-valeur">—</div><div class="ks">Valorisation indicative</div></div>
-      <div class="kc" style="border-left:3px solid var(--grn)"><div class="kl">Management fees / mois</div><div class="kv p" id="pk-fees">—</div><div class="ks">Facturés par LIVING</div></div>
-      <div class="kc" style="border-left:3px solid var(--amb)"><div class="kl">Prochain jalon</div><div class="kv w" id="pk-next-jalon" style="font-size:14px">—</div><div class="ks" id="pk-next-jalon-label">—</div></div>
-      <div class="kc" style="border-left:3px solid var(--grn)"><div class="kl">Dividendes estimés / an</div><div class="kv p" id="pk-divid">—</div><div class="ks">Post-distribution</div></div>
-    </div>
-
-    <!-- FORMULAIRE PARTICIPATION -->
-    <div id="part-new-form" style="display:none;margin-bottom:1.5rem">
-      <div class="card">
-        <div class="card-t">Nouvelle participation</div>
-        <div class="g2">
-          <div class="fg"><label>Nom du projet</label><input type="text" id="pf-nom" placeholder="FCR, Clinique..."></div>
-          <div class="fg"><label>% détenu par LIVING</label><input type="number" id="pf-pct" placeholder="25" min="0" max="100"></div>
-          <div class="fg"><label>Statut</label><select id="pf-statut"><option value="structuration">🔧 En structuration</option><option value="levee">💰 Levée en cours</option><option value="operationnel">✅ Opérationnel</option></select></div>
-          <div class="fg"><label>Type</label><select id="pf-type"><option value="minoritaire">Minoritaire (&lt;50%)</option><option value="majoritaire">Majoritaire (≥50%)</option></select></div>
-          <div class="fg"><label>Fees Julien / mois HT (€)</label><input type="number" id="pf-fees-j" placeholder="15000"></div>
-          <div class="fg"><label>Fees Christophe / mois HT (€)</label><input type="number" id="pf-fees-c" placeholder="0"></div>
-          <div class="fg"><label>Valorisation totale projet (€)</label><input type="number" id="pf-valo" placeholder="10000000"></div>
-          <div class="fg"><label>Prochaine échéance critique</label><input type="date" id="pf-jalon-date"></div>
-          <div class="fg"><label>Libellé de l'échéance</label><input type="text" id="pf-jalon-label" placeholder="Closing levée, Signature pacte..."></div>
-          <div class="fg"><label>Dividendes annuels estimés (€)</label><input type="number" id="pf-divid" placeholder="0"></div>
-        </div>
-        <div style="display:flex;gap:8px;margin-top:1rem">
-          <button class="btn btn-p btn-sm" onclick="saveParticipation()">Enregistrer</button>
-          <button class="btn btn-g btn-sm" onclick="toggleForm('part-new-form')">Annuler</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- LAYOUT PRINCIPAL : cartes gauche + jalons droite -->
-    <div style="display:grid;grid-template-columns:1fr 380px;gap:16px;margin-bottom:1.5rem;align-items:start">
-
-      <!-- CARTES PARTICIPATIONS -->
-      <div id="part-cards" style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px"></div>
-
-      <!-- JALONS — sidebar droite -->
-      <div>
-        <div class="card" style="margin-bottom:12px">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
-            <div class="card-t" style="margin:0">📅 Jalons</div>
-            <button class="btn btn-g btn-sm" style="font-size:11px" onclick="toggleForm('jalon-form')">+ Ajouter</button>
-          </div>
-          <div id="jalon-form" style="display:none;margin-bottom:12px">
-            <div style="display:flex;flex-direction:column;gap:6px">
-              <select id="jf-projet" style="font-size:12px;padding:5px 8px;border:1px solid var(--b1);border-radius:6px;background:var(--s1);color:var(--t1)"><option value="FCR">FCR Autos</option><option value="Clinique">Private French Clinic</option><option value="MONIKAZA">MONIKAZA</option><option value="LIVING">SAS LIVING</option><option value="Groupe">Groupe</option></select>
-              <input type="text" id="jf-label" placeholder="Libellé du jalon" style="font-size:12px;padding:5px 8px;border:1px solid var(--b1);border-radius:6px;background:var(--s1);color:var(--t1)">
-              <input type="date" id="jf-date" style="font-size:12px;padding:5px 8px;border:1px solid var(--b1);border-radius:6px;background:var(--s1);color:var(--t1)">
-              <select id="jf-statut" style="font-size:12px;padding:5px 8px;border:1px solid var(--b1);border-radius:6px;background:var(--s1);color:var(--t1)"><option value="todo">🔲 À faire</option><option value="inprogress">🔄 En cours</option><option value="done">✅ Fait</option><option value="blocked">🔴 Bloqué</option></select>
-              <input type="text" id="jf-action" placeholder="Action / Responsable" style="font-size:12px;padding:5px 8px;border:1px solid var(--b1);border-radius:6px;background:var(--s1);color:var(--t1)">
-              <div style="display:flex;gap:6px">
-                <button class="btn btn-p btn-sm" style="flex:1" onclick="saveJalon()">Enregistrer</button>
-                <button class="btn btn-g btn-sm" style="flex:1" onclick="toggleForm('jalon-form')">Annuler</button>
-              </div>
-            </div>
-          </div>
-          <div id="jalons-list"></div>
-        </div>
-
-        <!-- VALORISATION MINI -->
-        <div class="card">
-          <div class="card-t">📊 Quote-parts LIVING</div>
-          <div id="valo-mini"></div>
-          <div style="font-size:10px;color:var(--t3);font-style:italic;margin-top:8px">Valorisations indicatives non garanties</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- SALARIÉS -->
-    <div class="card mb" style="margin-bottom:1.5rem">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
-        <div class="card-t" style="margin:0">👥 Salariés portés par LIVING</div>
-        <button class="btn btn-p btn-sm" onclick="toggleForm('sal-form')">+ Ajouter salarié</button>
-      </div>
-      <div id="sal-form" style="display:none;margin-bottom:1rem">
-        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
-          <div class="fg"><label>Nom</label><input type="text" id="sf-nom" placeholder="Christophe Bouyssou"></div>
-          <div class="fg"><label>Poste</label><input type="text" id="sf-poste" placeholder="DG Groupe"></div>
-          <div class="fg"><label>Entité employeuse</label>
-            <select id="sf-entity">
-              <option value="LIVING">💼 SAS LIVING</option>
-              <option value="REAL GAINS">💡 REAL GAINS</option>
-              <option value="FCR">🚗 FCR Autos</option>
-              <option value="CLINIQUE">🏥 Clinique</option>
-              <option value="MONIKAZA">🌐 MONIKAZA</option>
-            </select>
-          </div>
-          <div class="fg"><label>Net / mois (€)</label><input type="number" id="sf-net" placeholder="3500"></div>
-          <div class="fg"><label>Date entrée CDI</label><input type="date" id="sf-date"></div>
-          <div class="fg"><label>Coût employeur / mois (€)</label><input type="number" id="sf-cout" placeholder="6700"></div>
-          <div class="fg"><label>Refact. FCR / mois (€)</label><input type="number" id="sf-fcr" placeholder="0"></div>
-          <div class="fg"><label>Refact. Clinique / mois (€)</label><input type="number" id="sf-clin" placeholder="0"></div>
-          <div class="fg"><label>Refact. MONIKAZA / mois (€)</label><input type="number" id="sf-moni" placeholder="0"></div>
-        </div>
-        <div style="display:flex;gap:8px;margin-top:8px">
-          <button class="btn btn-p btn-sm" onclick="saveSalarie()">Enregistrer</button>
-          <button class="btn btn-g btn-sm" onclick="toggleForm('sal-form')">Annuler</button>
-        </div>
-      </div>
-      <div style="overflow-x:auto">
-        <table>
-          <thead><tr>
-            <th>Nom</th><th>Poste</th><th>Entité</th><th>Net/mois</th><th>Coût employeur</th>
-            <th style="color:var(--acc)">Refact. FCR</th>
-            <th style="color:var(--grn)">Refact. Clinique</th>
-            <th style="color:var(--pur)">Refact. MONIKAZA</th>
-            <th style="color:var(--grn)">Charge nette LIVING</th>
-            <th>Entrée CDI</th><th></th>
-          </tr></thead>
-          <tbody id="sal-tbody"><tr><td colspan="11" style="text-align:center;color:var(--t2);padding:1.5rem">Aucun salarié — ajoutez Christophe dès la décision prise</td></tr></tbody>
-          <tfoot><tr style="background:var(--s2);font-weight:600">
-            <td colspan="4" style="font-size:12px">Total</td>
-            <td id="sal-total-cout" style="font-family:'IBM Plex Mono',monospace">—</td>
-            <td id="sal-total-fcr" style="font-family:'IBM Plex Mono',monospace;color:var(--acc)">—</td>
-            <td id="sal-total-clin" style="font-family:'IBM Plex Mono',monospace;color:var(--grn)">—</td>
-            <td id="sal-total-moni" style="font-family:'IBM Plex Mono',monospace;color:var(--pur)">—</td>
-            <td id="sal-total-net" style="font-family:'IBM Plex Mono',monospace;color:var(--grn)">—</td>
-            <td colspan="2"></td>
-          </tr></tfoot>
-        </table>
-      </div>
-    </div>
-
-  </div>
-
   <!-- CRM CENTRALISÉ -->
   <div class="pv cnt" id="v-crm">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem">
@@ -1587,7 +1411,7 @@
       <div class="kc" style="border-left:3px solid var(--grn)"><div class="kl">Contrats actifs</div><div class="kv" id="ck-actifs">—</div><div class="ks">En cours + signés</div></div>
       <div class="kc" style="border-left:3px solid var(--grn)"><div class="kl">Volume réalisé</div><div class="kv p" id="ck-volume">—</div><div class="ks">Contrats actifs</div></div>
       <div class="kc" style="border-left:3px solid var(--grn)"><div class="kl">Commissions signées</div><div class="kv p" id="ck-com">—</div><div class="ks">YTD</div></div>
-      <div class="kc" style="border-left:3px solid var(--amb)"><div class="kl">Pipeline pondéré</div><div class="kv w" id="ck-afacturer">—</div><div class="ks">25/75/100% selon statut</div></div>
+      <div class="kc" style="border-left:3px solid var(--amb)"><div class="kl">À facturer</div><div class="kv w" id="ck-afacturer">—</div><div class="ks">Signés non facturés</div></div>
       <div class="kc" style="border-left:3px solid var(--red)"><div class="kl">Rappels à venir</div><div class="kv n" id="ck-rappels">—</div><div class="kb kbr" id="ck-rappels-b" style="display:none">Action requise</div></div>
     </div>
     <!-- LIGNE 2 : Pipeline à signer -->
@@ -1596,34 +1420,6 @@
       <div class="kc" style="border-left:3px solid var(--acc);background:var(--acd)"><div class="kl">Volume à signer</div><div class="kv" id="ck-vol-prospect" style="color:var(--acc)">—</div><div class="ks">Pipeline total</div></div>
       <div class="kc" style="border-left:3px solid var(--acc);background:var(--acd)"><div class="kl">Commissions potentielles</div><div class="kv" id="ck-com-prospect" style="color:var(--acc)">—</div><div class="ks">Si tout signé</div></div>
       <div class="kc" style="border-left:3px solid var(--acc);background:var(--acd);grid-column:span 2"><div class="kl">Prochains à signer</div><div id="ck-next-prospects" style="font-size:12px;margin-top:4px;color:var(--t2)">—</div></div>
-    </div>
-
-    <!-- RAPPEL IMPACT STATUTS TRÉSO -->
-    <div style="background:var(--s1);border:1px solid var(--b1);border-radius:10px;padding:12px 16px;margin-bottom:1.5rem;font-size:11px">
-      <div style="font-weight:700;font-size:12px;margin-bottom:10px;color:var(--t2);text-transform:uppercase;letter-spacing:.5px">⚡ Impact des statuts sur la trésorerie</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
-        <div>
-          <div style="font-weight:600;margin-bottom:6px;color:var(--t1)">Statut contrat → Graphique tréso 12 mois</div>
-          <div style="display:flex;flex-direction:column;gap:4px">
-            <div style="display:flex;justify-content:space-between"><span style="color:var(--t3)">Prospect</span><span style="color:var(--t3)">Si date signature renseignée · Pipeline ×25%</span></div>
-            <div style="display:flex;justify-content:space-between"><span>En cours</span><span style="color:var(--acc)">✅ Graphique · Pipeline ×75%</span></div>
-            <div style="display:flex;justify-content:space-between"><span>Signé</span><span style="color:var(--grn)">✅ Graphique + Pipeline ×100%</span></div>
-            <div style="display:flex;justify-content:space-between"><span>Facturé</span><span style="color:var(--acc)">✅ Inclus</span></div>
-            <div style="display:flex;justify-content:space-between"><span>Encaissé</span><span style="color:var(--acc)">✅ Inclus</span></div>
-            <div style="display:flex;justify-content:space-between"><span style="color:var(--t3)">Terminé</span><span style="color:var(--t3)">❌ Exclu de tout</span></div>
-          </div>
-        </div>
-        <div>
-          <div style="font-weight:600;margin-bottom:6px;color:var(--t1)">Statut facture → KPI "À facturer"</div>
-          <div style="display:flex;flex-direction:column;gap:4px;margin-bottom:10px">
-            <div style="display:flex;justify-content:space-between"><span style="color:var(--amb)">À facturer</span><span style="color:var(--amb)">✅ Prospect×25% · En cours×75% · Signé×100%</span></div>
-            <div style="display:flex;justify-content:space-between"><span style="color:var(--t3)">Facturé / Encaissé</span><span style="color:var(--t3)">❌ Hors KPI</span></div>
-          </div>
-          <div style="background:rgba(247,185,40,.12);border-left:3px solid var(--amb);padding:6px 10px;border-radius:0 6px 6px 0;line-height:1.5">
-            <span style="color:var(--grn);font-weight:600">✅ Date paiement prévu</span> positionne le revenu dans le bon mois si renseignée. Sinon fallback sur <span style="color:var(--amb);font-weight:600">⚡ Date signature</span>. Sans aucune des deux, le contrat n'apparaît pas dans les projections.
-          </div>
-        </div>
-      </div>
     </div>
 
     <!-- SOUS-VUES CRM -->
@@ -1647,7 +1443,6 @@
                 </select>
               </div>
               <div class="fg"><label>Description</label><textarea id="p-desc" style="min-height:50px" placeholder="Détails du produit..."></textarea></div>
-              <div class="fg"><label>⏱ Délai signature→paiement (jours)</label><input type="number" id="p-delai" placeholder="ex: 30" min="0" step="1" title="Délai moyen en jours entre la date de signature et la réception du paiement compagnie"></div>
             </div>
             <div>
               <div class="fg"><label>Type commission</label>
@@ -1772,8 +1567,6 @@
               <div class="g2">
                 <div class="fg"><label>Date signature</label><input type="date" id="ct-signed"></div>
                 <div class="fg"><label>Prochain rappel</label><input type="date" id="ct-reminder"></div>
-                <div class="fg"><label>Date paiement prévu</label><input type="date" id="ct-pay-expected"></div>
-                <div class="fg"><label>Date paiement effectif</label><input type="date" id="ct-pay-actual"></div>
                 <div class="fg"><label>Récurrence (si prestation)</label>
                   <select id="ct-recurrence">
                     <option value="">Ponctuel / Pas de récurrence</option>
@@ -1903,10 +1696,6 @@
         </div>
         <div class="fg"><label style="color:var(--acc)">Date signature ⚡ utilisée par la tréso</label><input type="date" id="ce-signed"></div>
         <div class="fg"><label>Prochain rappel</label><input type="date" id="ce-reminder"></div>
-        <div class="g2">
-          <div class="fg"><label>📅 Date paiement prévu</label><input type="date" id="ce-pay-expected"></div>
-          <div class="fg"><label>✅ Date paiement effectif</label><input type="date" id="ce-pay-actual"></div>
-        </div>
         <div class="fg" id="ce-trail-proba-fg" style="display:none">
           <label>Probabilité reconduction trailing (%)</label>
           <input type="range" id="ce-trail-proba" min="0" max="100" value="80" oninput="document.getElementById('ce-trail-proba-val').textContent=this.value+'%'">
@@ -2005,36 +1794,6 @@ const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZ
 const{createClient}=supabase;
 const sb=createClient(SB_URL,SB_KEY);
 
-// ─── Helpers payables ────────────────────────────────────────────────────────
-// Convertit DD/MM/YYYY ou DD-MM-YYYY en YYYY-MM-DD
-function _nd(d){
-  if(!d||d==='null'||d==='undefined')return null;
-  var s=String(d).trim();
-  var m=s.match(/^(\d{2})[\/\-](\d{2})[\/\-](\d{4})$/);
-  return m?m[3]+'-'+m[2]+'-'+m[1]:s;
-}
-// Nettoie un payable brut de Supabase
-function _np(p){
-  var ht=parseFloat(p.amount_ht)||0;
-  var ttc=parseFloat(p.amount_ttc)||0;
-  if(ttc===0&&ht>0)ttc=Math.round(ht*1.2*100)/100;
-  var fourn=String(p.fournisseur||'').trim();
-  if(!fourn||fourn==='null')fourn=String(p.label||'').trim()||'Fournisseur';
-  return Object.assign({},p,{
-    fournisseur:fourn,
-    label:String(p.label||'').trim(),
-    amount_ht:ht,
-    amount_ttc:ttc,
-    invoice_date:_nd(p.invoice_date),
-    due_date:_nd(p.due_date),
-    invoice_number:(!p.invoice_number||p.invoice_number==='null')?null:p.invoice_number
-  });
-}
-async function _qPayables(filter){
-  try{var r=await filter;return(r.data||[]).map(_np);}catch(e){return[];}
-}
-// ─────────────────────────────────────────────────────────────────────────────
-
 const companies=[
   {id:'meulette',name:'La Meulette',type:'SARL de famille — RCS Libourne',color:'#F39C12',health:'Ventes en cours',dot:'amb',
    kpis:[
@@ -2127,8 +1886,7 @@ function toggleAssetForm(){
   if(show){f._editId=null;document.getElementById('asset-form-title').textContent='Nouvel actif patrimonial';
     ['as-nom','as-description','as-preteur','as-ref-pret','as-notes'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
     ['as-val-acq','as-frais-acq','as-val-marche','as-montant-finance','as-capital-restant','as-taux','as-mensualite'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
-    ['as-date-acq','as-val-marche-date','as-capital-date','as-fin-pret','as-date-vente','as-prix-vente','as-net-vente'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
-    const vd=document.getElementById('as-vente-detail');if(vd)vd.textContent='';
+    ['as-date-acq','as-val-marche-date','as-capital-date','as-fin-pret'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
     document.getElementById('as-financement').checked=false;document.getElementById('as-financement-fields').style.display='none';document.getElementById('as-equity-preview').style.display='none';}
 }
 function toggleFinancementFields(){const show=document.getElementById('as-financement').checked;document.getElementById('as-financement-fields').style.display=show?'block':'none';calcAssetEquity();}
@@ -2183,10 +1941,7 @@ async function saveAsset(){
     assurance_valeur_assuree:parseFloat(document.getElementById('as-assurance-valeur').value)||0,
     assurance_contact:document.getElementById('as-assurance-contact').value||null,
     notes:document.getElementById('as-notes').value||null,
-    statut:'detenu',
-    date_vente_prevue:document.getElementById('as-date-vente')?.value||null,
-    prix_vente_prevu:parseFloat(document.getElementById('as-prix-vente')?.value)||null,
-    net_vente_estime:parseFloat(document.getElementById('as-net-vente')?.value)||null
+    statut:'detenu'
   };
   let error,data;
   if(editId){({error}=await sb.from('assets').update(payload).eq('id',editId));data={id:editId};}
@@ -2252,8 +2007,7 @@ async function loadAssets(){
     html+='</div>';
     html+='<div style="display:flex;gap:6px">';
     html+='<button onclick="editAsset(\''+a.id+'\')" style="border:none;background:none;cursor:pointer;color:var(--acc);font-size:14px" title="Modifier">&#9998;</button>';
-    html+='<button onclick="showVenteSimul(\''+a.id+'\')" style="border:none;background:none;cursor:pointer;color:var(--grn);font-size:13px" title="Simulation vente">&#128176;</button>'
-          +(a.date_vente_prevue?'<button onclick="openSimulCGW()" style="border:none;background:var(--acd);color:var(--acc);font-size:10px;padding:2px 6px;border-radius:4px;cursor:pointer;margin-left:4px">CGW ↗</button>':'');
+    html+='<button onclick="showVenteSimul(\''+a.id+'\')" style="border:none;background:none;cursor:pointer;color:var(--grn);font-size:13px" title="Simulation vente">&#128176;</button>';
     html+='<button onclick="delAsset(\''+a.id+'\')" style="border:none;background:none;cursor:pointer;color:var(--t2);font-size:14px" title="Supprimer">&#x2715;</button>';
     html+='</div></div>';
     // Values grid
@@ -2342,135 +2096,17 @@ async function editAsset(id){
 async function showVenteSimul(id){
   const{data:a}=await sb.from('assets').select('*').eq('id',id).single();
   if(!a)return;
-  const nv=Number(a.prix_vente_prevu||a.valeur_marche||0),cr=Number(a.capital_restant||0);
-  if(!nv){toast('Renseignez un net vendeur ou une valeur marché');return;}
-  const net=nv-cr;
+  const vm=Number(a.valeur_marche||0),cr=Number(a.capital_restant||0),va=Number(a.valeur_acquisition||0)+Number(a.frais_acquisition||0);
+  if(!vm){toast('Renseignez une valeur marché pour simuler');return;}
+  const fA=Math.round(vm*0.05),fN=a.type_asset==='immobilier'?Math.round(vm*0.015):0;
+  const pv=vm-va,impot=pv>0?(a.regime_fiscal==='is'?Math.round(pv*0.25):Math.round(pv*0.36)):0;
+  const net=vm-cr-fA-fN-impot;
   const sep='='.repeat(35);
-  alert('Simulation vente - '+a.nom+'\n'+sep+'\nNet vendeur (après frais) : '+Math.round(nv).toLocaleString('fr-FR')+' \u20ac\nCapital restant dû : -'+Math.round(cr).toLocaleString('fr-FR')+' \u20ac\nPas d\'impôt PV (La Meulette en déficit)\n'+sep+'\nTRÉSO PERÇUE : '+(net>=0?'+':'')+Math.round(net).toLocaleString('fr-FR')+' \u20ac');
-}
-function calcVenteNette(){
-  // Net vendeur saisi = prix net après frais agence/notaire déjà négociés
-  // On déduit juste le capital restant dû
-  const nv=parseFloat(document.getElementById('as-prix-vente')?.value)||0;
-  const cr=parseFloat(document.getElementById('as-capital-restant')?.value)||0;
-  if(!nv){document.getElementById('as-net-vente').value='';document.getElementById('as-vente-detail').textContent='';return;}
-  const net=nv-cr;
-  document.getElementById('as-net-vente').value=Math.round(net);
-  document.getElementById('as-vente-detail').textContent=`Net vendeur ${Math.round(nv).toLocaleString('fr-FR')}€ − Capital restant dû ${Math.round(cr).toLocaleString('fr-FR')}€ = Tréso perçue ${net>=0?'+':''}${Math.round(net).toLocaleString('fr-FR')}€ (pas d'impôt PV — La Meulette en déficit)`;
-}
-async function openSimulCGW(){
-  const{data:av}=await sb.from('assets').select('id,nom,date_vente_prevue,net_vente_estime,valeur_marche,capital_restant,valeur_acquisition,frais_acquisition,regime_fiscal,type_asset').not('date_vente_prevue','is','null');
-  const panel=document.getElementById('simul-cgw-vente');
-  if(!panel){toast('Allez dans la section Patrimoine');showPatrimoine();return;}
-  panel.style.display='block';panel.scrollIntoView({behavior:'smooth'});
-  let totalNet=0;
-  const list=document.getElementById('simul-ventes-list');
-  list.innerHTML=(av||[]).map(a=>{
-    let net=Number(a.net_vente_estime||0);
-    if(!net){const nv=Number(a.prix_vente_prevu||a.valeur_marche||0),cr=Number(a.capital_restant||0);net=nv-cr;}
-    totalNet+=net;
-    const dl=a.date_vente_prevue?new Date(a.date_vente_prevue).toLocaleDateString('fr-FR',{month:'short',year:'numeric'}):'';
-    return `<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--b1);font-size:12px"><span>${a.nom} <span style="color:var(--t2)">${dl}</span></span><span style="font-family:'IBM Plex Mono',monospace;color:var(--grn);font-weight:600">+${Math.round(net).toLocaleString('fr-FR')} €</span></div>`;
-  }).join('')+`<div style="display:flex;justify-content:space-between;padding:8px 0;font-weight:700;font-size:13px"><span>Total net estimé</span><span style="font-family:'IBM Plex Mono',monospace;color:var(--grn)">+${Math.round(totalNet).toLocaleString('fr-FR')} €</span></div>`;
-  panel._totalNet=totalNet;runSimulCGW();
-}
-async function creerContratCGW(capital, duree, taux){
-  const coupon=Math.round(capital*(taux/100)*(duree/12));
-  const prodLabel=duree<=3?'CGW Sovereign 95XX (3 mois)':duree<=6?'CGW Elite Diamond Series (6 mois)':'CGW Elite Black Label (12 mois)';
-  const dateSign=new Date().toISOString().split('T')[0];
-  const dp=new Date(); dp.setMonth(dp.getMonth()+duree);
-  const datePay=dp.toISOString().split('T')[0];
-
-  const modal=document.createElement('div');
-  modal.id='cgw-confirm-modal';
-  modal.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:300;display:flex;align-items:center;justify-content:center;padding:1rem';
-  modal.innerHTML='<div style="background:var(--s1);border:1px solid var(--b1);border-radius:16px;padding:1.5rem;width:100%;max-width:520px">'
-    +'<div style="font-size:16px;font-weight:700;margin-bottom:4px">Créer le contrat CGW</div>'
-    +'<div style="font-size:12px;color:var(--t2);margin-bottom:20px">Simulation → Contrat réel dans le CRM</div>'
-    +'<div style="background:var(--acd);border-left:3px solid var(--acc);border-radius:0 8px 8px 0;padding:12px;margin-bottom:16px;font-size:12px">'
-    +'<div style="font-weight:600;color:var(--acc);margin-bottom:8px">📋 Recommandation</div>'
-    +'<div style="display:flex;justify-content:space-between;margin-bottom:4px"><span>Produit</span><strong>'+prodLabel+'</strong></div>'
-    +'<div style="display:flex;justify-content:space-between;margin-bottom:4px"><span>Capital</span><strong>'+capital.toLocaleString('fr-FR')+' €</strong></div>'
-    +'<div style="display:flex;justify-content:space-between;margin-bottom:4px"><span>Durée</span><strong>'+duree+' mois à '+taux+'%</strong></div>'
-    +'<div style="display:flex;justify-content:space-between;border-top:1px solid var(--acc);padding-top:6px;margin-top:6px"><span>Coupon estimé</span><strong style="color:var(--grn)">+'+coupon.toLocaleString('fr-FR')+' €</strong></div>'
-    +'</div>'
-    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">'
-    +'<div><div style="font-size:11px;color:var(--t2);margin-bottom:5px;text-transform:uppercase">Client investisseur</div>'
-    +'<select id="cgw-client-select" style="width:100%;padding:8px;border:1px solid var(--b1);border-radius:7px;background:var(--s2);color:var(--t1)"><option value="">Chargement...</option></select></div>'
-    +'<div><div style="font-size:11px;color:var(--t2);margin-bottom:5px;text-transform:uppercase">Société facturante</div>'
-    +'<select id="cgw-billing-select" style="width:100%;padding:8px;border:1px solid var(--b1);border-radius:7px;background:var(--s2);color:var(--t1)">'
-    +'<option value="sas-living">SAS Living</option><option value="sarl-guiraud">SARL Guiraud</option></select></div>'
-    +'<div><div style="font-size:11px;color:var(--t2);margin-bottom:5px;text-transform:uppercase">Date souscription</div>'
-    +'<input type="date" id="cgw-date-sign" value="'+dateSign+'" style="width:100%;padding:8px;border:1px solid var(--b1);border-radius:7px;background:var(--s2);color:var(--t1)"></div>'
-    +'<div><div style="font-size:11px;color:var(--t2);margin-bottom:5px;text-transform:uppercase">Date paiement prévu</div>'
-    +'<input type="date" id="cgw-date-pay" value="'+datePay+'" style="width:100%;padding:8px;border:1px solid var(--b1);border-radius:7px;background:var(--s2);color:var(--t1)"></div>'
-    +'</div>'
-    +'<div style="display:flex;gap:8px">'
-    +'<button onclick="confirmCGWContract('+capital+','+duree+','+taux+','+coupon+')" style="flex:1;padding:11px;background:var(--acc);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer">✅ Créer le contrat</button>'
-    +'<button onclick="document.getElementById(\'cgw-confirm-modal\').remove()" style="padding:11px 16px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;cursor:pointer;font-size:13px">Annuler</button>'
-    +'</div></div>';
-  document.body.appendChild(modal);
-
-  const{data:cls}=await sb.from('clients').select('id,name,company_name').eq('active',true).order('name');
-  const sel=document.getElementById('cgw-client-select');
-  if(sel)sel.innerHTML=(cls||[]).map(cl=>'<option value="'+cl.id+'">'+cl.name+(cl.company_name?' — '+cl.company_name:'')+'</option>').join('');
-}
-
-async function confirmCGWContract(capital, duree, taux, coupon){
-  const clientId=document.getElementById('cgw-client-select')?.value;
-  const billing=document.getElementById('cgw-billing-select')?.value||'sas-living';
-  const dateSigne=document.getElementById('cgw-date-sign')?.value;
-  const datePay=document.getElementById('cgw-date-pay')?.value;
-  if(!clientId){toast('Sélectionnez un client');return;}
-  const{data:prods}=await sb.from('products').select('id').eq('category','cgw').eq('active',true).limit(1);
-  const prodId=prods?.[0]?.id||null;
-  const prodLabel=duree<=3?'CGW Sovereign 95XX':duree<=6?'CGW Elite Diamond Series':'CGW Elite Black Label';
-  const payload={
-    client_id:clientId,product_id:prodId,
-    label:prodLabel+' — '+capital.toLocaleString('fr-FR')+'€',
-    amount:capital,commission_amount:coupon,
-    billing_company_id:billing,status:'signe',invoice_status:'a_emettre',
-    signed_date:dateSigne||null,payment_expected_date:datePay||null,tva_rate:0,recurrence:null,
-    notes:'Contrat créé depuis simulateur CGW. Durée: '+duree+' mois, Taux: '+taux+'%. Coupon estimé: '+coupon.toLocaleString('fr-FR')+'€'
-  };
-  const{error}=await sb.from('contracts').insert(payload);
-  if(error){toast('Erreur: '+error.message);return;}
-  document.getElementById('cgw-confirm-modal')?.remove();
-  toast('✅ Contrat CGW créé — visible dans le CRM et la tréso');
-  if(typeof loadTresoChart==='function')loadTresoChart();
-  if(typeof loadCRMData==='function')loadCRMData();
-}
-
-function runSimulCGW(){
-  const totalNet=document.getElementById('simul-cgw-vente')?._totalNet||0;
-  const dettes=parseFloat(document.getElementById('simul-dettes')?.value)||0;
-  const charges=parseFloat(document.getElementById('simul-charges')?.value)||0;
-  const duree=parseInt(document.getElementById('simul-duree')?.value)||6;
-  const taux=parseFloat(document.getElementById('simul-taux')?.value)||16;
-  const excedent=totalNet-dettes-charges;
-  const coupon=Math.round(excedent*(taux/100)*(duree/12));
-  const velomoto=Math.round(30000000*0.03);
-  const result=document.getElementById('simul-cgw-result');
-  if(!result)return;
-  result.innerHTML=`<div style="font-size:11px;color:var(--t2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px">Résultat simulation</div>
-    <div style="display:flex;flex-direction:column;gap:8px">
-      <div style="display:flex;justify-content:space-between;font-size:12px"><span>Produit net ventes</span><span style="font-family:'IBM Plex Mono',monospace;color:var(--grn)">+${Math.round(totalNet).toLocaleString('fr-FR')} €</span></div>
-      <div style="display:flex;justify-content:space-between;font-size:12px"><span>Dettes à rembourser</span><span style="font-family:'IBM Plex Mono',monospace;color:var(--red)">−${Math.round(dettes).toLocaleString('fr-FR')} €</span></div>
-      <div style="display:flex;justify-content:space-between;font-size:12px"><span>Charges Q2</span><span style="font-family:'IBM Plex Mono',monospace;color:var(--red)">−${Math.round(charges).toLocaleString('fr-FR')} €</span></div>
-      <div style="display:flex;justify-content:space-between;font-size:13px;font-weight:700;border-top:1px solid var(--b1);padding-top:8px"><span>Excédent à placer</span><span style="font-family:'IBM Plex Mono',monospace;color:${excedent>=0?'var(--grn)':'var(--red)'}">${excedent>=0?'+':''}${Math.round(excedent).toLocaleString('fr-FR')} €</span></div>
-      ${excedent>0?`<div style="background:var(--acd);border-radius:8px;padding:12px;margin-top:4px">
-        <div style="font-size:11px;color:var(--acc);font-weight:600;margin-bottom:8px">CGW ${duree} mois à ${taux}%</div>
-        <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span>Coupon estimé</span><span style="font-family:'IBM Plex Mono',monospace;color:var(--grn)">+${coupon.toLocaleString('fr-FR')} €</span></div>
-        <div style="display:flex;justify-content:space-between;font-size:14px;font-weight:800;border-top:1px solid var(--acc);padding-top:8px"><span>Total récupéré</span><span style="font-family:'IBM Plex Mono',monospace;color:var(--grn)">${(excedent+coupon).toLocaleString('fr-FR')} €</span></div>
-      </div>
-      <div style="background:var(--grd);border-radius:8px;padding:10px;border-left:3px solid var(--grn)">
-        <div style="font-size:11px;color:var(--grn);font-weight:600;margin-bottom:4px">🚗 Couverture Velomotion</div>
-        <div style="font-size:11px;color:var(--t2)">Commission LLD 30M€ : <strong style="color:var(--grn)">${velomoto.toLocaleString('fr-FR')} €</strong></div>
-        <div style="font-size:11px;color:var(--t2);margin-top:2px">CGW + Velomotion = <strong style="color:var(--grn)">${(coupon+velomoto).toLocaleString('fr-FR')} €</strong></div>
-      </div>`:'<div style="background:var(--rdd);border-radius:8px;padding:10px;color:var(--red);font-size:12px;margin-top:8px">⚠ Excédent insuffisant — augmentez le net vendeur ou réduisez les dettes</div>'}
-    </div>
-    ${excedent>=100000?`<button onclick="creerContratCGW(${Math.round(excedent)},${duree},${taux})" style="width:100%;margin-top:12px;padding:12px;background:var(--acc);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer">➕ Créer le contrat CGW dans le CRM (simulation → réel)</button>`:''}
-    `;
+  const pvLine=pv>=0?'+'+Math.round(pv).toLocaleString('fr-FR'):Math.round(pv).toLocaleString('fr-FR');
+  const impotLine=pv>0?'\nImpot PV ('+(a.regime_fiscal==='is'?'IS 25%':'IR+PS 36%')+') : -'+impot.toLocaleString('fr-FR')+' \u20ac':'';
+  const fNLine=fN?'\nFrais notaire (~1,5%) : -'+fN.toLocaleString('fr-FR')+' \u20ac':'';
+  const netSign=net>=0?'+':'';
+  alert('Simulation vente - '+a.nom+'\n'+sep+'\nPrix de vente : '+Math.round(vm).toLocaleString('fr-FR')+' \u20ac\nCapital restant : -'+Math.round(cr).toLocaleString('fr-FR')+' \u20ac\nFrais agence (~5%) : -'+fA.toLocaleString('fr-FR')+' \u20ac'+fNLine+'\nPV brute : '+pvLine+' \u20ac'+impotLine+'\n'+sep+'\nNET PERCU ESTIME : '+netSign+Math.round(net).toLocaleString('fr-FR')+' \u20ac');
 }
 async function delAsset(id){if(!confirm('Supprimer cet actif ?'))return;await sb.from('assets').delete().eq('id',id);loadAssets();toast('Supprimé');}
 
@@ -2575,7 +2211,6 @@ async function processNextGEDBatch(){
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({base64,docType:'document_universel'})
     });
-    if(!resp.ok){throw new Error('Fonction OCR indisponible (HTTP '+resp.status+') — vérifiez le déploiement Netlify');}
     const parsed=await resp.json();
     batch.results[batch.current]={file,base64,parsed,error:null};
   }catch(e){
@@ -2731,8 +2366,9 @@ async function analyzeGEDFile(file){
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({base64,docType:'document_universel'})
     });
-    if(!resp.ok){throw new Error('Fonction OCR indisponible (HTTP '+resp.status+') — vérifiez le déploiement Netlify');}
     const parsed=await resp.json();
+
+    resultEl.innerHTML='<div style="font-size:12px;line-height:1.8">'
       +'<div><span style="color:var(--t2)">Type :</span> <strong>'+(parsed.type_document||'—')+'</strong></div>'
       +'<div><span style="color:var(--t2)">Expéditeur :</span> <strong>'+(parsed.emetteur||parsed.fournisseur||'—')+'</strong></div>'
       +'<div><span style="color:var(--t2)">Date :</span> <strong>'+(parsed.date||'—')+'</strong></div>'
@@ -2969,7 +2605,7 @@ async function loadApurement(){
   // Données depuis payables + debts + forecasts
   const safeQ=async(q)=>{try{const r=await q;return r.data||[];}catch(e){return[];}};
   const[allPayables,allDebts,allForecasts,allReceivables]=await Promise.all([
-    _qPayables(sb.from('payables').select('*').eq('status','a_payer').order('due_date',{ascending:true})),
+    safeQ(sb.from('payables').select('*').eq('status','a_payer').order('due_date',{ascending:true})),
     safeQ(sb.from('debts').select('*').eq('status','en_cours').order('urgency_level',{ascending:false})),
     safeQ(sb.from('cash_forecast').select('*')),
     safeQ(sb.from('receivables').select('*').in('status',['envoyee','en_attente']))
@@ -3004,7 +2640,7 @@ async function loadApurement(){
 
   // Total dettes restantes
   const totalDetteRest=(allDebts||[]).reduce((s,d)=>s+Number(d.amount_remaining||d.amount_total||0),0);
-  const totalFactRest=(allPayables||[]).reduce((s,p)=>s+(isNaN(Number(p.amount_ttc))?0:Number(p.amount_ttc||0)),0);
+  const totalFactRest=(allPayables||[]).reduce((s,p)=>s+Number(p.amount_ttc||0),0);
 
   const col1='<div class="card" style="border-left:3px solid var(--acc)">'
     +'<div style="font-size:13px;font-weight:700;margin-bottom:14px;color:var(--acc)">Situation '+months[0].label+'</div>'
@@ -3052,13 +2688,10 @@ async function loadApurement(){
     });
     factures.forEach(p=>{
       const isOverdue=p.due_date&&new Date(p.due_date)<now&&idx===0;
-      const _ttc=parseFloat(p.amount_ttc);
-      const _ht=parseFloat(p.amount_ht);
-      const _amt=(!isNaN(_ttc)&&_ttc>0)?_ttc:(!isNaN(_ht)&&_ht>0?Math.round(_ht*1.2):0);
       items.push({
-        label:String(p.fournisseur||p.label||'Fournisseur'),
-        detail:String(p.label||p.objet||p.invoice_number||(p.due_date?'Éch. '+new Date(p.due_date).toLocaleDateString('fr-FR'):'')||''),
-        amount:_amt,
+        label:p.fournisseur||'Fournisseur',
+        detail:p.objet||p.invoice_number||(p.due_date?'Éch. '+new Date(p.due_date).toLocaleDateString('fr-FR'):''),
+        amount:Number(p.amount_ttc||0),
         sortKey: isOverdue?0:1, // retards en premier
         date:p.due_date||'9999',
         urgency:0, // factures triées par date
@@ -3141,14 +2774,11 @@ async function loadApurement(){
     const factPct=savedPct/100;
     let restant3=restant2;
     const factItems=factures.map(f=>{
-      const amount=parseFloat(f.amount_ttc)||Math.round((parseFloat(f.amount_ht)||0)*1.2)||0;
-      const label=String(f.fournisseur||f.label||'Fournisseur');
-      const detail=String(f.label||f.objet||f.invoice_number||(f.due_date?'Éch. '+new Date(f.due_date).toLocaleDateString('fr-FR'):'')||'');
-      const montantVoulu=Math.round(amount*factPct);
+      const montantVoulu=Math.round(f.amount*factPct);
       const payer=Math.min(montantVoulu,restant3);
       restant3=Math.max(0,restant3-payer);
-      const pc=amount>0?Math.round(payer/amount*100):0;
-      return {...f,amount,label,detail,payer,pc,type:'facture'};
+      const pc=f.amount>0?Math.round(payer/f.amount*100):0;
+      return {...f,payer,pc};
     });
     const allItems=[...detteItems,...factItems];
 
@@ -3169,7 +2799,7 @@ async function loadApurement(){
         +(item.detail?'<div style="font-size:10px;color:var(--t2);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+item.detail+'</div>':'')
         +'</div>'
         +'<div style="text-align:right;flex-shrink:0">'
-        +'<div style="font-family:monospace;font-size:11px;font-weight:700;color:var(--red)">'+(isNaN(item.amount)?'—':Math.round(item.amount).toLocaleString('fr-FR')+' €')+'</div>'
+        +'<div style="font-family:monospace;font-size:11px;font-weight:700;color:var(--red)">'+Math.round(item.amount).toLocaleString('fr-FR')+' €</div>'
         +(item.payer>0?'<div style="font-size:9px;color:var(--grn)">Pay: '+Math.round(item.payer).toLocaleString('fr-FR')+' €</div>':'<div style="font-size:9px;color:var(--red)">En attente</div>')
         +'</div></div>'
         +'<div style="height:2px;background:var(--b1);border-radius:2px;margin-top:5px">'
@@ -3180,7 +2810,7 @@ async function loadApurement(){
     const detteHtml=detteItems.map(renderItem).join('');
     const factHtml=factItems.map(renderItem).join('');
 
-    return '<div class="card" style="border-top:4px solid '+borderColor+';max-height:calc(100vh - 240px);overflow-y:auto;display:flex;flex-direction:column">'
+    return '<div class="card" style="border-top:4px solid '+borderColor+'">'
       +'<div style="font-size:13px;font-weight:700;margin-bottom:8px;text-transform:capitalize">'+m.label+tag+'</div>'
       // Résumé rapide
       +(totalItems>0?'<div style="font-size:10px;color:var(--t2);margin-bottom:10px;display:flex;gap:12px">'
@@ -3208,270 +2838,6 @@ async function loadApurement(){
   main.innerHTML=col1+monthCols.join('');
 }
 
-
-// ═══════════════════════════════════════════
-// MODULE PARTICIPATIONS
-// ═══════════════════════════════════════════
-var _parts = JSON.parse(localStorage.getItem('jg_parts') || 'null');
-var _sals  = JSON.parse(localStorage.getItem('jg_sals')  || '[]');
-var _jalons= JSON.parse(localStorage.getItem('jg_jalons2')|| 'null');
-
-if (!_parts) {
-  _parts = [
-    {id:'fcr',    nom:'FCR Autos',              pct:25, type:'minoritaire', statut:'levee',
-     feesJ:15000, feesC:11667, valo:20000000, jalonDate:'2026-07-01', jalonLabel:'Closing levée 5M€', divid:0},
-    {id:'clinic', nom:'Private French Clinic',  pct:45, type:'majoritaire', statut:'structuration',
-     feesJ:15000, feesC:10000, valo:12000000, jalonDate:'2026-09-30', jalonLabel:'Closing seed 3M€', divid:0},
-    {id:'moni',   nom:'MONIKAZA',               pct:0,  type:'minoritaire', statut:'structuration',
-     feesJ:0,     feesC:3000,  valo:0,        jalonDate:'2026-12-31', jalonLabel:'Lancement levée', divid:0}
-  ];
-  localStorage.setItem('jg_parts', JSON.stringify(_parts));
-}
-
-if (!_jalons) {
-  _jalons = [
-    {id:'j1',projet:'FCR',     label:'Closing levée 5M€',                  date:'2026-07-01',statut:'inprogress',action:'WINSTON ROSE — dossier en cours'},
-    {id:'j2',projet:'Clinique',label:'Signature pacte fondateurs',          date:'2026-04-30',statut:'todo',      action:'Mandater avocat droit des sociétés'},
-    {id:'j3',projet:'Clinique',label:'Validation chiffres Mario (Excel)',   date:'2026-03-31',statut:'todo',      action:'Mario — volumes actes / honoraires'},
-    {id:'j4',projet:'Clinique',label:'Fiscaliste UAE/France',               date:'2026-04-15',statut:'todo',      action:'CFC, dividendes, holding Lux vs NL'},
-    {id:'j5',projet:'Clinique',label:'Closing seed 3M€',                   date:'2026-10-01',statut:'todo',      action:'WINSTON ROSE — cible M+6'},
-    {id:'j6',projet:'FCR',     label:'Démarrage opérationnel FCR',          date:'2026-09-01',statut:'todo',      action:'Christophe DG + équipe'},
-    {id:'j7',projet:'LIVING',  label:'Embauche Christophe CDI',             date:'2026-07-01',statut:'todo',      action:'3 500€ net — contrat à préparer'},
-    {id:'j8',projet:'MONIKAZA',label:'Lancement levée WINSTON ROSE',        date:'2026-12-31',statut:'todo',      action:'Benjamin Castel — dossier à structurer'}
-  ];
-  localStorage.setItem('jg_jalons2', JSON.stringify(_jalons));
-}
-
-function showParticipations() {
-  setViews('v-participations');
-  document.getElementById('ptabs').style.display = 'none';
-  document.getElementById('tb-title').textContent = 'Participations & Projets groupe';
-  document.getElementById('tb-sub').textContent   = 'Jalons · Management fees · Valorisation';
-  document.querySelectorAll('.gbtn').forEach(function(b){b.classList.remove('active');});
-  var btn = document.getElementById('btn-participations');
-  if (btn) btn.classList.add('active');
-  renderParts(); renderSals(); renderJalons();
-}
-
-var _fmt = function(v) {
-  if (isNaN(v) || v === 0) return '—';
-  return new Intl.NumberFormat('fr-FR',{style:'currency',currency:'EUR',maximumFractionDigits:0}).format(v);
-};
-var _fmtK = function(v) {
-  if (!v || isNaN(v)) return '—';
-  if (v >= 1000000) return (v/1000000).toFixed(1) + ' M€';
-  if (v >= 1000)    return Math.round(v/1000) + ' k€';
-  return v + ' €';
-};
-var ST = {structuration:{l:'En structuration',c:'var(--amb)',b:'var(--amd)'},levee:{l:'Levée en cours',c:'var(--acc)',b:'var(--acd)'},operationnel:{l:'Opérationnel',c:'var(--grn)',b:'var(--grd)'}};
-var JL = {todo:'🔲 À faire',inprogress:'🔄 En cours',done:'✅ Fait',blocked:'🔴 Bloqué'};
-var PC = {FCR:'var(--acc)',Clinique:'var(--grn)',MONIKAZA:'var(--pur)',LIVING:'var(--amb)',Groupe:'var(--t2)'};
-
-function renderParts() {
-  var today = new Date();
-  // KPIs
-  var totV=0,totF=0,totD=0;
-  _parts.forEach(function(p){totV+=(p.valo||0)*(p.pct||0)/100;totF+=(p.feesJ||0)+(p.feesC||0);totD+=(p.divid||0);});
-  var nb=document.getElementById('pk-nb'); if(nb) nb.textContent=_parts.length;
-  var pv=document.getElementById('pk-valeur'); if(pv) pv.textContent=_fmtK(totV);
-  var pf=document.getElementById('pk-fees'); if(pf) pf.textContent=_fmt(totF);
-  var pd=document.getElementById('pk-divid'); if(pd) pd.textContent=_fmt(totD);
-  var pending=_jalons.filter(function(j){return j.statut!=='done';}).sort(function(a,b){return new Date(a.date)-new Date(b.date);});
-  var pnj=document.getElementById('pk-next-jalon'),pnjl=document.getElementById('pk-next-jalon-label');
-  if(pending.length>0&&pnj){
-    var nj=pending[0],days=Math.ceil((new Date(nj.date)-today)/86400000);
-    pnj.textContent=days>0?days+' j':'DÉPASSÉ';
-    pnj.style.color=days<30?'var(--red)':days<90?'var(--amb)':'var(--t1)';
-    if(pnjl) pnjl.textContent=nj.label.substring(0,30)+(nj.label.length>30?'…':'');
-  }
-
-  // Cartes — layout compact 3 colonnes
-  var cards=document.getElementById('part-cards'); if(!cards) return;
-  if(!_parts.length){cards.innerHTML='<div style="grid-column:span 3;color:var(--t2);padding:2rem;text-align:center">Aucune participation</div>';return;}
-  cards.innerHTML=_parts.map(function(p,i){
-    var st=ST[p.statut]||ST.structuration;
-    var qv=(p.valo||0)*(p.pct||0)/100;
-    var tc=p.type==='majoritaire'?'var(--grn)':'var(--acc)';
-    var pj=_jalons.filter(function(j){return j.projet===p.nom.split(' ')[0]||j.projet===p.id;});
-    var nj=pj.filter(function(j){return j.statut!=='done';}).sort(function(a,b){return new Date(a.date)-new Date(b.date);})[0];
-    var days=nj?Math.ceil((new Date(nj.date)-today)/86400000):null;
-    var dc=days!==null?(days<30?'var(--red)':days<90?'var(--amb)':'var(--t2)'):'var(--t2)';
-    return '<div class="card" style="border-top:3px solid '+tc+';display:flex;flex-direction:column;gap:0">'
-      // En-tête
-      +'<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">'
-      +'<div><div style="font-size:14px;font-weight:600;line-height:1.3">'+p.nom+'</div>'
-      +'<div style="font-size:10px;color:var(--t2);margin-top:2px">'+(p.type==='majoritaire'?'🟢':'🔵')+' '+p.pct+'% LIVING</div></div>'
-      +'<div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px">'
-      +'<span style="font-size:9px;padding:2px 7px;border-radius:4px;background:'+st.b+';color:'+st.c+';font-weight:500;white-space:nowrap">'+st.l+'</span>'
-      +'<button style="font-size:9px;padding:1px 6px;border-radius:4px;border:1px solid var(--b1);background:none;cursor:pointer;color:var(--t2)" onclick="editPart('+i+')">✎ modifier</button>'
-      +'</div></div>'
-      // Métriques
-      +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px">'
-      +'<div style="background:var(--s2);border-radius:6px;padding:7px 9px">'
-      +'<div style="font-size:9px;color:var(--t3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px">Valo totale</div>'
-      +'<div style="font-family:\'IBM Plex Mono\',monospace;font-size:12px;font-weight:500">'+_fmtK(p.valo||0)+'</div></div>'
-      +'<div style="background:var(--s2);border-radius:6px;padding:7px 9px">'
-      +'<div style="font-size:9px;color:var(--t3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px">Quote-part LIVING</div>'
-      +'<div style="font-family:\'IBM Plex Mono\',monospace;font-size:12px;font-weight:500;color:var(--pur)">'+_fmtK(qv)+'</div></div>'
-      +'<div style="background:var(--s2);border-radius:6px;padding:7px 9px">'
-      +'<div style="font-size:9px;color:var(--t3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px">Fees Julien/mois</div>'
-      +'<div style="font-family:\'IBM Plex Mono\',monospace;font-size:12px;color:var(--grn)">'+_fmt(p.feesJ||0)+'</div></div>'
-      +'<div style="background:var(--s2);border-radius:6px;padding:7px 9px">'
-      +'<div style="font-size:9px;color:var(--t3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px">Fees CB/mois</div>'
-      +'<div style="font-family:\'IBM Plex Mono\',monospace;font-size:12px;color:var(--acc)">'+_fmt(p.feesC||0)+'</div></div>'
-      +'</div>'
-      // Prochain jalon
-      +(nj?'<div style="border-top:1px solid var(--b1);padding-top:8px;font-size:11px">'
-        +'<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:6px">'
-        +'<div style="color:var(--t2);font-size:10px;white-space:nowrap;margin-top:1px">📅 '+nj.date+'</div>'
-        +'<div style="font-weight:500;font-size:11px;text-align:right;color:'+dc+'">'+nj.label+'</div>'
-        +'</div>'
-        +'<div style="font-size:10px;color:'+dc+';margin-top:3px;text-align:right">'+(days>0?days+' jours':'DÉPASSÉ')+'</div></div>':'')
-      +'</div>';
-  }).join('');
-
-  // Valo mini sidebar
-  var vm=document.getElementById('valo-mini'); if(!vm) return;
-  var totQ=_parts.reduce(function(s,p){return s+(p.valo||0)*(p.pct||0)/100;},0);
-  vm.innerHTML=_parts.map(function(p){
-    var q=(p.valo||0)*(p.pct||0)/100;
-    var w=totQ>0?Math.round(q/totQ*100):0;
-    return '<div style="margin-bottom:10px">'
-      +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">'
-      +'<span style="font-size:11px;font-weight:500">'+p.nom+'</span>'
-      +'<span style="font-family:\'IBM Plex Mono\',monospace;font-size:11px;color:var(--pur)">'+_fmtK(q)+'</span></div>'
-      +'<div style="height:4px;background:var(--b1);border-radius:2px">'
-      +'<div style="height:4px;background:var(--pur);border-radius:2px;width:'+w+'%"></div></div>'
-      +'<div style="font-size:10px;color:var(--t2);margin-top:2px">'+p.pct+'% · sur '+_fmtK(p.valo||0)+'</div></div>';
-  }).join('')
-  +'<div style="border-top:1px solid var(--b1);padding-top:8px;margin-top:4px;display:flex;justify-content:space-between">'
-  +'<span style="font-size:11px;font-weight:600">Total</span>'
-  +'<span style="font-family:\'IBM Plex Mono\',monospace;font-size:13px;font-weight:600;color:var(--pur)">'+_fmtK(totQ)+'</span></div>';
-}
-
-function saveParticipation() {
-  var p = {
-    id:'p_'+Date.now(),
-    nom:   document.getElementById('pf-nom').value,
-    pct:   parseFloat(document.getElementById('pf-pct').value)||0,
-    statut:document.getElementById('pf-statut').value,
-    type:  document.getElementById('pf-type').value,
-    feesJ: parseFloat(document.getElementById('pf-fees-j').value)||0,
-    feesC: parseFloat(document.getElementById('pf-fees-c').value)||0,
-    valo:  parseFloat(document.getElementById('pf-valo').value)||0,
-    jalonDate: document.getElementById('pf-jalon-date').value,
-    jalonLabel:document.getElementById('pf-jalon-label').value,
-    divid: parseFloat(document.getElementById('pf-divid').value)||0
-  };
-  if (!p.nom){alert('Nom requis');return;}
-  _parts.push(p);
-  localStorage.setItem('jg_parts',JSON.stringify(_parts));
-  toggleForm('part-new-form');
-  renderParts();
-}
-
-function editPart(i) {
-  var p=_parts[i];
-  document.getElementById('pf-nom').value=p.nom;
-  document.getElementById('pf-pct').value=p.pct;
-  document.getElementById('pf-statut').value=p.statut;
-  document.getElementById('pf-type').value=p.type;
-  document.getElementById('pf-fees-j').value=p.feesJ;
-  document.getElementById('pf-fees-c').value=p.feesC;
-  document.getElementById('pf-valo').value=p.valo;
-  document.getElementById('pf-jalon-date').value=p.jalonDate||'';
-  document.getElementById('pf-jalon-label').value=p.jalonLabel||'';
-  document.getElementById('pf-divid').value=p.divid||0;
-  _parts.splice(i,1);
-  localStorage.setItem('jg_parts',JSON.stringify(_parts));
-  document.getElementById('part-new-form').style.display='block';
-  renderParts();
-}
-
-function renderSals() {
-  var tb=document.getElementById('sal-tbody');
-  if(!tb)return;
-  if(_sals.length===0){
-    tb.innerHTML='<tr><td colspan="11" style="text-align:center;color:var(--t2);padding:1.5rem">Aucun salarié — ajoutez Christophe dès la décision prise</td></tr>';
-    ['sal-total-cout','sal-total-fcr','sal-total-clin','sal-total-moni','sal-total-net'].forEach(function(id){var e=document.getElementById(id);if(e)e.textContent='—';});
-    return;
-  }
-  var entityColors={'LIVING':'var(--amb)','REAL GAINS':'var(--acc)','FCR':'var(--acc)','CLINIQUE':'var(--grn)','MONIKAZA':'var(--pur)'};
-  var tC=0,tF=0,tCl=0,tM=0,html='';
-  _sals.forEach(function(s,i){
-    var net=(s.cout||0)-(s.fcr||0)-(s.clin||0)-(s.moni||0);
-    tC+=s.cout||0;tF+=s.fcr||0;tCl+=s.clin||0;tM+=s.moni||0;
-    var nc=net<=0?'var(--grn)':net<2000?'var(--amb)':'var(--red)';
-    html+='<tr><td style="font-weight:500">'+s.nom+'</td><td style="font-size:12px;color:var(--t2)">'+s.poste+'</td>'
-      +'<td><span style="font-size:11px;padding:2px 7px;border-radius:12px;background:'+(entityColors[s.entity||'LIVING']||'var(--t2)')+'22;color:'+(entityColors[s.entity||'LIVING']||'var(--t2)')+'">'+( s.entity||'LIVING')+'</span></td>'
-      +'<td style="font-family:\'IBM Plex Mono\',monospace">'+_fmt(s.net||0)+'</td>'
-      +'<td style="font-family:\'IBM Plex Mono\',monospace">'+_fmt(s.cout||0)+'</td>'
-      +'<td style="font-family:\'IBM Plex Mono\',monospace;color:var(--acc)">'+(s.fcr>0?'-'+_fmt(s.fcr):'—')+'</td>'
-      +'<td style="font-family:\'IBM Plex Mono\',monospace;color:var(--grn)">'+(s.clin>0?'-'+_fmt(s.clin):'—')+'</td>'
-      +'<td style="font-family:\'IBM Plex Mono\',monospace;color:var(--pur)">'+(s.moni>0?'-'+_fmt(s.moni):'—')+'</td>'
-      +'<td style="font-family:\'IBM Plex Mono\',monospace;color:'+nc+';font-weight:600">'+_fmt(net)+'</td>'
-      +'<td style="font-size:12px;color:var(--t2)">'+(s.date||'—')+'</td>'
-      +'<td><button class="btn btn-g btn-sm" style="font-size:10px" onclick="delSal('+i+')">✕</button></td></tr>';
-  });
-  tb.innerHTML=html;
-  var tN=tC-tF-tCl-tM;
-  var ids=['sal-total-cout','sal-total-fcr','sal-total-clin','sal-total-moni','sal-total-net'];
-  var vals=[_fmt(tC),tF>0?'-'+_fmt(tF):'—',tCl>0?'-'+_fmt(tCl):'—',tM>0?'-'+_fmt(tM):'—',_fmt(tN)];
-  ids.forEach(function(id,j){var e=document.getElementById(id);if(e)e.textContent=vals[j];});
-}
-
-function saveSalarie() {
-  var s={nom:document.getElementById('sf-nom').value,poste:document.getElementById('sf-poste').value,
-    entity:document.getElementById('sf-entity').value||'LIVING',
-    net:parseFloat(document.getElementById('sf-net').value)||0,cout:parseFloat(document.getElementById('sf-cout').value)||0,
-    fcr:parseFloat(document.getElementById('sf-fcr').value)||0,clin:parseFloat(document.getElementById('sf-clin').value)||0,
-    moni:parseFloat(document.getElementById('sf-moni').value)||0,date:document.getElementById('sf-date').value};
-  if(!s.nom){alert('Nom requis');return;}
-  _sals.push(s);localStorage.setItem('jg_sals',JSON.stringify(_sals));toggleForm('sal-form');renderSals();
-}
-
-function delSal(i){if(!confirm('Supprimer ?'))return;_sals.splice(i,1);localStorage.setItem('jg_sals',JSON.stringify(_sals));renderSals();}
-
-function renderJalons() {
-  var el=document.getElementById('jalons-list');
-  if(!el) return;
-  var today=new Date();
-  var sorted=[].concat(_jalons).sort(function(a,b){return new Date(a.date)-new Date(b.date);});
-  if(!sorted.length){el.innerHTML='<div style="color:var(--t2);font-size:12px;padding:8px 0">Aucun jalon</div>';return;}
-  el.innerHTML=sorted.map(function(j){
-    var ri=_jalons.indexOf(j);
-    var days=Math.ceil((new Date(j.date)-today)/86400000);
-    var dc=j.statut==='done'?'var(--t3)':days<0?'var(--red)':days<30?'var(--red)':days<90?'var(--amb)':'var(--t2)';
-    var pc=PC[j.projet]||'var(--t2)';
-    return '<div style="padding:8px 0;border-bottom:1px solid var(--b1);'+(j.statut==='done'?'opacity:.45':'')+'">'
-      +'<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:6px;margin-bottom:3px">'
-      +'<div style="display:flex;align-items:center;gap:5px;min-width:0">'
-      +'<span style="font-size:9px;padding:1px 5px;border-radius:3px;background:var(--s2);color:'+pc+';font-weight:600;flex-shrink:0">'+j.projet+'</span>'
-      +'<span style="font-size:11px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+j.label+'</span></div>'
-      +'<div style="display:flex;gap:3px;flex-shrink:0">'
-      +'<button style="font-size:9px;padding:1px 5px;border-radius:3px;border:1px solid var(--b1);background:none;cursor:pointer;color:var(--t2)" onclick="togJalon('+ri+')">'+(j.statut==='done'?'↩':'✓')+'</button>'
-      +'<button style="font-size:9px;padding:1px 5px;border-radius:3px;border:1px solid var(--b1);background:none;cursor:pointer;color:var(--t2)" onclick="delJalon('+ri+')">✕</button>'
-      +'</div></div>'
-      +'<div style="display:flex;justify-content:space-between;align-items:center">'
-      +'<span style="font-size:10px;color:var(--t2)">'+j.date+'</span>'
-      +'<span style="font-size:10px;font-weight:500;color:'+dc+'">'
-      +(j.statut==='done'?'✅ Fait':days<0?'DÉPASSÉ '+Math.abs(days)+'j':days+' j')+'</span></div>'
-      +(j.action?'<div style="font-size:10px;color:var(--t3);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">→ '+j.action+'</div>':'')
-      +'</div>';
-  }).join('');
-}
-
-function saveJalon(){
-  var j={id:'j_'+Date.now(),projet:document.getElementById('jf-projet').value,label:document.getElementById('jf-label').value,
-    date:document.getElementById('jf-date').value,statut:document.getElementById('jf-statut').value,action:document.getElementById('jf-action').value};
-  if(!j.label||!j.date){alert('Libellé et date requis');return;}
-  _jalons.push(j);localStorage.setItem('jg_jalons2',JSON.stringify(_jalons));toggleForm('jalon-form');renderJalons();renderParts();
-}
-
-function togJalon(i){_jalons[i].statut=_jalons[i].statut==='done'?'todo':'done';localStorage.setItem('jg_jalons2',JSON.stringify(_jalons));renderJalons();renderParts();}
-function delJalon(i){if(!confirm('Supprimer ?'))return;_jalons.splice(i,1);localStorage.setItem('jg_jalons2',JSON.stringify(_jalons));renderJalons();renderParts();}
-// ═══════════════════════════════════════════
-
 function showOptim(){
   document.getElementById('tb-title').textContent='Optimisation rémunération';
   document.getElementById('tb-sub').textContent='TNS vs Dividendes · Simulation';
@@ -3482,7 +2848,7 @@ function showOptim(){
 }
 
 async function loadDebtPersoInOptim(){
-  const{data}=await sb.from('debts').select('monthly_amount').eq('company_id','perso').not('status','eq','solde');
+  const{data}=await sb.from('debts').select('monthly_amount').eq('company_id','perso').eq('status','en_cours');
   if(data?.length){
     const total=data.reduce((s,d)=>s+Number(d.monthly_amount||0),0);
     document.getElementById('opt-dettes-perso').value=Math.round(total);
@@ -3936,38 +3302,14 @@ function fillPlacementFromProduct(){
   const opt=sel.options[sel.selectedIndex];
   if(!opt||!opt.value)return;
   const rate=opt.getAttribute('data-rate');
+  const trail=opt.getAttribute('data-trail');
   const freq=opt.getAttribute('data-freq');
-  const rendClient=opt.getAttribute('data-rend-client');
-  const freqClient=opt.getAttribute('data-freq-client');
-  const dureeJ=opt.getAttribute('data-duree-jours');
-
-  // Commission Living (upfront)
+  // Pré-remplit commission upfront
   document.getElementById('pl-com-pct').value=rate||'';
-
-  // Rendement CLIENT (ce que le client perçoit)
-  if(rendClient){
-    document.getElementById('pl-rendement').value=rendClient;
-    // Forcer "sur la période" (CGW = taux fixe sur la durée, pas annualisé)
-    const rp=document.getElementById('pl-taux-periode');
-    if(rp)rp.checked=true;
-  }
-
-  // Fréquence coupon client : toujours à l'échéance pour CGW (in fine)
-  document.getElementById('pl-freq').value=freqClient||'a_echeance';
-
-  // Fréquence trailing commission Living
+  // Fréquence rappels trailing
   if(freq&&freq!=='none'){
-    // On stocke ça dans un data attr pour savePlacement
-    sel.setAttribute('data-trailing-freq',freq);
+    document.getElementById('pl-freq').value=freq==='quarterly'?'quarterly':freq==='semi_annual'?'semi_annual':'annual';
   }
-
-  // Calculer date sortie automatiquement si date entrée connue
-  if(dureeJ&&document.getElementById('pl-entree').value){
-    const entree=new Date(document.getElementById('pl-entree').value);
-    entree.setDate(entree.getDate()+parseInt(dureeJ));
-    document.getElementById('pl-sortie').value=entree.toISOString().split('T')[0];
-  }
-
   calcPlacementCommission();
   calcCouponPreview();
 }
@@ -4197,8 +3539,7 @@ async function loadDebts(){
   }
   const coNames={meulette:'La Meulette','sarl-guiraud':'SARL Guiraud','sas-living':'SAS Living','real-gains':'RG/Monikaza'};
   const freqLabels={monthly:'Mensuelle',quarterly:'Trimestrielle',annual:'Annuelle',ponctuel:'Ponctuel'};
-  const statusColors={en_cours:'br',en_negociation:'bp',suspendu:'ba',solde:'bg'};
-  const statusLabels={en_cours:'En cours',en_negociation:'🤝 Négociation',suspendu:'Suspendu',solde:'Soldé'};
+  const statusColors={en_cours:'br',suspendu:'ba',solde:'bg'};
   const total=data.filter(d=>d.status!=='solde').reduce((s,d)=>s+Number(d.amount_remaining||d.amount_total||0),0);
   document.getElementById('debt-total-display').textContent=Math.round(total).toLocaleString('fr-FR')+' €';
   document.getElementById('tk-dettes').textContent=Math.round(total).toLocaleString('fr-FR')+' €';
@@ -4214,7 +3555,7 @@ async function loadDebts(){
     +'<td style="text-align:right;font-family:\'IBM Plex Mono\',monospace;color:var(--amb)">'+(d.frequency==='ponctuel'?Math.round(Number(d.amount_remaining||d.amount_total)).toLocaleString('fr-FR')+' € (solde)':d.monthly_amount>0?Math.round(Number(d.monthly_amount)).toLocaleString('fr-FR')+' €':'—')+'</td>'
     +'<td style="font-size:12px">'+(freqLabels[d.frequency]||d.frequency)+'</td>'
     +'<td style="font-size:12px;text-align:center">'+(d.payment_day?'Le '+d.payment_day:'—')+'</td>'
-    +'<td><span class="badge '+(statusColors[d.status]||'bz')+'">'+(statusLabels[d.status]||d.status)+'</span></td>'
+    +'<td><span class="badge '+(statusColors[d.status]||'bz')+'">'+d.status+'</span></td>'
     +'<td><select onchange="updateDebtUrgency(\''+d.id+'\',this.value)" style="font-size:14px;border:1px solid var(--b1);background:var(--s1);border-radius:4px;cursor:pointer;padding:2px 4px;min-width:80px" title="Priorité de paiement">'
     +'<option value="0"'+(urgency===0?' selected':'')+'>—</option>'
     +'<option value="1"'+(urgency===1?' selected':'')+'>🌶️</option>'
@@ -4407,14 +3748,13 @@ async function loadTresoChart(){
   }
 
   // Charge toutes les données en parallèle
-  const[{data:contracts},{data:debts},{data:placements},{data:payables},{data:receivables},{data:charges},{data:assetsVente}]=await Promise.all([
+  const[{data:contracts},{data:debts},{data:placements},{data:payables},{data:receivables},{data:charges}]=await Promise.all([
     sb.from('contracts').select('*,products(category,trailing_rate,trailing_frequency)').not('status','eq','termine'),
-    sb.from('debts').select('*').not('status','in','("solde","en_negociation","suspendu")'),
+    sb.from('debts').select('*').eq('status','en_cours'),
     sb.from('placements').select('*').eq('statut','actif'),
     sb.from('payables').select('*').eq('status','a_payer'),
     sb.from('receivables').select('*').not('status','eq','payee'),
-    sb.from('recurring_charges').select('*').eq('status','actif'),
-    sb.from('assets').select('id,nom,date_vente_prevue,prix_vente_prevu,net_vente_estime,valeur_marche,capital_restant,valeur_acquisition,frais_acquisition,regime_fiscal,type_asset').not('date_vente_prevue','is','null')
+    sb.from('recurring_charges').select('*').eq('status','actif')
   ]);
 
   const coColors={'sas-living':'#2ECC71','sarl-guiraud':'#3D8EF0','real-gains':'#9B59B6','meulette':'#F39C12'};
@@ -4441,10 +3781,9 @@ async function loadTresoChart(){
         }
       });
     } else {
-      // Ponctuel : priorité payment_expected_date, fallback signed_date
-      const refDate=c.payment_expected_date||c.signed_date;
-      if(refDate){
-        const sd=new Date(refDate);
+      // Ponctuel : met sur le mois de signature
+      if(c.signed_date){
+        const sd=new Date(c.signed_date);
         months.forEach((m,i)=>{
           if(m.getMonth()===sd.getMonth()&&m.getFullYear()===sd.getFullYear()){
             revenusParSoc[soc][i]+=com;
@@ -4459,19 +3798,7 @@ async function loadTresoChart(){
     const capital=Number(p.capital||0);
     const rend=Number(p.rendement_pct||0)/100;
     const freq={monthly:1,quarterly:3,semi_annual:6,annual:12,a_echeance:0}[p.coupon_frequency]||0;
-    // Coupon in fine (a_echeance) : versé à la date de sortie
-    if(freq===0){
-      if(p.coupon_frequency==='a_echeance'&&p.date_sortie&&rend>0){
-        const sortie=new Date(p.date_sortie);
-        months.forEach((m,i)=>{
-          if(m.getMonth()===sortie.getMonth()&&m.getFullYear()===sortie.getFullYear()){
-            // Taux sur la période (pas annualisé)
-            revenusPlac[i]+=capital*rend;
-          }
-        });
-      }
-      return;
-    }
+    if(freq===0)return;
     const couponParFreq=capital*rend/(12/freq);
     months.forEach((m,i)=>{
       const entree=p.date_entree?new Date(p.date_entree):null;
@@ -4516,27 +3843,6 @@ async function loadTresoChart(){
   // Ajoute les trailing aux revenus SAS Living
   revenusTrailing.forEach((v,i)=>{
     if(v>0&&revenusParSoc['sas-living'])revenusParSoc['sas-living'][i]+=v;
-  });
-
-  // Revenus vente actifs patrimoniaux
-  const revenusVente=new Array(12).fill(0);
-  (assetsVente||[]).forEach(a=>{
-    if(!a.date_vente_prevue)return;
-    const vd=new Date(a.date_vente_prevue);
-    let net=Number(a.net_vente_estime||0);
-    if(!net){
-      // Net vendeur - capital restant dû (pas d'impôt PV si société en déficit)
-      const nv=Number(a.prix_vente_prevu||a.valeur_marche||0),cr=Number(a.capital_restant||0);
-      net=nv-cr;
-    }
-    months.forEach((m,i)=>{
-      if(m.getMonth()===vd.getMonth()&&m.getFullYear()===vd.getFullYear())revenusVente[i]+=net;
-    });
-  });
-
-  // Injecter revenus ventes dans La Meulette
-  revenusVente.forEach((v,i)=>{
-    if(v>0&&revenusParSoc['meulette'])revenusParSoc['meulette'][i]+=v;
   });
 
   // Calcul dépenses par mois — séparé en dettes mensuelles + factures ponctuelles
@@ -4769,9 +4075,8 @@ async function loadTresoChart(){
   // Tréso excédentaire plaçable par mois
   const tresoPlagable=tresoCumul.map((v,i)=>Math.max(0,v-seuilPlacement[i]));
 
-  // Détecte les mois plaçables : cumulatif + ventes directes
+  // Détecte les premiers mois où on peut placer 100k€ et 200k€
   const annotations={};
-  // Source A : tréso cumulée excédentaire
   [{seuil:100000,couleur:'#F39C12',label:'100k€'},{seuil:200000,couleur:'#2ECC71',label:'200k€'}].forEach(({seuil,couleur,label})=>{
     const moisOk=tresoPlagable.findIndex(v=>v>=seuil);
     if(moisOk>=0){
@@ -4784,22 +4089,7 @@ async function loadTresoChart(){
       };
     }
   });
-  // Source B : mois de vente directe
-  revenusVente.forEach((v,i)=>{
-    if(v<=0)return;
-    const buffer=(depenses[i]||0)*2;
-    const excVente=Math.max(0,v-buffer);
-    [{seuil:100000,couleur:'#F39C12',label:'100k€'},{seuil:200000,couleur:'#2ECC71',label:'200k€'}].forEach(({seuil,couleur,label})=>{
-      const key=`vente${seuil}_${i}`;
-      if(excVente>=seuil){
-        annotations[key]={type:'line',xMin:i,xMax:i,borderColor:couleur,borderWidth:3,borderDash:[3,2],
-          label:{content:`💰 ${label} CGW possible`,display:true,position:'end',
-            backgroundColor:couleur,color:'#fff',font:{size:10,weight:'bold'},padding:{x:6,y:4},borderRadius:4}};
-      }
-    });
-  });
-
-    if(window._tresoCumulObj)window._tresoCumulObj.destroy();
+  if(window._tresoCumulObj)window._tresoCumulObj.destroy();
   const cumulEl=document.getElementById('tresoCumulChart');
   if(cumulEl){
     window._tresoCumulObj=new Chart(cumulEl.getContext('2d'),{
@@ -5064,7 +4354,7 @@ async function loadCRMData(){
   const actifs=allContracts.filter(c=>['en_cours','signe','facture'].includes(c.status));
   const volume=actifs.reduce((s,c)=>s+Number(c.amount||0),0);
   const coms=actifs.reduce((s,c)=>s+Number(c.commission_amount||0),0);
-  const afacturer=allContracts.filter(c=>c.invoice_status==='a_emettre'&&['prospect','en_cours','signe'].includes(c.status)).reduce((s,c)=>{const pct=c.status==='signe'?1:c.status==='en_cours'?0.75:0.25;return s+Number(c.commission_amount||0)*pct;},0);
+  const afacturer=allContracts.filter(c=>c.invoice_status==='a_emettre'&&c.status==='signe').reduce((s,c)=>s+Number(c.commission_amount||0),0);
   document.getElementById('ck-actifs').textContent=actifs.length;
   document.getElementById('ck-volume').textContent=volume>0?(volume/1e6).toFixed(1)+' M€':'—';
   document.getElementById('ck-com').textContent=Math.round(coms).toLocaleString('fr-FR')+' €';
@@ -5103,7 +4393,7 @@ async function loadCatalogue(){
   const catColors={cgw:'var(--grn)',lld:'var(--acc)',honoraires:'var(--amb)',obligations:'var(--pur)',apport_affaire:'var(--t2)'};
   const catLabels={cgw:'CGW',lld:'LLD',honoraires:'Honoraires',obligations:'Obligations',apport_affaire:'Apport affaires'};
   document.getElementById('catalogue-list').innerHTML=`<div class="card"><table>
-    <thead><tr><th>Produit</th><th>Catégorie</th><th>Upfront</th><th>Trail rappel</th><th>Reconduction</th><th>Fréquence</th><th>⏱ Délai paiement</th><th></th></tr></thead>
+    <thead><tr><th>Produit</th><th>Catégorie</th><th>Upfront</th><th>Trail rappel</th><th>Reconduction</th><th>Fréquence</th><th>Max</th><th></th></tr></thead>
     <tbody>${(data||[]).map(p=>`<tr>
       <td><strong>${p.name}</strong>${p.description?`<div style="font-size:11px;color:var(--t2)">${p.description}</div>`:''}</td>
       <td><span class="badge" style="background:${catColors[p.category]||'var(--t2)'}22;color:${catColors[p.category]||'var(--t2)'}">${catLabels[p.category]||p.category}</span></td>
@@ -5111,7 +4401,7 @@ async function loadCatalogue(){
       <td class="mo" style="color:var(--amb)">${p.trailing_rate>0?p.trailing_rate+'%':'—'}</td>
       <td class="mo" style="color:var(--grn)">${p.trailing_rate>0?p.trailing_rate+'% rappel':'—'}</td>
       <td style="font-size:12px;color:var(--t2)">${{none:'Aucun',monthly:'Mensuel',quarterly:'Trimestriel',semi_annual:'Semestriel',annual:'Annuel'}[p.trailing_frequency]||'—'}</td>
-      <td style="font-size:12px;text-align:center;font-family:'IBM Plex Mono',monospace">${p.payment_delay_days!=null?p.payment_delay_days+' j':'—'}</td>
+      <td style="font-size:12px;text-align:center">${p.trailing_rate>0?'Oui':'Non'}</td>
       <td><button onclick="delProduct('${p.id}')" style="border:none;background:none;cursor:pointer;color:var(--t2);font-size:13px">✕</button></td>
     </tr>`).join('')}</tbody>
   </table></div>`;
@@ -5122,7 +4412,6 @@ async function addProduct(){
     name:document.getElementById('p-name').value,
     category:document.getElementById('p-cat').value,
     description:document.getElementById('p-desc').value||null,
-    payment_delay_days:parseInt(document.getElementById('p-delai').value)||null,
     commission_type:document.getElementById('p-ctype').value,
     commission_rate:parseFloat(document.getElementById('p-rate').value)||0,
     trailing_rate:parseFloat(document.getElementById('p-trail').value)||0,
@@ -5438,8 +4727,6 @@ async function addContract(){
     status:document.getElementById('ct-status').value,
     signed_date:signed||null,
     next_reminder:reminder||null,
-    payment_expected_date:document.getElementById('ct-pay-expected').value||null,
-    payment_actual_date:document.getElementById('ct-pay-actual').value||null,
     recurrence:document.getElementById('ct-recurrence').value||null,
     notes:document.getElementById('ct-notes').value||null,
     invoice_status:'a_emettre'
@@ -5509,8 +4796,6 @@ async function openContractEdit(id){
   document.getElementById('ce-invoice').value=data.invoice_status||'a_emettre';
   document.getElementById('ce-signed').value=data.signed_date||'';
   document.getElementById('ce-reminder').value=data.next_reminder||'';
-  document.getElementById('ce-pay-expected').value=data.payment_expected_date||'';
-  document.getElementById('ce-pay-actual').value=data.payment_actual_date||'';
   // Probabilité trailing — affiche seulement pour CGW
   const isCGWProduct=data.products?.category==='cgw';
   const probaFg=document.getElementById('ce-trail-proba-fg');
@@ -5591,8 +4876,6 @@ async function saveContractEdit(){
     invoice_status:document.getElementById('ce-invoice').value,
     signed_date:document.getElementById('ce-signed').value||null,
     next_reminder:document.getElementById('ce-reminder').value||null,
-    payment_expected_date:document.getElementById('ce-pay-expected').value||null,
-    payment_actual_date:document.getElementById('ce-pay-actual').value||null,
     trail_proba:parseInt(document.getElementById('ce-trail-proba')?.value||80),
     tva_taux:parseFloat(document.querySelector('input[name="ce-tva"]:checked')?.value||0),
     commission_ttc:Math.round(parseFloat(document.getElementById('ce-commission').value||0)*(1+parseFloat(document.querySelector('input[name="ce-tva"]:checked')?.value||0)/100)),
@@ -6156,7 +5439,6 @@ async function processFactureOCR(file){
   try{
     const base64=await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result.split(',')[1]);r.onerror=rej;r.readAsDataURL(file);});
     const resp=await fetch('/.netlify/functions/ocr-pro',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({base64,docType:'facture_recue'})});
-    if(!resp.ok){toast('⚠️ Fonction OCR indisponible ('+resp.status+') — saisissez manuellement');openOcrModal({},null);return;}
     const parsed=await resp.json();
 
     if(!parsed||parsed.error){toast('Erreur OCR — remplissez manuellement');openOcrModal({},null);return;}
@@ -6575,7 +5857,7 @@ async function addPayable(){
 
 async function loadPayables(){
   if(!curCo)return;
-  const data=await _qPayables(sb.from('payables').select('*').eq('company_id',curCo.id).order('due_date',{ascending:true}));
+  const{data}=await sb.from('payables').select('*').eq('company_id',curCo.id).order('due_date',{ascending:true});
   const tbody=document.getElementById('pay-tbody');
   if(!data?.length){
     tbody.innerHTML='<tr><td colspan="9" style="text-align:center;color:var(--t2);padding:2rem">Aucune facture — ajoutez manuellement ou uploadez dans Documents</td></tr>';
@@ -6587,12 +5869,12 @@ async function loadPayables(){
   const totalDu=data.filter(d=>d.status!=='paye').reduce((s,d)=>s+Number(d.amount_ttc||0),0);
   document.getElementById('pay-total').textContent=Math.round(totalDu).toLocaleString('fr-FR')+' € TTC dus';
   tbody.innerHTML=data.map(d=>`<tr>
-    <td><strong>${d.fournisseur||'—'}</strong></td>
+    <td><strong>${d.fournisseur}</strong></td>
     <td style="font-size:12px">${d.label||'—'}</td>
-    <td style="text-align:right;font-family:'IBM Plex Mono',monospace;font-size:12px">${d.amount_ht>0?Math.round(d.amount_ht).toLocaleString('fr-FR')+' €':'—'}</td>
-    <td style="text-align:right;font-family:'IBM Plex Mono',monospace;font-weight:600;color:var(--red)">${d.amount_ttc>0?Math.round(d.amount_ttc).toLocaleString('fr-FR')+' €':'—'}</td>
+    <td style="text-align:right;font-family:'IBM Plex Mono',monospace;font-size:12px">${d.amount_ht?Math.round(d.amount_ht).toLocaleString('fr-FR')+' €':'—'}</td>
+    <td style="text-align:right;font-family:'IBM Plex Mono',monospace;font-weight:600;color:var(--red)">${d.amount_ttc?Math.round(d.amount_ttc).toLocaleString('fr-FR')+' €':'—'}</td>
     <td style="font-size:11px;color:var(--t2)">${d.invoice_date?new Date(d.invoice_date).toLocaleDateString('fr-FR'):'—'}</td>
-    <td style="font-size:11px;color:${d.due_date&&new Date(d.due_date)<new Date()&&d.status==='a_payer'?'var(--red)':'var(--t2)'}">` + (d.due_date?new Date(d.due_date).toLocaleDateString('fr-FR'):'—') + `</td>
+    <td style="font-size:11px;color:${d.due_date&&new Date(d.due_date)<new Date()&&d.status==='a_payer'?'var(--red)':'var(--t2)'}">${d.due_date?new Date(d.due_date).toLocaleDateString('fr-FR'):'—'}</td>
     <td><span class="badge ${statusColors[d.status]||'bz'}">${statusLabels[d.status]||d.status}</span></td>
     <td style="font-size:10px;color:var(--t2)">${d.source==='ocr'?'🤖 OCR':'✍ Manuel'}</td>
     <td style="display:flex;gap:4px">
@@ -6745,11 +6027,11 @@ async function loadAlertes(){
   });
 
   // Factures à payer en retard (max 90 jours dans le passé pour éviter le bruit)
-  const _palerte=await _qPayables(sb.from('payables').select('*').eq('status','a_payer'));
+  const{data:payables}=await sb.from('payables').select('*').eq('status','a_payer');
   const cutoff=new Date(today.getTime()-90*24*3600*1000);
   // Groupe par fournisseur pour éviter 32 alertes identiques
   const retardParFourn={};
-  (_palerte||[]).forEach(p=>{
+  (payables||[]).forEach(p=>{
     if(p.due_date){
       const due=new Date(p.due_date);
       if(due<today&&due>cutoff){
@@ -6907,7 +6189,7 @@ async function renderCoKPIs(){
       {l:'CA / Commissions YTD',v:caYTD>0?Math.round(caYTD).toLocaleString('fr-FR')+' €':'—',c:caYTD>0?'p':'',s:'Contrats actifs CRM'},
       {l:'Pipeline LLD',v:volumeLLD>0?(volumeLLD/1e6).toFixed(1)+' M€':'—',c:volumeLLD>0?'p':'',s:'Volume en cours'},
       {l:'Placements CGW',v:volumeCGW>0?(volumeCGW/1e6).toFixed(1)+' M€':'—',c:volumeCGW>0?'p':'',s:'Volume en cours'},
-      {l:'Pipeline pondéré',v:afacturer>0?Math.round(afacturer).toLocaleString('fr-FR')+' €':'—',c:afacturer>0?'w':'',s:'25/75/100% selon statut'},
+      {l:'À facturer',v:afacturer>0?Math.round(afacturer).toLocaleString('fr-FR')+' €':'—',c:afacturer>0?'w':'',s:'Signés non facturés'},
       {l:'CC net',v:(netCC>=0?'+':'')+Math.round(netCC).toLocaleString('fr-FR')+' €',c:netCC>=0?'p':'n',s:'Position inter-sociétés'},
     ];
   } else {
@@ -7392,7 +6674,7 @@ async function renderFluxSequentiel(moisOffset){
   const safeQ=async(q)=>{try{const r=await q;return r.data||[];}catch(e){return[];}};
   const[debts,payables,forecasts,charges,receivables,interco,contractReminders]=await Promise.all([
     safeQ(sb.from('debts').select('*').eq('status','en_cours')),
-    _qPayables(sb.from('payables').select('*').eq('status','a_payer')),
+    safeQ(sb.from('payables').select('*').eq('status','a_payer')),
     safeQ(sb.from('cash_forecast').select('*')),
     safeQ(sb.from('recurring_charges').select('*')),
     safeQ(sb.from('receivables').select('*').in('status',['envoyee','en_attente'])),
