@@ -1200,10 +1200,19 @@
         <div style="font-size:20px;font-weight:600">🚨 Tableau d'apurement</div>
         <div style="font-size:12px;color:var(--t2);margin-top:2px">M-1 · Mois en cours · M+1 — navigation ◀ ▶</div>
       </div>
-      <div style="display:flex;align-items:center;gap:8px">
-        <button class="btn btn-g btn-sm" onclick="shiftApurement(-1)" title="Mois précédent">◀</button>
-        <span id="apurement-nav-label" style="font-size:12px;color:var(--t2);min-width:120px;text-align:center"></span>
-        <button class="btn btn-g btn-sm" onclick="shiftApurement(1)" title="Mois suivant">▶</button>
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        <div style="display:flex;align-items:center;gap:8px">
+          <button class="btn btn-g btn-sm" onclick="shiftApurement(-1)" title="Mois précédent">◀</button>
+          <span id="apurement-nav-label" style="font-size:12px;color:var(--t2);min-width:120px;text-align:center"></span>
+          <button class="btn btn-g btn-sm" onclick="shiftApurement(1)" title="Mois suivant">▶</button>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;border-left:1px solid var(--b1);padding-left:12px">
+          <span style="font-size:11px;color:var(--t2)">🛡️ Réserve min.</span>
+          <input type="number" id="apur-reserve-input" value="2000" min="0" step="500"
+            style="width:90px;font-family:monospace;font-size:12px;border:1px solid var(--b1);border-radius:6px;padding:3px 6px;background:var(--s1);color:var(--t1)"
+            oninput="saveApurReserve(this.value);updateApurAllChecks()">
+          <span style="font-size:11px;color:var(--t2)">€/mois</span>
+        </div>
       </div>
     </div>
     <!-- Grille principale -->
@@ -2600,23 +2609,52 @@ async function updateSupplierUrgency(id,level){
   loadApurement();toast('Urgence mise a jour');
 }
 
+async function saveApurReserve(val){
+  await sb.from('settings').upsert({key:'apur_reserve',value:String(val||0)},{onConflict:'key'});
+  window._apurReserve = parseFloat(val)||0;
+}
+
+function updateApurAllChecks(){
+  // Recalcule tous les compteurs après changement de réserve
+  document.querySelectorAll('input[type=checkbox][data-mkey]').forEach(cb=>{
+    const mkey = cb.dataset.mkey;
+    if(!document.querySelector('#apur-check-sum-'+mkey)) return;
+    updateApurCheckByMkey(mkey);
+  });
+}
+
 function updateApurCheck(cb){
-  const mkey = cb.dataset.mkey;
-  // Sommer toutes les checkboxes cochées de cette colonne
+  updateApurCheckByMkey(cb.dataset.mkey);
+}
+
+function updateApurCheckByMkey(mkey){
+  const reserve = window._apurReserve || parseFloat(document.getElementById('apur-reserve-input')?.value)||0;
   const checkboxes = document.querySelectorAll('input[type=checkbox][data-mkey="'+mkey+'"]');
   let total = 0;
   checkboxes.forEach(c=>{ if(c.checked) total += parseFloat(c.dataset.amount)||0; });
-  const dispo = window._disponibleFactures || 0;
+  const dispoBase = window._disponibleFactures || 0;
+  const dispo = dispoBase - reserve; // disponible APRÈS réserve
   const reste = dispo - total;
   const pct = dispo > 0 ? Math.min(100, Math.round(total/dispo*100)) : 0;
-  const color = total > dispo ? 'var(--red)' : total > dispo*0.8 ? 'var(--amb)' : 'var(--grn)';
+  const color = reste < 0 ? 'var(--red)' : reste < dispo*0.2 ? 'var(--amb)' : 'var(--grn)';
 
+  // Mise à jour compteur de la colonne
   const sumEl = document.getElementById('apur-check-sum-'+mkey);
   const resteEl = document.getElementById('apur-check-reste-'+mkey);
   const barEl = document.getElementById('apur-check-bar-inner-'+mkey);
   if(sumEl) sumEl.textContent = Math.round(total).toLocaleString('fr-FR')+' €';
   if(resteEl){ resteEl.textContent = Math.round(reste).toLocaleString('fr-FR')+' €'; resteEl.style.color = color; }
   if(barEl){ barEl.style.width = pct+'%'; barEl.style.background = color; }
+
+  // Mise à jour du disponible principal (colonne récap)
+  const dispoEl = document.getElementById('apur-dispo-montant');
+  if(dispoEl){
+    const netDispo = dispo - total;
+    const mainColor = netDispo < 0 ? 'var(--red)' : netDispo < reserve ? 'var(--amb)' : 'var(--grn)';
+    dispoEl.textContent = (netDispo>=0?'+':'')+Math.round(netDispo).toLocaleString('fr-FR')+' €';
+    dispoEl.style.color = mainColor;
+    dispoEl.parentElement.style.borderColor = mainColor;
+  }
 }
 
 function shiftApurement(delta){
@@ -2626,6 +2664,15 @@ function shiftApurement(delta){
 
 async function loadApurement(){
   if(window._apurOffset===undefined)window._apurOffset=0;
+  // Charger réserve depuis settings
+  try{
+    const rRes=await sb.from('settings').select('value').eq('key','apur_reserve').single();
+    if(rRes.data?.value!==undefined){
+      window._apurReserve=parseFloat(rRes.data.value)||0;
+      const inp=document.getElementById('apur-reserve-input');
+      if(inp&&!inp._userEdited)inp.value=window._apurReserve;
+    }
+  }catch(e){}
   const piments={3:'🌶️🌶️🌶️',2:'🌶️🌶️',1:'🌶️',0:''};
   const urgColors={3:'var(--red)',2:'var(--amb)',1:'#888',0:'var(--t2)'};
   const moisNoms=['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
@@ -2718,7 +2765,8 @@ async function loadApurement(){
     +'</div>'
     +'<div style="padding:12px;border-radius:8px;border:2px solid '+dispColor+';text-align:center;margin-bottom:14px">'
     +'<div style="font-size:10px;color:var(--t2);margin-bottom:4px">DISPONIBLE FACTURES</div>'
-    +'<div id="apur-dispo-montant" style="font-family:monospace;font-size:22px;font-weight:800;color:'+dispColor+'">'+(disponible>=0?'+':'')+Math.round(disponible).toLocaleString('fr-FR')+' €</div>'
+    +'<div style="font-size:10px;color:var(--t2);margin-bottom:2px">Réserve : '+(window._apurReserve>0?Math.round(window._apurReserve||0).toLocaleString("fr-FR")+" €":"Non paramétrée")+"</div>"
+    +'<div id="apur-dispo-montant" style="font-family:monospace;font-size:22px;font-weight:800;color:'+dispColor+'">'+((disponible-(window._apurReserve||0))>=0?'+':'')+Math.round(disponible-(window._apurReserve||0)).toLocaleString('fr-FR')+' €</div>'
     +'</div>'
     +'<div style="font-size:10px;color:var(--t2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Stock à apurer</div>'
     +'<div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px"><span>Dettes en cours</span><span style="font-family:monospace;color:var(--red)">'+Math.round(totalDetteRest).toLocaleString('fr-FR')+' €</span></div>'
