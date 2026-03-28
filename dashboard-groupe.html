@@ -2800,8 +2800,10 @@ async function loadApurement(){
         +'</div>';
     }).join('');
 
+    // Récupérer les items triés par type
+    const facturesItems=items.filter(i=>i.type==='facture');
     const totalDettes=dettes.reduce((s,i)=>s+i.amount,0);
-    const totalFactures=factures.reduce((s,i)=>s+i.amount,0);
+    const totalFactures=facturesItems.reduce((s,i)=>s+i.amount,0);
     const totalItems=totalDettes+totalFactures;
     const sliderKey='pct-factures-'+m.key;
     const savedPct=(window._apurPct&&window._apurPct[m.key])||100;
@@ -2817,7 +2819,7 @@ async function loadApurement(){
     // Factures avec le % curseur appliqué au disponible restant
     const factPct=savedPct/100;
     let restant3=restant2;
-    const factItems=factures.map(f=>{
+    const factItems=facturesItems.map(f=>{
       const montantVoulu=Math.round(f.amount*factPct);
       const payer=Math.min(montantVoulu,restant3);
       restant3=Math.max(0,restant3-payer);
