@@ -2716,10 +2716,13 @@ async function loadApurement(){
     factures.forEach(p=>{
       const isOverdue=p.due_date&&new Date(p.due_date)<now&&isCurrentCol;
       const bananes=Number(p.priority||0); // 0-3 bananes 🍌
+      const labelVal=String(p.fournisseur||'').trim();
+      const amountVal=parseFloat(p.amount_ttc);
+      if(!labelVal||labelVal==='null'||isNaN(amountVal)||amountVal<=0)return; // Skip toujours
       items.push({
-        label:p.fournisseur||'Fournisseur',
-        detail:p.objet||p.invoice_number||(p.due_date?'Éch. '+new Date(p.due_date).toLocaleDateString('fr-FR'):''),
-        amount:Number(p.amount_ttc||0),
+        label:labelVal,
+        detail:p.objet||p.label||p.invoice_number||(p.due_date?'Éch. '+new Date(p.due_date).toLocaleDateString('fr-FR'):''),
+        amount:amountVal,
         sortKey: isOverdue?0:1,
         date:p.due_date||'9999',
         urgency:bananes,
@@ -2832,16 +2835,20 @@ async function loadApurement(){
           :item.priority>=1?'<span style="font-size:9px;background:var(--acc)20;color:var(--acc);padding:1px 5px;border-radius:3px">FACTURE 🍌</span>'
           :'<span style="font-size:9px;background:var(--acc)20;color:var(--acc);padding:1px 5px;border-radius:3px">FACTURE</span>';
       const barColor=item.pc>=100?'var(--grn)':item.pc>50?'var(--amb)':'var(--red)';
+      const safeLabel=String(item.label||'').replace(/^null$/i,'').trim();
+      const safeAmount=isNaN(Number(item.amount))?0:Number(item.amount||0);
+      const safePayer=isNaN(Number(item.payer))?0:Number(item.payer||0);
+      if(!safeLabel||safeAmount<=0) return '';
       return '<div style="padding:8px;background:var(--b2);border-radius:6px;margin-bottom:6px">'
         +'<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:6px">'
         +'<div style="flex:1;min-width:0"><div style="font-size:11px;font-weight:600;display:flex;align-items:center;gap:4px;flex-wrap:wrap">'
         +(pim?'<span>'+pim+'</span>':'')
-        +'<span style="color:'+col+'">'+item.label+'</span>'+badge+'</div>'
+        +'<span style="color:'+col+'">'+safeLabel+'</span>'+badge+'</div>'
         +(item.detail?'<div style="font-size:10px;color:var(--t2);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+item.detail+'</div>':'')
         +'</div>'
         +'<div style="text-align:right;flex-shrink:0">'
-        +'<div style="font-family:monospace;font-size:11px;font-weight:700;color:var(--red)">'+Math.round(item.amount).toLocaleString('fr-FR')+' €</div>'
-        +(item.payer>0?'<div style="font-size:9px;color:var(--grn)">Pay: '+Math.round(item.payer).toLocaleString('fr-FR')+' €</div>':'<div style="font-size:9px;color:var(--red)">En attente</div>')
+        +'<div style="font-family:monospace;font-size:11px;font-weight:700;color:var(--red)">'+Math.round(safeAmount).toLocaleString('fr-FR')+' €</div>'
+        +(safePayer>0?'<div style="font-size:9px;color:var(--grn)">Pay: '+Math.round(safePayer).toLocaleString('fr-FR')+' €</div>':'<div style="font-size:9px;color:var(--red)">En attente</div>')
         +'</div></div>'
         +'<div style="height:2px;background:var(--b1);border-radius:2px;margin-top:5px">'
         +'<div style="height:2px;border-radius:2px;width:'+item.pc+'%;background:'+barColor+'"></div></div>'
