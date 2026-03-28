@@ -2701,20 +2701,20 @@ async function loadApurement(){
     // Mélange factures + dettes pour ce mois, triées par priorité
     const items=[];
 
-    // Factures à payer : due_date dans ce mois OU en retard (pour M)
+    // Factures à payer : due_date dans ce mois exact (basé sur m.idx + offset)
+    const mColStart=new Date(now.getFullYear(),now.getMonth()+offset+m.idx,1);
+    const mColEnd=new Date(now.getFullYear(),now.getMonth()+offset+m.idx+1,0);
+    const isCurrentCol=m.isCurrent; // Vrai seulement pour le mois calendaire en cours
     const factures=allPayables.filter(p=>{
-      // Ignorer les payables incomplets (pas de montant ou pas de fournisseur valide)
       if(!p.amount_ttc||Number(p.amount_ttc)<=0)return false;
       if(!p.fournisseur||p.fournisseur==='null')return false;
-      if(!p.due_date)return idx===0; // sans date → ce mois seulement
+      if(!p.due_date)return m.isCenter; // sans date → colonne centrale seulement
       const due=new Date(p.due_date);
-      const mStart=new Date(now.getFullYear(),now.getMonth()+idx,1);
-      const mEnd=new Date(now.getFullYear(),now.getMonth()+idx+1,0);
-      if(idx===0) return due<=mEnd; // M : tout ce qui est dû jusqu'à fin du mois (inclus retards)
-      return due>=mStart&&due<=mEnd;
+      if(isCurrentCol) return due<=mColEnd; // mois actuel : inclut les retards
+      return due>=mColStart&&due<=mColEnd; // autres mois : fenêtre exacte
     });
     factures.forEach(p=>{
-      const isOverdue=p.due_date&&new Date(p.due_date)<now&&idx===0;
+      const isOverdue=p.due_date&&new Date(p.due_date)<now&&isCurrentCol;
       const bananes=Number(p.priority||0); // 0-3 bananes 🍌
       items.push({
         label:p.fournisseur||'Fournisseur',
