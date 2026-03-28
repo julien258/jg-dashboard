@@ -3905,7 +3905,7 @@ async function loadTresoChart(){
   // Charge toutes les données en parallèle
   const[{data:contracts},{data:debts},{data:placements},{data:payables},{data:receivables},{data:charges}]=await Promise.all([
     sb.from('contracts').select('*,products(category,trailing_rate,trailing_frequency)').not('status','eq','termine'),
-    sb.from('debts').select('*').eq('status','en_cours'),
+    sb.from('debts').select('*').eq('status','en_cours').not('company_id','eq','sarl-guiraud'), // dettes SARL déjà déduites via intraGroupe
     sb.from('placements').select('*').eq('statut','actif'),
     sb.from('payables').select('*').eq('status','a_payer'),
     sb.from('receivables').select('*').not('status','eq','payee'),
@@ -4170,8 +4170,8 @@ async function loadTresoChart(){
       }
     });
     const revNec=dettesPerso+fixesPersoTotal+impots+projets+rav;
-    // HT × 1.45 (URSSAF) × 1.20 (TVA) = TTC que Living verse à SARL Guiraud
-    return Math.round(revNec*1.45*1.20);
+    // TTC = revNecessaire × 1.20 (TVA) — URSSAF non incluse (payée sur revenus N-1)
+    return Math.round(revNec*1.20);
   });
 
   // TVA déductible pour Living = 20% sur HT facture SARL Guiraud

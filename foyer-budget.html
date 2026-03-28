@@ -624,13 +624,13 @@ function renderAll(){renderKPIs();renderTabs();renderDetail();renderChart();rend
 function renderKPIs(){
   const i=selM;
   const rev=revNecessaire(i),rav=ravMois(i),d=dettesMois(i),f=fixesTotal();
-  const urssaf=Math.round(rev*0.45);
+  const coutSarlTTC=Math.round(rev*1.20); // TTC — URSSAF payée sur revenus N-1, non incluse
   document.getElementById('kpi-row').innerHTML=`
     <div class="kc" style="border-left:3px solid #1D9E75"><div class="kl">Revenus à verser</div><div class="kv" style="color:#1D9E75">${fmt(rev)}</div><div class="ks">${mLab[i]}</div></div>
     <div class="kc" style="border-left:3px solid #E24B4A"><div class="kl">Dettes perso</div><div class="kv" style="color:#E24B4A">${fmt(d)}</div><div class="ks">${D.dettes.filter(x=>x.frequency==='monthly').length} créanciers</div></div>
     <div class="kc" style="border-left:3px solid #BA7517"><div class="kl">Charges fixes</div><div class="kv" style="color:#BA7517">${fmt(f)}</div><div class="ks">${D.fixes.length} postes</div></div>
     <div class="kc" style="border-left:3px solid #378ADD"><div class="kl">Reste à vivre</div><div class="kv" style="color:#378ADD">${fmt(rav)}</div><div class="ks">Cible ce mois</div></div>
-    <div class="kc" style="border-left:3px solid #BA7517"><div class="kl">Coût SARL</div><div class="kv" style="color:#BA7517">${fmt(rev+urssaf)}</div><div class="ks">Net + URSSAF ~45%</div></div>`;
+    <div class="kc" style="border-left:3px solid #BA7517"><div class="kl">Fact. SARL Guiraud TTC</div><div class="kv" style="color:#BA7517">${fmt(coutSarlTTC)}</div><div class="ks">Net × 1.20 (TVA 20%)</div></div>`;
 }
 
 function renderTabs(){
@@ -657,8 +657,8 @@ function renderDetail(){
   document.getElementById('rav-input').value=rav;
   document.getElementById('impots-input').value=imp;
   document.getElementById('vars-input').value=v;
-  const urssaf=Math.round(rev*0.45);
-  document.getElementById('link-pro-detail').textContent=`Net versé ${fmt(rev)} + URSSAF TNS ~45% = ${fmt(rev+urssaf)} à facturer depuis SARL Guiraud`;
+  const coutSarlTTC2=Math.round(rev*1.20);
+  document.getElementById('link-pro-detail').textContent=`Net versé ${fmt(rev)} × 1.20 TVA = ${fmt(coutSarlTTC2)} TTC à facturer depuis SARL Guiraud`;
 }
 
 function renderChart(){
