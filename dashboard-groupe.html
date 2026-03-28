@@ -2942,23 +2942,24 @@ async function loadApurement(){
       +(detteHtml?'<div style="font-size:10px;font-weight:700;color:var(--red);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">🌶️ Dettes prioritaires</div>'+detteHtml:'')
       // Factures avec cases à cocher
       +(factHtml?'<div style="margin-top:10px">'
+        // Compteur sticky en haut — visible sans scroller
+        +'<div id="apur-check-total-'+m.key+'" style="position:sticky;top:0;z-index:5;padding:8px 10px;border-radius:8px;background:var(--s2);border:1px solid var(--b2);margin-bottom:8px;box-shadow:0 2px 8px rgba(0,0,0,.15)">'
+        +'<div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;font-weight:600">'
+        +'<span>✅ Sélectionné</span><span id="apur-check-sum-'+m.key+'" style="font-family:monospace">0 €</span>'
+        +'</div>'
+        +'<div style="display:flex;justify-content:space-between;font-size:11px;margin-top:3px">'
+        +'<span style="color:var(--t2)">Reste disponible</span>'
+        +'<span id="apur-check-reste-'+m.key+'" style="font-family:monospace;font-weight:700;color:var(--grn)">'+Math.round(disponible).toLocaleString('fr-FR')+' €</span>'
+        +'</div>'
+        +'<div id="apur-check-bar-'+m.key+'" style="height:5px;border-radius:3px;background:var(--b1);margin-top:5px">'
+        +'<div id="apur-check-bar-inner-'+m.key+'" style="height:5px;border-radius:3px;width:0%;background:var(--grn);transition:width .2s"></div>'
+        +'</div>'
+        +'</div>'
         +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">'
         +'<div style="font-size:10px;font-weight:700;color:var(--acc);text-transform:uppercase;letter-spacing:.5px">📅 Factures à payer</div>'
         +'<div style="font-size:10px;color:var(--t2)">☑ cocher pour jongler</div>'
         +'</div>'
         +factHtml
-        +'<div id="apur-check-total-'+m.key+'" style="margin-top:8px;padding:8px;border-radius:6px;background:var(--b1);border:1px solid var(--b2)">'
-        +'<div style="display:flex;justify-content:space-between;font-size:12px;font-weight:600">'
-        +'<span>✅ Sélectionné</span><span id="apur-check-sum-'+m.key+'" style="font-family:monospace">0 €</span>'
-        +'</div>'
-        +'<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--t2);margin-top:2px">'
-        +'<span>Disponible factures</span>'
-        +'<span id="apur-check-reste-'+m.key+'" style="font-family:monospace;font-weight:700">'+Math.round(disponible).toLocaleString('fr-FR')+' €</span>'
-        +'</div>'
-        +'<div id="apur-check-bar-'+m.key+'" style="height:4px;border-radius:2px;background:var(--b2);margin-top:6px">'
-        +'<div id="apur-check-bar-inner-'+m.key+'" style="height:4px;border-radius:2px;width:0%;background:var(--grn);transition:width .2s"></div>'
-        +'</div>'
-        +'</div>'
         +'</div>':'')
       +(allItems.length===0?'<div style="font-size:11px;color:var(--t2);font-style:italic;padding:8px 0">Aucune échéance — attributs des 🌶️ à tes dettes dans CC & Dettes</div>':'')
       +'</div>';
@@ -4052,10 +4053,8 @@ async function loadTresoChart(){
   // === TVA PAR MOIS ===
   // TVA collectée sur ventes (contrats avec tva_taux)
   const tvaCollectee=new Array(12).fill(0);
-  // TVA déductible sur achats fournisseurs (payables avec amount_ht + amount_ttc)
+  // TVA déductible sur achats fournisseurs
   const tvaDeductible=new Array(12).fill(0);
-  // TVA intra-groupe (SARL Guiraud facture avec TVA → Living récupère en déductible)
-  const tvaIntraGroupe=new Array(12).fill(0);
 
   // TVA sur contrats actifs
   (contracts||[]).forEach(c=>{
@@ -4085,18 +4084,7 @@ async function loadTresoChart(){
     }
   });
 
-  // TVA intra-groupe : SARL Guiraud facture SAS Living avec TVA 20%
-  // → Living déduit, SARL collecte → net = 0 pour le groupe, mais chaque société gère sa TVA
-  months.forEach((m,i)=>{
-    const tvaIntra=Math.round(intraGroupe[i]*0.20); // 20% sur facturation SARL Guiraud
-    tvaIntraGroupe[i]=tvaIntra;
-    // SAS Living: TVA déductible sur facture SARL Guiraud (M+1)
-    if(i+1<12)tvaDeductible[i+1]+=tvaIntra;
-    // SARL Guiraud: TVA collectée sur sa facturation (M+1)
-    if(i+1<12)tvaCollectee[i+1]+=tvaIntra; // déjà dans tvaCollectee globale
-  });
-
-  // TVA nette à décaisser (collectée - déductible) → mise de côté obligatoire
+  // TVA nette à décaisser (collectée sur ventes - déductible sur achats)
   const tvaNette=months.map((_,i)=>Math.max(0,tvaCollectee[i]-tvaDeductible[i]));
 
   // Ajoute TVA reversée dans les dépenses M+1
