@@ -4134,30 +4134,24 @@ async function loadTresoChart(){
   });
 
   // ---- FLUX INTRA-GROUPE : Facturation SARL Guiraud → SAS Living ----
-  // = Part1: revNecessaire(mois)×1.45 (rémunération Julien + URSSAF)
-  // + Part2: dettes propres SARL Guiraud actives ce mois
-  // + Part3: payables SARL Guiraud dus ce mois
-  // TTC = total HT × 1.20 → ce que Living paie réellement
-  const [fxRes,dPRes,bmpRes,setPRes,ppRes,dSarlRes,pSarlRes] = await Promise.all([
+  // = revNecessaire(mois) × 1.45 × 1.20 (TTC)
+  // revNecessaire = dettes perso + charges fixes perso + impôts perso + projets + RAV
+  // Les dettes SARL Guiraud (URSSAF, huissiers) sont payées en interne par SARL depuis sa tréso
+  const [fxRes,dPRes,bmpRes,setPRes,ppRes] = await Promise.all([
     sb.from('fixed_expenses').select('amount').eq('active',true),
     sb.from('debts').select('*').eq('company_id','perso').not('status','eq','solde'),
     sb.from('budget_mensuel_perso').select('*'),
     sb.from('settings').select('key,value'),
-    sb.from('projets_perso').select('*'),
-    sb.from('debts').select('*').eq('company_id','sarl-guiraud').eq('status','en_cours'),
-    sb.from('payables').select('amount_ttc,due_date').eq('company_id','sarl-guiraud').eq('status','a_payer')
+    sb.from('projets_perso').select('*')
   ]);
   const fixesPersoTotal=(fxRes.data||[]).reduce((s,f)=>s+Number(f.amount||0),0);
   const settingsMap2={}; (setPRes.data||[]).forEach(s=>settingsMap2[s.key]=s.value);
   const budgetByMois={}; (bmpRes.data||[]).forEach(b=>budgetByMois[b.mois]=b);
   const ravDefault=parseFloat(settingsMap2['rav_cible']||2500);
 
-  // intraGroupe[i] = montant TTC que Living verse à SARL Guiraud ce mois
-  const intraGroupe=months.map((m,idx)=>{
+  const intraGroupe=months.map((m)=>{
     const mKey2=m.getFullYear()+'-'+String(m.getMonth()+1).padStart(2,'0');
     const mY=m.getFullYear(),mM=m.getMonth();
-
-    // Part 1 : revNecessaire × 1.45 (rémunération + URSSAF)
     const dettesPerso=(dPRes.data||[]).filter(d=>{
       if(d.frequency!=='monthly')return false;
       if(d.start_date){const s=new Date(d.start_date);if(mY<s.getUTCFullYear()||(mY===s.getUTCFullYear()&&mM<s.getUTCMonth()))return false;}
@@ -4174,31 +4168,13 @@ async function loadTresoChart(){
       }
     });
     const revNec=dettesPerso+fixesPersoTotal+impots+projets+rav;
-    const part1HT=Math.round(revNec*1.45);
-
-    // Part 2 : dettes propres SARL Guiraud actives ce mois
-    const part2HT=(dSarlRes.data||[]).filter(d=>{
-      if(!d.monthly_amount||d.monthly_amount<=0)return false;
-      if(d.start_date){const s=new Date(d.start_date);if(mY<s.getUTCFullYear()||(mY===s.getUTCFullYear()&&mM<s.getUTCMonth()))return false;}
-      if(d.end_date){const e=new Date(d.end_date);if(mY>e.getUTCFullYear()||(mY===e.getUTCFullYear()&&mM>e.getUTCMonth()))return false;}
-      return true;
-    }).reduce((s,d)=>s+Number(d.monthly_amount||0),0);
-
-    // Part 3 : payables SARL Guiraud dus ce mois
-    const part3HT=(pSarlRes.data||[]).filter(p=>p.due_date?.startsWith(mKey2))
-      .reduce((s,p)=>s+Number(p.amount_ttc||0),0);
-
-    // Total TTC = (Part1 + Part2 + Part3) × 1.20 (TVA 20%)
-    // Part1 et Part2 sont des montants HT, Part3 est déjà TTC
-    const totalHT=part1HT+part2HT;
-    const totalTTC=Math.round(totalHT*1.20)+Math.round(part3HT);
-    return totalTTC;
+    // HT × 1.45 (URSSAF) × 1.20 (TVA) = TTC que Living verse à SARL Guiraud
+    return Math.round(revNec*1.45*1.20);
   });
 
-  // TVA déductible pour Living = 20% de la facturation SARL Guiraud HT
+  // TVA déductible pour Living = 20% sur HT facture SARL Guiraud
   const tvaDeductibleSarl=months.map((_,i)=>Math.round(intraGroupe[i]/1.20*0.20));
 
-  const caNetExterne=months.map((_,i)=>
     coIds.reduce((s,id)=>s+revenusParSoc[id][i],0)+revenusPlac[i]-intraGroupe[i]+encaissements[i]
   );
 
