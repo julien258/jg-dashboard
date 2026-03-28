@@ -4133,20 +4133,40 @@ async function loadTresoChart(){
     if(v>0&&revenusParSoc['sas-living'])revenusParSoc['sas-living'][i]+=v;
   });
 
-  // ---- FLUX INTRA-GROUPE (neutralisation) ----
-  // = Facturation réelle SARL Guiraud → SAS Living ce mois
-  // Calculé depuis : paye_perso + dettes perso actives ce mois (même logique que loadApurement)
-  const payePersoTreso = parseFloat((await sb.from('settings').select('value').eq('key','paye_perso').single()).data?.value||0)||0;
-  const {data:dettesPersoAll} = await sb.from('debts').select('*').eq('company_id','perso').eq('status','en_cours');
+  // ---- FLUX INTRA-GROUPE : Coût SARL Guiraud réel ----
+  // = revNecessaire(mois) × 1.45 — même logique que le dashboard personnel
+  const [fxRes, dPRes, bmpRes, setPRes, ppRes] = await Promise.all([
+    sb.from('fixed_expenses').select('amount').eq('active',true),
+    sb.from('debts').select('*').eq('company_id','perso').not('status','eq','solde'),
+    sb.from('budget_mensuel_perso').select('*'),
+    sb.from('settings').select('key,value'),
+    sb.from('projets_perso').select('*')
+  ]);
+  const fixesPersoTotal=(fxRes.data||[]).reduce((s,f)=>s+Number(f.amount||0),0);
+  const settingsMap2={}; (setPRes.data||[]).forEach(s=>settingsMap2[s.key]=s.value);
+  const budgetByMois={}; (bmpRes.data||[]).forEach(b=>budgetByMois[b.mois]=b);
+  const ravDefault=parseFloat(settingsMap2['rav_cible']||2500);
 
   const intraGroupe=months.map(m=>{
-    const mY=m.getFullYear(), mM=m.getMonth();
-    const dettesPersoMoisM=(dettesPersoAll||[]).filter(d=>{
+    const mKey2=m.getFullYear()+'-'+String(m.getMonth()+1).padStart(2,'0');
+    const mY=m.getFullYear(),mM=m.getMonth();
+    const dettes=(dPRes.data||[]).filter(d=>{
+      if(d.frequency!=='monthly')return false;
       if(d.start_date){const s=new Date(d.start_date);if(mY<s.getUTCFullYear()||(mY===s.getUTCFullYear()&&mM<s.getUTCMonth()))return false;}
       if(d.end_date){const e=new Date(d.end_date);if(mY>e.getUTCFullYear()||(mY===e.getUTCFullYear()&&mM>e.getUTCMonth()))return false;}
       return true;
     }).reduce((s,d)=>s+Number(d.monthly_amount||0),0);
-    return payePersoTreso + dettesPersoMoisM; // Facturation SARL Guiraud réelle
+    const impots=budgetByMois[mKey2]?.impots_pas?Number(budgetByMois[mKey2].impots_pas):0;
+    const rav=budgetByMois[mKey2]?.rav_cible?Number(budgetByMois[mKey2].rav_cible):ravDefault;
+    let projets=0;
+    (ppRes.data||[]).forEach(p=>{
+      if(p.date_debut&&p.duree_mois){const cout=p.cout_total||0;const mens=Math.ceil(cout/p.duree_mois);
+        for(let k=0;k<p.duree_mois;k++){const dd=new Date(p.date_debut);dd.setMonth(dd.getMonth()+k);
+          if(dd.getFullYear()===mY&&dd.getMonth()===mM)projets+=mens;}
+      }
+    });
+    const revNec=dettes+fixesPersoTotal+impots+projets+rav;
+    return Math.round(revNec*1.45); // Coût SARL = revNecessaire × 1.45
   });
 
   // CA net externe = total - intra-groupe
