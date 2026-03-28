@@ -2031,7 +2031,7 @@ async function uploadAssetDoc(assetId,inputId,field){
 async function loadAssets(){
   const coF=document.getElementById('asset-filter-co')?.value||'';
   const tyF=document.getElementById('asset-filter-type')?.value||'';
-  const stF=document.getElementById('asset-filter-statut')?.value||'detenu';
+  const stF=document.getElementById('asset-filter-statut')?.value||'';
   let q=sb.from('assets').select('*').order('type_asset').order('nom');
   if(coF)q=q.eq('company_id',coF);if(tyF)q=q.eq('type_asset',tyF);if(stF)q=q.eq('statut',stF);
   const{data:assets}=await q;
@@ -4338,7 +4338,7 @@ async function loadTresoChart(){
       // Utiliser net_vente_estime si renseigné, sinon calculer
       let netPercu=Number(a.net_vente_estime||0);
       if(!netPercu){
-        const vm=Number(a.prix_vente_prevu||a.valeur_marche||0);
+        const vm=Number(a.prix_vente_prevu||a.valeur_marche||0); // prix_vente_prevu en priorité
         if(!vm)return;
         const cr=Number(a.capital_restant||0);
         const fraisA=Math.round(vm*0.05);
