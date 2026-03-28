@@ -308,6 +308,11 @@
       <div style="overflow-x:auto"><table><thead><tr><th>Créancier</th><th>Nature</th><th style="text-align:right">Restant</th><th style="text-align:right">/mois</th><th>Début</th><th>Fin</th><th>Statut</th><th></th></tr></thead>
       <tbody id="dettes-tbody"><tr><td colspan="7" style="text-align:center;padding:1.5rem"><span class="spin"></span></td></tr></tbody></table></div>
     </div>
+    <!-- Graphique apurement dettes perso -->
+    <div class="card" style="margin-top:1rem">
+      <div class="card-t">Stock de dette — courbe d'apurement sur 12 mois</div>
+      <div style="position:relative;height:200px"><canvas id="debtPersoStockChart"></canvas></div>
+    </div>
     <div class="card"><div class="card-t">Dossiers fiscaux</div>
       <div style="overflow-x:auto"><table><thead><tr><th>Libellé</th><th style="text-align:right">Montant dû</th><th>Échéance</th><th>Statut</th></tr></thead>
       <tbody id="tax-tbody"><tr><td colspan="4" style="text-align:center;padding:1.5rem"><span class="spin"></span></td></tr></tbody></table></div>
@@ -725,6 +730,40 @@ function renderDettes(){
       <td><button class="btn btn-g btn-sm" onclick="openEditDette('${d.id}')">✏️</button></td>
     </tr>
   `).join('')||'<tr><td colspan="8" style="text-align:center;padding:1.5rem;color:var(--t2)">Aucune</td></tr>';
+  // Graphique apurement dettes perso
+  const now=new Date();
+  const months12p=[];const labels12p=[];
+  const mNoms=['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
+  for(let i=0;i<12;i++){const d=new Date(now.getFullYear(),now.getMonth()+i,1);months12p.push(d);labels12p.push(mNoms[d.getMonth()]+' '+d.getFullYear().toString().slice(2));}
+  let stockP=D.dettes.filter(d=>d.status!=='solde').reduce((s,d)=>s+Number(d.amount_remaining||d.amount_total||0),0);
+  const stockParMoisP=[stockP];
+  months12p.slice(1).forEach(m=>{
+    let dec=0;
+    D.dettes.filter(d=>d.status!=='solde').forEach(d=>{
+      const mY=m.getFullYear(),mM=m.getMonth();
+      const freq={monthly:1,quarterly:3,annual:12}[d.frequency]||0;
+      const montant=Number(d.monthly_amount||0);
+      if(freq===0||montant===0)return;
+      if(d.start_date){const s=new Date(d.start_date);if(mY<s.getUTCFullYear()||(mY===s.getUTCFullYear()&&mM<s.getUTCMonth()))return;}
+      if(d.end_date){const e=new Date(d.end_date);if(mY>e.getUTCFullYear()||(mY===e.getUTCFullYear()&&mM>e.getUTCMonth()))return;}
+      const startM=d.start_date?new Date(d.start_date).getUTCMonth():0;
+      if(freq===1||(freq===3&&(mM-startM+12)%3===0)||(freq===12&&mM===startM))dec+=montant;
+    });
+    stockP=Math.max(0,stockP-dec);stockParMoisP.push(Math.round(stockP));
+  });
+  if(window._debtPersoChart)window._debtPersoChart.destroy();
+  const elP=document.getElementById('debtPersoStockChart');
+  if(elP&&typeof Chart!=='undefined'){
+    window._debtPersoChart=new Chart(elP.getContext('2d'),{
+      type:'line',
+      data:{labels:labels12p,datasets:[{label:'Stock dette perso',data:stockParMoisP,borderColor:'#E74C3C',backgroundColor:'rgba(231,76,60,0.08)',borderWidth:2.5,pointRadius:4,pointBackgroundColor:'#E74C3C',tension:0.3,fill:true}]},
+      options:{responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>Math.round(ctx.parsed.y).toLocaleString('fr-FR')+' €'}}},
+        scales:{x:{ticks:{color:'#7A849E',font:{size:11}},grid:{display:false}},y:{ticks:{callback:v=>(v/1000).toFixed(0)+'k€',color:'#7A849E',font:{size:10}},grid:{color:'rgba(0,0,0,0.05)'}}}
+      }
+    });
+  }
+
   const taxEl=document.getElementById('tax-tbody'); if(!taxEl)return; taxEl.innerHTML=D.impots.map(t=>`
     <tr><td>${t.label}</td><td class="mono" style="text-align:right;color:#A32D2D">${fmt(t.amount_due)}</td>
     <td style="font-size:11px">${t.due_date||'—'}</td>
