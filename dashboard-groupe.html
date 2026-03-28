@@ -3541,7 +3541,7 @@ async function updateDebtUrgency(id,level){
 }
 
 async function loadDebts(){
-  const{data}=await sb.from('debts').select('*').order('amount_remaining',{ascending:false});
+  const{data}=await sb.from('debts').select('*').not('company_id','eq','perso').order('amount_remaining',{ascending:false});
   const tbody=document.getElementById('debt-tbody');
   if(!data?.length){
     tbody.innerHTML='<tr><td colspan="10" style="text-align:center;color:var(--t2);padding:2rem">Aucune dette — cliquez sur + pour en ajouter</td></tr>';
