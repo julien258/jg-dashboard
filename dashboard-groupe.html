@@ -2699,16 +2699,18 @@ async function loadApurement(){
     });
     factures.forEach(p=>{
       const isOverdue=p.due_date&&new Date(p.due_date)<now&&idx===0;
+      const bananes=Number(p.priority||0); // 0-3 bananes 🍌
       items.push({
         label:p.fournisseur||'Fournisseur',
         detail:p.objet||p.invoice_number||(p.due_date?'Éch. '+new Date(p.due_date).toLocaleDateString('fr-FR'):''),
         amount:Number(p.amount_ttc||0),
-        sortKey: isOverdue?0:1, // retards en premier
+        sortKey: isOverdue?0:1,
         date:p.due_date||'9999',
-        urgency:0, // factures triées par date
+        urgency:bananes,
         type:'facture',
         overdue:isOverdue,
-        id:p.id
+        id:p.id,
+        priority:bananes
       });
     });
 
@@ -2727,10 +2729,11 @@ async function loadApurement(){
       });
     });
 
-    // Tri : 1) dettes par piments desc, 2) factures par date asc (plus ancienne en premier)
+    // Tri : 1) dettes 🌶️ desc, 2) factures 🍌 critiiques avec dettes, 3) reste factures par date
     const dettes=items.filter(i=>i.type==='dette').sort((a,b)=>b.urgency-a.urgency);
-    const facturesSorted=items.filter(i=>i.type==='facture').sort((a,b)=>a.date.localeCompare(b.date));
-    items.splice(0,items.length,...dettes,...facturesSorted);
+    const factCrit=items.filter(i=>i.type==='facture'&&i.priority>=3).sort((a,b)=>b.priority-a.priority||a.date.localeCompare(b.date));
+    const factNorm=items.filter(i=>i.type==='facture'&&i.priority<3).sort((a,b)=>b.priority-a.priority||a.date.localeCompare(b.date));
+    items.splice(0,items.length,...dettes,...factCrit,...factNorm);
 
     // Disponible ce mois pour recommandations
     const rentM=(allForecasts||[]).filter(f=>f.month_label===m.key).reduce((s,f)=>s+Number(f.amount||0)*Number(f.probability||100)/100,0)
@@ -2794,12 +2797,16 @@ async function loadApurement(){
     const allItems=[...detteItems,...factItems];
 
     const renderItem=item=>{
-      const pim=item.type==='dette'?piments[item.urgency]||'':'📅';
-      const col=item.type==='dette'?(urgColors[item.urgency]||'var(--t2)'):'var(--acc)';
+      const bananeIcons=['','🍌','🍌🍌','🍌🍌🍌'];
+      const pim=item.type==='dette'?piments[item.urgency]||'':(bananeIcons[item.priority||0]||'📅');
+      const col=item.type==='dette'?(urgColors[item.urgency]||'var(--t2)'):item.priority>=3?'var(--amber)':item.priority>=2?'#E67E22':'var(--acc)';
       const badge=item.type==='dette'
         ?'<span style="font-size:9px;background:var(--red)20;color:var(--red);padding:1px 5px;border-radius:3px">DETTE</span>'
         :item.overdue
           ?'<span style="font-size:9px;background:var(--red);color:#fff;padding:1px 5px;border-radius:3px">EN RETARD</span>'
+          :item.priority>=3?'<span style="font-size:9px;background:#F39C1220;color:#F39C12;padding:1px 5px;border-radius:3px">FACTURE 🍌🍌🍌</span>'
+          :item.priority>=2?'<span style="font-size:9px;background:#E67E2220;color:#E67E22;padding:1px 5px;border-radius:3px">FACTURE 🍌🍌</span>'
+          :item.priority>=1?'<span style="font-size:9px;background:var(--acc)20;color:var(--acc);padding:1px 5px;border-radius:3px">FACTURE 🍌</span>'
           :'<span style="font-size:9px;background:var(--acc)20;color:var(--acc);padding:1px 5px;border-radius:3px">FACTURE</span>';
       const barColor=item.pc>=100?'var(--grn)':item.pc>50?'var(--amb)':'var(--red)';
       return '<div style="padding:8px;background:var(--b2);border-radius:6px;margin-bottom:6px">'
@@ -3535,6 +3542,11 @@ async function editPlacement(id){
 }
 
 // ===== DETTES =====
+async function updatePayablePriority(id,level){
+  await sb.from('payables').update({priority:parseInt(level)||0}).eq('id',id);
+  loadApurement();
+}
+
 async function updateDebtUrgency(id,level){
   await sb.from('debts').update({urgency_level:parseInt(level)||0}).eq('id',id);
   toast('Priorité mise à jour');
@@ -5897,20 +5909,26 @@ async function loadPayables(){
   const statusLabels={a_payer:'À payer',en_litige:'En litige',paye:'Payé'};
   const totalDu=data.filter(d=>d.status!=='paye').reduce((s,d)=>s+Number(d.amount_ttc||0),0);
   document.getElementById('pay-total').textContent=Math.round(totalDu).toLocaleString('fr-FR')+' € TTC dus';
-  tbody.innerHTML=data.map(d=>`<tr>
+  const bananeSelect=(id,cur)=>`<select onchange="updatePayablePriority('${id}',this.value)" style="font-size:14px;border:1px solid var(--b1);background:var(--s1);border-radius:4px;cursor:pointer;padding:2px 4px" title="Priorité facture">
+    <option value="0"${cur===0?' selected':''}>—</option>
+    <option value="1"${cur===1?' selected':''}>🍌</option>
+    <option value="2"${cur===2?' selected':''}>🍌🍌</option>
+    <option value="3"${cur===3?' selected':''}>🍌🍌🍌</option>
+  </select>`;
+  tbody.innerHTML=data.map(d=>{const prio=Number(d.priority||0);return`<tr>
     <td><strong>${d.fournisseur}</strong></td>
     <td style="font-size:12px">${d.label||'—'}</td>
-    <td style="text-align:right;font-family:'IBM Plex Mono',monospace;font-size:12px">${d.amount_ht?Math.round(d.amount_ht).toLocaleString('fr-FR')+' €':'—'}</td>
-    <td style="text-align:right;font-family:'IBM Plex Mono',monospace;font-weight:600;color:var(--red)">${d.amount_ttc?Math.round(d.amount_ttc).toLocaleString('fr-FR')+' €':'—'}</td>
+    <td style="text-align:right;font-family:monospace;font-size:12px">${d.amount_ht?Math.round(d.amount_ht).toLocaleString('fr-FR')+' €':'—'}</td>
+    <td style="text-align:right;font-family:monospace;font-weight:600;color:var(--red)">${d.amount_ttc?Math.round(d.amount_ttc).toLocaleString('fr-FR')+' €':'—'}</td>
     <td style="font-size:11px;color:var(--t2)">${d.invoice_date?new Date(d.invoice_date).toLocaleDateString('fr-FR'):'—'}</td>
     <td style="font-size:11px;color:${d.due_date&&new Date(d.due_date)<new Date()&&d.status==='a_payer'?'var(--red)':'var(--t2)'}">${d.due_date?new Date(d.due_date).toLocaleDateString('fr-FR'):'—'}</td>
     <td><span class="badge ${statusColors[d.status]||'bz'}">${statusLabels[d.status]||d.status}</span></td>
-    <td style="font-size:10px;color:var(--t2)">${d.source==='ocr'?'🤖 OCR':'✍ Manuel'}</td>
+    <td>${bananeSelect(d.id,prio)}</td>
     <td style="display:flex;gap:4px">
       <button onclick="editPayable('${d.id}')" style="border:none;background:none;cursor:pointer;color:var(--acc);font-size:12px">✎</button>
       <button onclick="delPayable('${d.id}')" style="border:none;background:none;cursor:pointer;color:var(--t2);font-size:13px">✕</button>
     </td>
-  </tr>`).join('');
+  </tr>`}).join('');
 }
 
 function togglePayableInstallments(){
