@@ -6715,8 +6715,13 @@ async function renderFluxSequentiel(moisOffset){
     const chg=(charges||[]).filter(c=>c.company_id===coId)
       .reduce((s,c)=>s+Number(c.montant_mensuel||c.amount||c.montant||0),0);
     // Dettes récurrentes (mensualités) - SOCIETE SEULEMENT
-    const det=(debts||[]).filter(d=>d.company_id===coId)
-      .reduce((s,d)=>s+Number(d.monthly_amount||0),0);
+    const det=(debts||[]).filter(d=>{
+      if(d.company_id!==coId)return false;
+      const mY=target.getFullYear(),mM=target.getMonth();
+      if(d.start_date){const s=new Date(d.start_date);if(mY<s.getUTCFullYear()||(mY===s.getUTCFullYear()&&mM<s.getUTCMonth()))return false;}
+      if(d.end_date){const e=new Date(d.end_date);if(mY>e.getUTCFullYear()||(mY===e.getUTCFullYear()&&mM>e.getUTCMonth()))return false;}
+      return true;
+    }).reduce((s,d)=>s+Number(d.monthly_amount||0),0);
     // Factures ponctuelles échéant ce mois
     const fact=(payables||[]).filter(p=>p.company_id===coId&&p.due_date?.startsWith(mKey))
       .reduce((s,p)=>s+Number(p.amount_ttc||0),0);
@@ -6727,8 +6732,13 @@ async function renderFluxSequentiel(moisOffset){
   };
 
   // === DETTES PERSO ===
-  const dettesPerso=(debts||[]).filter(d=>d.company_id==='perso')
-    .reduce((s,d)=>s+Number(d.monthly_amount||0),0);
+  const dettesPerso=(debts||[]).filter(d=>{
+    if(d.company_id!=='perso')return false;
+    const mY=target.getFullYear(),mM=target.getMonth();
+    if(d.start_date){const s=new Date(d.start_date);if(mY<s.getUTCFullYear()||(mY===s.getUTCFullYear()&&mM<s.getUTCMonth()))return false;}
+    if(d.end_date){const e=new Date(d.end_date);if(mY>e.getUTCFullYear()||(mY===e.getUTCFullYear()&&mM>e.getUTCMonth()))return false;}
+    return true;
+  }).reduce((s,d)=>s+Number(d.monthly_amount||0),0);
   const settingPerso=10000; // paye de base — idéalement depuis settings
   const besoinPerso=settingPerso+dettesPerso;
 
