@@ -1198,12 +1198,12 @@
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem">
       <div>
         <div style="font-size:20px;font-weight:600">🚨 Tableau d'apurement</div>
-        <div style="font-size:12px;color:var(--t2);margin-top:2px">Paye perso + dettes prioritaires · M / M+1 / M+2</div>
+        <div style="font-size:12px;color:var(--t2);margin-top:2px">M-1 · Mois en cours · M+1 — navigation ◀ ▶</div>
       </div>
-      <div style="display:flex;align-items:center;gap:12px">
-        <div style="font-size:12px;color:var(--t2)">Paye perso mensuelle :</div>
-        <input type="number" id="paye-perso-input" placeholder="10000" style="width:110px;font-family:'IBM Plex Mono',monospace;font-weight:600;font-size:14px;border:1px solid var(--b1);border-radius:6px;padding:4px 8px" onchange="savePayePerso(this.value)">
-        <span style="font-size:12px;color:var(--t2)">€/mois</span>
+      <div style="display:flex;align-items:center;gap:8px">
+        <button class="btn btn-g btn-sm" onclick="shiftApurement(-1)" title="Mois précédent">◀</button>
+        <span id="apurement-nav-label" style="font-size:12px;color:var(--t2);min-width:120px;text-align:center"></span>
+        <button class="btn btn-g btn-sm" onclick="shiftApurement(1)" title="Mois suivant">▶</button>
       </div>
     </div>
     <!-- Grille principale -->
@@ -2600,7 +2600,13 @@ async function updateSupplierUrgency(id,level){
   loadApurement();toast('Urgence mise a jour');
 }
 
+function shiftApurement(delta){
+  window._apurOffset=(window._apurOffset||0)+delta;
+  loadApurement();
+}
+
 async function loadApurement(){
+  if(window._apurOffset===undefined)window._apurOffset=0;
   const piments={3:'🌶️🌶️🌶️',2:'🌶️🌶️',1:'🌶️',0:''};
   const urgColors={3:'var(--red)',2:'var(--amb)',1:'#888',0:'var(--t2)'};
   const moisNoms=['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
@@ -2616,17 +2622,24 @@ async function loadApurement(){
   // Données depuis payables + debts + forecasts
   const safeQ=async(q)=>{try{const r=await q;return r.data||[];}catch(e){return[];}};
   const[allPayables,allDebts,allForecasts,allReceivables]=await Promise.all([
-    safeQ(sb.from('payables').select('*').eq('status','a_payer').order('due_date',{ascending:true})),
-    safeQ(sb.from('debts').select('*').eq('status','en_cours').order('urgency_level',{ascending:false})),
+    safeQ(sb.from('payables').select('*').eq('status','a_payer').not('fournisseur','is',null).not('amount_ttc','is',null).order('due_date',{ascending:true})),
+    safeQ(sb.from('debts').select('*').in('status',['en_cours']).order('urgency_level',{ascending:false})),
     safeQ(sb.from('cash_forecast').select('*')),
     safeQ(sb.from('receivables').select('*').in('status',['envoyee','en_attente']))
   ]);
 
-  // 3 mois
+  // 3 mois : M-1+offset, M+offset, M+1+offset (mois courant au centre)
+  const offset=window._apurOffset||0;
   const months=[];
-  for(let i=0;i<3;i++){
-    const d=new Date(now.getFullYear(),now.getMonth()+i,1);
-    months.push({label:moisNoms[d.getMonth()]+' '+d.getFullYear(),key:d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'),idx:i});
+  for(let i=-1;i<=1;i++){
+    const d=new Date(now.getFullYear(),now.getMonth()+offset+i,1);
+    months.push({label:moisNoms[d.getMonth()]+' '+d.getFullYear(),key:d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'),idx:i,isCenter:i===0,isCurrent:offset===0&&i===0});
+  }
+  // Mettre à jour le label de navigation
+  const navLabel=document.getElementById('apurement-nav-label');
+  if(navLabel){
+    const centerD=new Date(now.getFullYear(),now.getMonth()+offset,1);
+    navLabel.textContent=moisNoms[centerD.getMonth()]+' '+centerD.getFullYear()+(offset===0?' (actuel)':'');
   }
 
   const main=document.getElementById('apurement-main');
@@ -2682,8 +2695,8 @@ async function loadApurement(){
 
   // === COLONNES 2-4 : M / M+1 / M+2 ===
   const monthCols=months.map((m,idx)=>{
-    const borderColor=idx===0?'var(--red)':idx===1?'var(--amb)':'var(--acc)';
-    const tag=idx===0?'<span style="font-size:10px;background:var(--red);color:#fff;padding:2px 6px;border-radius:4px;margin-left:6px">CE MOIS</span>':'';
+    const borderColor=m.isCenter?'var(--red)':m.idx===-1?'var(--t2)':'var(--acc)';
+    const tag=m.isCurrent?'<span style="font-size:10px;background:var(--red);color:#fff;padding:2px 6px;border-radius:4px;margin-left:6px">CE MOIS</span>':(offset===0&&m.idx===-1?'<span style="font-size:10px;background:var(--t2);color:#fff;padding:2px 6px;border-radius:4px;margin-left:6px">PRÉCÉDENT</span>':'');
 
     // Mélange factures + dettes pour ce mois, triées par priorité
     const items=[];
@@ -2717,8 +2730,15 @@ async function loadApurement(){
       });
     });
 
-    // Dettes récurrentes (mensualité du mois, toutes celles avec urgency>0)
-    allDebts.filter(d=>d.monthly_amount>0).forEach(d=>{
+    // Dettes récurrentes — filtrer par start_date/end_date pour ce mois exact
+    const mColD=new Date(now.getFullYear(),now.getMonth()+(offset||0)+m.idx,1);
+    const mColY=mColD.getFullYear(), mColM=mColD.getMonth();
+    allDebts.filter(d=>{
+      if(!d.monthly_amount||d.monthly_amount<=0)return false;
+      if(d.start_date){const s=new Date(d.start_date);if(mColY<s.getUTCFullYear()||(mColY===s.getUTCFullYear()&&mColM<s.getUTCMonth()))return false;}
+      if(d.end_date){const e=new Date(d.end_date);if(mColY>e.getUTCFullYear()||(mColY===e.getUTCFullYear()&&mColM>e.getUTCMonth()))return false;}
+      return true;
+    }).forEach(d=>{
       items.push({
         label:d.debiteur,
         detail:d.nature+(d.payment_day?' — le '+d.payment_day:''),
