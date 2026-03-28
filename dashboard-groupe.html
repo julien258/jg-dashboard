@@ -1152,6 +1152,22 @@
             </div>
           </div>
 
+          <!-- VENTE -->
+          <div style="grid-column:1/-1;margin-top:8px;padding-top:8px;border-top:1px solid var(--b1)">
+            <div style="font-size:12px;font-weight:600;color:var(--amb);margin-bottom:8px">🏷️ Statut & Vente</div>
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
+              <div class="fg"><label>Statut</label>
+                <select id="as-statut" onchange="toggleVenteFields()">
+                  <option value="detenu">Détenu</option>
+                  <option value="en_vente">En vente</option>
+                  <option value="vendu">Vendu</option>
+                </select>
+              </div>
+              <div class="fg" id="as-vente-date-fg" style="display:none"><label style="color:var(--amb)">📅 Date vente prévue</label><input type="date" id="as-date-vente-prevue"></div>
+              <div class="fg" id="as-vente-prix-fg" style="display:none"><label style="color:var(--amb)">💰 Prix vente prévu net vendeur (€)</label><input type="number" id="as-prix-vente-prevu" placeholder="0" oninput="calcNetVente()"></div>
+              <div class="fg" id="as-vente-net-fg" style="display:none"><label style="color:var(--grn)">✅ Net perçu estimé (€)</label><input type="number" id="as-net-vente-estime" placeholder="Calculé auto" style="border-color:var(--grn)"></div>
+            </div>
+          </div>
           <!-- Résultat calculé -->
           <div id="as-equity-preview" style="grid-column:1/-1;padding:12px;background:var(--b2);border-radius:8px;font-size:13px;display:none"></div>
           <div class="fg" style="grid-column:1/-1"><label>Notes</label><textarea id="as-notes" style="min-height:50px"></textarea></div>
@@ -1948,6 +1964,10 @@ async function saveAsset(){
   const editId=document.getElementById('asset-form')._editId;
   const payload={
     company_id:document.getElementById('as-company').value,
+    statut:document.getElementById('as-statut')?.value||'detenu',
+    date_vente_prevue:document.getElementById('as-date-vente-prevue')?.value||null,
+    prix_vente_prevu:parseFloat(document.getElementById('as-prix-vente-prevu')?.value)||null,
+    net_vente_estime:parseFloat(document.getElementById('as-net-vente-estime')?.value)||null,
     nom:document.getElementById('as-nom').value,
     type_asset:document.getElementById('as-type').value,
     description:document.getElementById('as-description').value||null,
@@ -2121,10 +2141,11 @@ async function editAsset(id){
   if(error||!data){toast('Erreur');return;}
   const f=document.getElementById('asset-form');f._editId=id;f.style.display='block';
   document.getElementById('asset-form-title').textContent='✎ Modifier — '+data.nom;
-  const fields={company_id:'as-company',nom:'as-nom',type_asset:'as-type',description:'as-description',date_acquisition:'as-date-acq',valeur_acquisition:'as-val-acq',frais_acquisition:'as-frais-acq',valeur_marche:'as-val-marche',valeur_marche_date:'as-val-marche-date',valeur_marche_source:'as-val-source',preteur:'as-preteur',ref_pret:'as-ref-pret',montant_finance:'as-montant-finance',capital_restant:'as-capital-restant',capital_restant_date:'as-capital-date',taux_pret:'as-taux',mensualite:'as-mensualite',date_fin_pret:'as-fin-pret',financement_compte:'as-financement-compte',valeur_rachat:'as-valeur-rachat',valeur_rachat_date:'as-valeur-rachat-date',regime_fiscal:'as-regime',assureur:'as-assureur',assurance_police:'as-assurance-police',assurance_prime:'as-assurance-prime',assurance_frequence:'as-assurance-freq',assurance_compte:'as-assurance-compte',assurance_echeance:'as-assurance-echeance',assurance_valeur_assuree:'as-assurance-valeur',assurance_contact:'as-assurance-contact',notes:'as-notes'};
+  const fields={company_id:'as-company',nom:'as-nom',type_asset:'as-type',description:'as-description',date_acquisition:'as-date-acq',valeur_acquisition:'as-val-acq',frais_acquisition:'as-frais-acq',valeur_marche:'as-val-marche',valeur_marche_date:'as-val-marche-date',valeur_marche_source:'as-val-source',preteur:'as-preteur',ref_pret:'as-ref-pret',montant_finance:'as-montant-finance',capital_restant:'as-capital-restant',capital_restant_date:'as-capital-date',taux_pret:'as-taux',mensualite:'as-mensualite',date_fin_pret:'as-fin-pret',financement_compte:'as-financement-compte',valeur_rachat:'as-valeur-rachat',valeur_rachat_date:'as-valeur-rachat-date',regime_fiscal:'as-regime',assureur:'as-assureur',assurance_police:'as-assurance-police',assurance_prime:'as-assurance-prime',assurance_frequence:'as-assurance-freq',assurance_compte:'as-assurance-compte',assurance_echeance:'as-assurance-echeance',assurance_valeur_assuree:'as-assurance-valeur',assurance_contact:'as-assurance-contact',statut:'as-statut',date_vente_prevue:'as-date-vente-prevue',prix_vente_prevu:'as-prix-vente-prevu',net_vente_estime:'as-net-vente-estime',notes:'as-notes'};
   Object.entries(fields).forEach(([k,id])=>{const el=document.getElementById(id);if(el)el.value=data[k]||'';});
   document.getElementById('as-financement').checked=data.financement||false;
   document.getElementById('as-financement-fields').style.display=data.financement?'block':'none';
+  toggleVenteFields();
   // Affiche noms docs existants
   if(data.doc_propriete_nom)document.getElementById('as-doc-propriete-nom').textContent='✓ '+data.doc_propriete_nom;
   if(data.doc_financement_nom)document.getElementById('as-doc-financement-nom').textContent='✓ '+data.doc_financement_nom;
@@ -2639,6 +2660,31 @@ function updateApurAllChecks(){
     if(!document.querySelector('#apur-check-sum-'+mkey)) return;
     updateApurCheckByMkey(mkey);
   });
+}
+
+function toggleVenteFields(){
+  const statut=document.getElementById('as-statut')?.value;
+  const show=statut==='en_vente'||statut==='vendu';
+  ['as-vente-date-fg','as-vente-prix-fg','as-vente-net-fg'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el)el.style.display=show?'block':'none';
+  });
+}
+
+function calcNetVente(){
+  const prix=parseFloat(document.getElementById('as-prix-vente-prevu')?.value)||0;
+  const cr=parseFloat(document.getElementById('as-capital-restant')?.value)||0;
+  const va=(parseFloat(document.getElementById('as-val-acq')?.value)||0)+(parseFloat(document.getElementById('as-frais-acq')?.value)||0);
+  const type=document.getElementById('as-type')?.value;
+  const regime=document.getElementById('as-regime')?.value;
+  if(!prix)return;
+  const fraisA=Math.round(prix*0.05);
+  const fraisN=type==='immobilier'?Math.round(prix*0.015):0;
+  const pv=prix-va;
+  const impot=pv>0?(regime==='is'?Math.round(pv*0.25):Math.round(pv*0.36)):0;
+  const net=prix-cr-fraisA-fraisN-impot;
+  const el=document.getElementById('as-net-vente-estime');
+  if(el&&!el._userEdited)el.value=Math.round(net);
 }
 
 function toggleCeRecurrence(){
