@@ -1715,6 +1715,8 @@
           </select>
         </div>
         <div class="fg"><label style="color:var(--acc)">Date signature ⚡ utilisée par la tréso</label><input type="date" id="ce-signed"></div>
+        <div class="fg"><label style="color:var(--grn)">📅 Date paiement prévu</label><input type="date" id="ce-payment-expected"></div>
+        <div class="fg"><label>✅ Date paiement réel</label><input type="date" id="ce-payment-actual"></div>
         <div class="fg"><label>Prochain rappel</label><input type="date" id="ce-reminder"></div>
         <div class="fg" id="ce-trail-proba-fg" style="display:none">
           <label>Probabilité reconduction trailing (%)</label>
@@ -4181,10 +4183,25 @@ async function loadTresoChart(){
 
   const totalIntraGroupe12=intraGroupe.reduce((s,v)=>s+v,0);
 
-  // KPIs
-  const totalRevenus12=Object.values(revenusParSoc).flat().reduce((s,v)=>s+v,0)+revenusPlac.reduce((s,v)=>s+v,0);
-  const totalDepenses12=depenses.reduce((s,v)=>s+v,0);
-  const soldeNet=totalRevenus12-totalIntraGroupe12-totalDepenses12;
+  // KPIs — vision groupe consolidée (pas de retraitement intra-groupe)
+  // Revenus = CRM toutes sociétés + placements + cessions patrimoine (actifs en_vente)
+  const totalRevenus12=Object.values(revenusParSoc).flat().reduce((s,v)=>s+v,0)+revenusPlac.reduce((s,v)=>s+v,0)+encaissements.reduce((s,v)=>s+v,0);
+
+  // Charges = dettes PRO + dettes PERSO + payables + charges fixes + TVA
+  // (depenses contient déjà tout ça sauf les dettes perso)
+  const dettesPersoTotal12=(dPRes?.data||[]).reduce((s,d)=>{
+    const mois=months.filter(m=>{
+      const mY=m.getFullYear(),mM=m.getMonth();
+      if(d.frequency!=='monthly')return false;
+      if(d.start_date){const s2=new Date(d.start_date);if(mY<s2.getUTCFullYear()||(mY===s2.getUTCFullYear()&&mM<s2.getUTCMonth()))return false;}
+      if(d.end_date){const e=new Date(d.end_date);if(mY>e.getUTCFullYear()||(mY===e.getUTCFullYear()&&mM>e.getUTCMonth()))return false;}
+      return true;
+    }).length;
+    return s+Number(d.monthly_amount||0)*mois;
+  },0);
+  const totalDepenses12=depenses.reduce((s,v)=>s+v,0)+dettesPersoTotal12;
+
+  const soldeNet=totalRevenus12-totalDepenses12;
   document.getElementById('tk-revenus').textContent=Math.round(totalRevenus12).toLocaleString('fr-FR')+' € brut';
   document.getElementById('tk-charges').textContent=Math.round(totalDepenses12).toLocaleString('fr-FR')+' €';
   const soldeEl=document.getElementById('tk-solde');
@@ -4238,6 +4255,34 @@ async function loadTresoChart(){
     const dep3=( (depenses[i]||0)+(depenses[i+1]||depenses[i]||0)+(depenses[i+2]||depenses[i]||0) );
     return Math.round(dep3*1.2);
   });
+
+  // Actifs en vente → revenus de cession dans le mois prévu
+  try{
+    const{data:assetsEnVente}=await sb.from('assets').select('*').eq('statut','en_vente');
+    (assetsEnVente||[]).forEach(a=>{
+      // Utiliser net_vente_estime si renseigné, sinon calculer
+      let netPercu=Number(a.net_vente_estime||0);
+      if(!netPercu){
+        const vm=Number(a.prix_vente_prevu||a.valeur_marche||0);
+        if(!vm)return;
+        const cr=Number(a.capital_restant||0);
+        const fraisA=Math.round(vm*0.05);
+        const fraisN=a.type_asset==='immobilier'?Math.round(vm*0.015):0;
+        const pv=vm-Number(a.valeur_acquisition||0);
+        const impot=pv>0?(a.regime_fiscal==='is'?Math.round(pv*0.25):Math.round(pv*0.36)):0;
+        netPercu=vm-cr-fraisA-fraisN-impot;
+      }
+      if(!netPercu)return;
+      const moisVente=a.date_vente_prevue?new Date(a.date_vente_prevue):new Date(now.getFullYear(),now.getMonth()+3,1);
+      const coId=a.company_id||'meulette';
+      months.forEach((m,i)=>{
+        if(m.getMonth()===moisVente.getMonth()&&m.getFullYear()===moisVente.getFullYear()){
+          if(revenusParSoc[coId])revenusParSoc[coId][i]+=netPercu;
+          else revenusParSoc['meulette']&&(revenusParSoc['meulette'][i]+=netPercu);
+        }
+      });
+    });
+  }catch(e){}
 
   // Tréso excédentaire plaçable par mois
   const tresoPlagable=tresoCumul.map((v,i)=>Math.max(0,v-seuilPlacement[i]));
@@ -4962,6 +5007,8 @@ async function openContractEdit(id){
   document.getElementById('ce-status').value=data.status||'prospect';
   document.getElementById('ce-invoice').value=data.invoice_status||'a_emettre';
   document.getElementById('ce-signed').value=data.signed_date||'';
+  document.getElementById('ce-payment-expected').value=data.payment_expected_date||'';
+  document.getElementById('ce-payment-actual').value=data.payment_actual_date||'';
   document.getElementById('ce-reminder').value=data.next_reminder||'';
   // Probabilité trailing — affiche seulement pour CGW
   const isCGWProduct=data.products?.category==='cgw';
@@ -5042,6 +5089,8 @@ async function saveContractEdit(){
     status:document.getElementById('ce-status').value,
     invoice_status:document.getElementById('ce-invoice').value,
     signed_date:document.getElementById('ce-signed').value||null,
+    payment_expected_date:document.getElementById('ce-payment-expected').value||null,
+    payment_actual_date:document.getElementById('ce-payment-actual').value||null,
     next_reminder:document.getElementById('ce-reminder').value||null,
     trail_proba:parseInt(document.getElementById('ce-trail-proba')?.value||80),
     tva_taux:parseFloat(document.querySelector('input[name="ce-tva"]:checked')?.value||0),
