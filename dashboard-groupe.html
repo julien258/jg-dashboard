@@ -2033,7 +2033,9 @@ async function loadAssets(){
   const tyF=document.getElementById('asset-filter-type')?.value||'';
   const stF=document.getElementById('asset-filter-statut')?.value||'';
   let q=sb.from('assets').select('*').order('type_asset').order('nom');
-  if(coF)q=q.eq('company_id',coF);if(tyF)q=q.eq('type_asset',tyF);if(stF)q=q.eq('statut',stF);
+  if(coF)q=q.eq('company_id',coF);if(tyF)q=q.eq('type_asset',tyF);
+  if(stF)q=q.eq('statut',stF);
+  else q=q.not('statut','eq','vendu'); // Par défaut : masquer vendus uniquement
   const{data:assets}=await q;
   const grid=document.getElementById('assets-grid');const kpisEl=document.getElementById('patrimoine-kpis');if(!grid)return;
   const tI={immobilier:'🏠',vehicule:'🚗',montre:'⌚',bijou:'💍',art:'🎨',placement:'📈',autre:'📦'};
