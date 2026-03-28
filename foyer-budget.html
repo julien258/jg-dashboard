@@ -1085,29 +1085,19 @@ async function injectIR2025CommeDette(p){
   // Supprimer l'ancienne dette IR2025 si elle existe
   await sb.from('debts').delete().eq('nature','IR 2025 - Solde sept-dec 2026');
 
-  // Calculer le solde
+  // Utiliser calcIRBrut — même fonction que le simulateur affiché
   const rev25=p.ir25_revenus||0;
   const acomptes25=p.ir25_acomptes||0;
   const parts25=p.ir25_parts||3;
   const per25=p.ir25_per||0;
-  const abatt=Math.min(Math.round(rev25*0.10),14171);
-  const revImp=Math.max(0,rev25-abatt-per25);
-  // Barème IR
-  let ir=0;
-  const tranches=[[11294,0],[28797,0.11],[82341,0.30],[177106,0.41],[Infinity,0.45]];
-  let prev=0;
-  for(const[limite,taux]of tranches){
-    const tranche=Math.min(revImp/parts25,limite)-prev;
-    if(tranche<=0)break;
-    ir+=tranche*taux;
-    prev=limite;
-    if(revImp/parts25<=limite)break;
-  }
-  ir=Math.round(ir*parts25);
-  const solde=Math.max(0,ir-acomptes25);
+  if(!rev25)return;
+  const abatt25=Math.min(Math.round(rev25*0.10),14171);
+  const revImp25=Math.max(0,rev25-abatt25-per25);
+  const ir25=calcIRBrut(revImp25,parts25);
+  const solde=Math.max(0,ir25-acomptes25);
   if(solde===0)return;
 
-  const mensualite=Math.round(solde/4);
+  const mensualite=Math.ceil(solde/4);
 
   // Créer la dette comme les autres
   const {error} = await sb.from('debts').insert({
