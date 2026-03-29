@@ -1627,6 +1627,27 @@ async function render12Mois(){
     if(tot>0) rows.push({label:'⚡ Ponctuelles',mois,tot,color:'var(--t2)'});
   }
 
+  // ── Dettes & impôts à apurer ──
+  const dettesMois12 = cols.map(m=>{
+    const mY=m.getFullYear(), mM=m.getMonth();
+    return D.dettes.filter(d=>{
+      if(d.frequency!=='monthly')return false;
+      if(d.start_date){const s=new Date(d.start_date);if(mY<s.getUTCFullYear()||(mY===s.getUTCFullYear()&&mM<s.getUTCMonth()))return false;}
+      if(d.end_date){const e=new Date(d.end_date);if(mY>e.getUTCFullYear()||(mY===e.getUTCFullYear()&&mM>e.getUTCMonth()))return false;}
+      return true;
+    }).reduce((s,d)=>s+Number(d.monthly_amount||0),0);
+  });
+  const totDettes12=dettesMois12.reduce((a,b)=>a+b,0);
+  if(totDettes12>0) rows.push({label:'🔴 Dettes & impôts à apurer',mois:dettesMois12.map(v=>Math.round(v)),tot:Math.round(totDettes12),color:'var(--red)'});
+
+  // ── Impôts année en cours (PAS mensuel) ──
+  const impotsMois12 = cols.map(m=>{
+    const k=m.getFullYear()+'-'+String(m.getMonth()+1).padStart(2,'0');
+    return D.mensuel[k]?.impots_pas ? Number(D.mensuel[k].impots_pas) : 0;
+  });
+  const totImpots12=impotsMois12.reduce((a,b)=>a+b,0);
+  if(totImpots12>0) rows.push({label:'🏛️ Impôts année en cours',mois:impotsMois12.map(v=>Math.round(v)),tot:Math.round(totImpots12),color:'#9B59B6'});
+
   // ── Projets ──
   D.projets.forEach(p=>{
     const mensuel=p.mensuel||p.monthly_provision||Math.ceil((p.cout_total||p.budget||0)/(p.duree_mois||1));
