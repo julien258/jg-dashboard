@@ -2821,12 +2821,16 @@ function renderCoPennylane(){
   if(!socData || socData.error || !socData.comptes?.length){ encart.style.display='none'; return; }
 
   encart.style.display='block';
-  grid.innerHTML = socData.comptes.map(c => `
-    <div class="kc" style="border-left:3px solid ${c.solde>=0?'var(--grn)':'var(--red)'}">
-      <div class="kl">🏦 ${c.banque||c.nom}</div>
+  grid.innerHTML = socData.comptes.map(c => {
+    const banque = c.banque && c.banque !== c.nom ? c.banque : null;
+    const nom = c.nom || 'Compte';
+    const iban = c.iban ? c.iban.substring(0,8)+'…'+c.iban.slice(-4) : null;
+    return `<div class="kc" style="border-left:3px solid ${c.solde>=0?'var(--grn)':'var(--red)'}">
+      <div class="kl">🏦 ${banque||nom}</div>
       <div class="kv ${c.solde>=0?'p':'n'}">${c.solde.toLocaleString('fr-FR',{minimumFractionDigits:2})} €</div>
-      <div class="ks">${c.iban?c.iban.substring(0,18)+'…':'Compte bancaire'}</div>
-    </div>`).join('');
+      <div class="ks">${banque?nom+(iban?' · '+iban:''):(iban||'Compte bancaire')}</div>
+    </div>`;
+  }).join('');
 }
 
 function shiftApurement(delta){
