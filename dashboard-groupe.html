@@ -6676,12 +6676,33 @@ async function renderCoKPIs(){
     }
   }
 
+  // KPIs société — style tréso, toujours calculés
+  // Solde bancaire depuis Pennylane
+  const keyMap={'sas-living':'living','sarl-guiraud':'sarl','sci-la-meulette':'meulette','meulette':'meulette','real-gains':'realgains'};
+  const coKey=keyMap[curCo.id];
+  const pennylaneData=window._pennylaneData;
+  const socPennylane=pennylaneData?.societes?.find(s=>s.key===coKey);
+  const soldeBancaire=socPennylane?.total_soldes;
+  const soldeBancaireStr=soldeBancaire!=null
+    ? (soldeBancaire>=0?'+':'')+Math.round(soldeBancaire).toLocaleString('fr-FR')+' €'
+    : '—';
+
+  // KPIs calculés pour toutes les sociétés
+  const kpisCalc=[
+    {l:'CA / Commissions YTD',v:caYTD>0?Math.round(caYTD).toLocaleString('fr-FR')+' €':'—',c:caYTD>0?'p':'',s:'Contrats actifs CRM',border:'var(--grn)'},
+    {l:'À encaisser',v:afacturer>0?Math.round(afacturer).toLocaleString('fr-FR')+' €':'—',c:afacturer>0?'w':'',s:'Signés non facturés',border:'var(--amb)'},
+    {l:'Solde bancaire',v:soldeBancaireStr,c:soldeBancaire!=null?(soldeBancaire>=0?'p':'n'):'',s:socPennylane?'Pennylane temps réel':'Non connecté',border:soldeBancaire!=null&&soldeBancaire>=0?'var(--grn)':'var(--red)'},
+    {l:'CC net inter-soc.',v:(netCC>=0?'+':'')+Math.round(netCC).toLocaleString('fr-FR')+' €',c:netCC>=0?'p':'n',s:'Position inter-sociétés',border:'var(--acc)'},
+    {l:'Pipeline total',v:volumeLLD+volumeCGW>0?((volumeLLD+volumeCGW)/1e6).toFixed(1)+' M€':'—',c:volumeLLD+volumeCGW>0?'p':'',s:'LLD + CGW en cours',border:'var(--acc)'},
+  ];
+  // Pour Meulette et autres : utiliser kpis depuis Supabase si dispo
   const canEdit=!['sas-living','sarl-guiraud','real-gains','spv-monikaza'].includes(curCo.id);
+  const finalKpis=canEdit&&savedKpis?.length ? savedKpis.map(k=>({l:k.label,v:k.value,c:'',s:k.sublabel||'',id:k.id,border:'var(--acc)'})) : kpisCalc;
 
   document.getElementById('co-kpis').innerHTML=`
     <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;grid-column:1/-1">
-      ${kpis.map((k,i)=>`
-        <div class="kc" style="position:relative">
+      ${finalKpis.map((k,i)=>`
+        <div class="kc" style="position:relative;border-left:3px solid ${k.border||'var(--acc)'}">
           <div class="kl">${k.l}</div>
           <div class="kv ${k.c||''}">${k.v}</div>
           <div class="ks">${k.s||''}</div>
@@ -7558,32 +7579,31 @@ let coCAobj,coTRobj;
 async function initCoCharts(){
   if(coCAobj)coCAobj.destroy();if(coTRobj)coTRobj.destroy();
 
-  // Charge les contrats de la société courante
+  // Charge les contrats de la société courante — utilise payment_expected_date en priorité
   const{data:contracts}=await sb.from('contracts')
-    .select('commission_amount,signed_date,status,amount')
-    .eq('billing_company_id',curCo?.id||'')
-    .not('signed_date','is',null);
+    .select('commission_amount,signed_date,payment_expected_date,payment_actual_date,status,invoice_status')
+    .eq('billing_company_id',curCo?.id||'');
 
-  // Construit CA par mois sur les 6 derniers mois (N) et N-1
   const months=['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
   const now=new Date();
   const labels=[];
   const dataN=[];
   const dataN1=[];
 
+  // CA mensuel — positionné sur payment_expected_date (ou signed_date si absent)
   for(let i=11;i>=0;i--){
     const d=new Date(now.getFullYear(),now.getMonth()-i,1);
     labels.push(months[d.getMonth()]+' '+d.getFullYear().toString().slice(2));
+    const getDate=c=>c.payment_actual_date||c.payment_expected_date||c.signed_date;
     const mN=contracts?.filter(c=>{
-      if(!c.signed_date)return false;
-      const sd=new Date(c.signed_date);
+      const ref=getDate(c); if(!ref)return false;
+      const sd=new Date(ref);
       return sd.getFullYear()===d.getFullYear()&&sd.getMonth()===d.getMonth();
     }).reduce((s,c)=>s+Number(c.commission_amount||0),0)||0;
-    // N-1 = même mois l'an passé
     const dN1=new Date(d.getFullYear()-1,d.getMonth(),1);
     const mN1=contracts?.filter(c=>{
-      if(!c.signed_date)return false;
-      const sd=new Date(c.signed_date);
+      const ref=getDate(c); if(!ref)return false;
+      const sd=new Date(ref);
       return sd.getFullYear()===dN1.getFullYear()&&sd.getMonth()===dN1.getMonth();
     }).reduce((s,c)=>s+Number(c.commission_amount||0),0)||0;
     dataN.push(Math.round(mN));
@@ -7594,29 +7614,51 @@ async function initCoCharts(){
     type:'bar',
     data:{labels,datasets:[
       {label:'N (commissions)',data:dataN,backgroundColor:'#3D8EF033',borderColor:'#3D8EF0',borderWidth:1.5,borderRadius:4},
-      {label:'N-1',data:dataN1,backgroundColor:'#4A526833',borderColor:'#4A5268',borderWidth:1,borderRadius:4,borderDash:[4,4]}
+      {label:'N-1',data:dataN1,backgroundColor:'#4A526833',borderColor:'#4A5268',borderWidth:1,borderRadius:4}
     ]},
     options:{responsive:true,maintainAspectRatio:false,
       plugins:{legend:{position:'bottom',labels:{color:'#7A849E',font:{size:11},boxWidth:12,padding:10}}},
-      scales:{y:{ticks:{callback:v=>(v/1000).toFixed(0)+'k€',color:'#7A849E',font:{size:10}},grid:{color:'#2A304533'}},x:{ticks:{color:'#7A849E',font:{size:11}},grid:{display:false}}}
+      scales:{y:{ticks:{callback:v=>(v/1000).toFixed(0)+'k€',color:'#7A849E',font:{size:10}},grid:{color:'#2A304533'}},x:{ticks:{color:'#7A849E',font:{size:11},autoSkip:false,maxRotation:45},grid:{display:false}}}
     }
   });
 
-  // Trésorerie glissante — basée sur commissions à encaisser
-  const afacturer=contracts?.filter(c=>['signe','facture'].includes(c.status))
-    .reduce((s,c)=>s+Number(c.commission_amount||0),0)||0;
+  // Trésorerie glissante 90j — solde bancaire Pennylane réel + paiements attendus
+  const keyMap={'sas-living':'living','sarl-guiraud':'sarl','sci-la-meulette':'meulette','meulette':'meulette','real-gains':'realgains'};
+  const coKey=keyMap[curCo?.id];
+  const pennylaneData=window._pennylaneData;
+  const socPennylane=pennylaneData?.societes?.find(s=>s.key===coKey);
+  const soldeBancaire=socPennylane?.total_soldes||0;
+
+  // Paiements attendus dans les 90j
+  const futurContracts=contracts?.filter(c=>{
+    if(!['en_cours','signe','facture'].includes(c.status))return false;
+    const ref=c.payment_expected_date||c.signed_date; if(!ref)return false;
+    const d=new Date(ref); const diff=(d-now)/(1000*3600*24);
+    return diff>0&&diff<=90;
+  })||[];
+
   const tresoLabels=['Auj.','J+15','J+30','J+45','J+60','J+75','J+90'];
-  const tresoData=[0,Math.round(afacturer*0.1),Math.round(afacturer*0.3),Math.round(afacturer*0.5),Math.round(afacturer*0.7),Math.round(afacturer*0.85),Math.round(afacturer)];
+  const tresoData=tresoLabels.map((_,i)=>{
+    const jours=i*15;
+    const encaisse=futurContracts.filter(c=>{
+      const ref=c.payment_expected_date||c.signed_date;
+      const diff=(new Date(ref)-now)/(1000*3600*24);
+      return diff<=jours;
+    }).reduce((s,c)=>s+Number(c.commission_amount||0),0);
+    return Math.round(soldeBancaire+encaisse);
+  });
   const seuilMin=15000;
 
   coTRobj=new Chart(document.getElementById('coTRc').getContext('2d'),{
     type:'line',
     data:{labels:tresoLabels,datasets:[
-      {label:'Encaissements prévus',data:tresoData,borderColor:'#2ECC71',backgroundColor:'#2ECC7111',tension:.4,fill:true},
+      {label:'Tréso projetée',data:tresoData,borderColor:'#2ECC71',backgroundColor:'#2ECC7111',tension:.4,fill:true,pointRadius:4},
       {label:'Seuil min (15k€)',data:tresoLabels.map(()=>seuilMin),borderColor:'#E74C3C',borderDash:[4,4],pointRadius:0}
     ]},
     options:{responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{position:'bottom',labels:{color:'#7A849E',font:{size:11},boxWidth:12,padding:10}}},
+      plugins:{legend:{position:'bottom',labels:{color:'#7A849E',font:{size:11},boxWidth:12,padding:10}},
+        tooltip:{callbacks:{label:ctx=>(ctx.dataset.label||'')+' : '+(ctx.parsed.y/1000).toFixed(0)+'k€'}}
+      },
       scales:{y:{ticks:{callback:v=>(v/1000).toFixed(0)+'k€',color:'#7A849E',font:{size:10}},grid:{color:'#2A304533'}},x:{ticks:{color:'#7A849E',font:{size:11}},grid:{display:false}}}
     }
   });
