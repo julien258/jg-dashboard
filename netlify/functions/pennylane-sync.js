@@ -56,10 +56,11 @@ async function syncSociete(soc) {
     result.comptes = liste.map(c => ({
       id: c.id,
       nom: c.name || c.label || 'Compte',
-      solde: parseFloat(c.balance?.amount || c.balance || c.current_balance || 0),
+      solde: parseFloat(c.balance?.amount ?? c.balance?.value ?? c.balance ?? c.current_balance ?? c.last_balance ?? 0),
       devise: c.balance?.currency || c.currency || 'EUR',
       iban: c.iban || null,
-      banque: c.institution_name || c.bank_name || null
+      banque: c.institution_name || c.bank_name || c.provider_name || null,
+      raw: JSON.stringify(c).substring(0, 200)
     }));
     result.total_soldes = result.comptes.reduce((s, c) => s + c.solde, 0);
   } catch(e) {
@@ -75,7 +76,7 @@ async function syncSociete(soc) {
     result.impayes = impayes.map(f => ({
       id: f.id,
       numero: f.invoice_number || f.label || f.id,
-      client: f.customer?.name || f.customer_name || '—',
+      client: f.customer?.name || f.customer?.customer_name || f.customer_name || f.label?.split(' - ')[0] || '—',
       montant_ttc: parseFloat(f.amount || f.total_amount || 0),
       date_emission: f.date || f.issue_date || null,
       date_echeance: f.deadline || f.due_date || null,
