@@ -675,6 +675,7 @@
       <div><div style="font-size:20px;font-weight:600">Trésorerie Globale — 12 mois glissants</div><div style="font-size:12px;color:var(--t2);margin-top:2px">Revenus · Dettes · Placements · Flux nets</div></div>
       <div style="display:flex;gap:8px">
         <button class="btn btn-g btn-sm" onclick="if(tresoChartObj){tresoChartObj.destroy();tresoChartObj=null;}loadTresoChart()">🔄 Actualiser</button>
+        <button class="btn btn-p btn-sm" id="btn-pennylane-sync" onclick="syncPennylane()" style="background:var(--acc);color:#fff;border:none">⚡ Sync Pennylane</button>
         <button class="btn btn-g btn-sm" onclick="showTresoTab('graph')">📊 Graphique</button>
         <button class="btn btn-g btn-sm" onclick="showTresoTab('dettes')">💸 Dettes</button>
         <button class="btn btn-g btn-sm" onclick="showTresoTab('placements')">📈 Placements</button>
@@ -693,6 +694,16 @@
 
     <!-- GRAPHIQUE -->
     <div id="treso-tab-graph">
+      <!-- SOLDES PENNYLANE -->
+      <div id="pennylane-soldes" style="display:none" class="card mb">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+          <div class="card-t" style="margin:0">🏦 Soldes bancaires réels (Pennylane)</div>
+          <span id="pennylane-sync-date" style="font-size:11px;color:var(--t2)"></span>
+        </div>
+        <div id="pennylane-soldes-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;margin-bottom:16px"></div>
+        <div style="font-size:13px;font-weight:500;color:var(--red);margin-bottom:8px">⚠️ Factures impayées <span id="pennylane-impayes-count" style="font-size:11px;font-weight:400;color:var(--t2)"></span></div>
+        <div id="pennylane-impayes-list" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:8px"></div>
+      </div>
       <div class="card mb">
         <div class="card-t">Flux de trésorerie — 12 mois glissants</div>
         <div style="position:relative;height:380px"><canvas id="tresoChart"></canvas></div>
@@ -2733,6 +2744,64 @@ function updateApurCheckByMkey(mkey){
     dispoEl.textContent = (netDispo>=0?'+':'')+Math.round(netDispo).toLocaleString('fr-FR')+' €';
     dispoEl.style.color = mainColor;
     dispoEl.parentElement.style.borderColor = mainColor;
+  }
+}
+
+async function syncPennylane(){
+  const btn = document.getElementById('btn-pennylane-sync');
+  if(btn){ btn.textContent='⏳ Sync...'; btn.disabled=true; }
+  try {
+    const res = await fetch('/api/pennylane-sync');
+    const data = await res.json();
+    if(!data.ok) throw new Error(data.error||'Erreur sync');
+
+    // Afficher l'encart
+    const encart = document.getElementById('pennylane-soldes');
+    if(encart) encart.style.display='block';
+
+    // Date sync
+    const dateEl = document.getElementById('pennylane-sync-date');
+    if(dateEl) dateEl.textContent = 'Mis à jour : '+new Date(data.synced_at).toLocaleString('fr-FR');
+
+    // Soldes bancaires
+    const grid = document.getElementById('pennylane-soldes-grid');
+    if(grid){
+      grid.innerHTML = data.societes.map(s => {
+        if(s.error) return `<div class="card" style="border-left:3px solid var(--red)">
+          <div style="font-size:11px;color:var(--t2)">${s.label}</div>
+          <div style="font-size:12px;color:var(--red)">${s.error}</div>
+        </div>`;
+        return s.comptes.map(c => `<div class="card" style="border-left:3px solid var(--grn)">
+          <div style="font-size:11px;color:var(--t2)">${s.label} · ${c.banque||c.nom}</div>
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:18px;font-weight:600;color:${c.solde>=0?'var(--grn)':'var(--red)'}">${c.solde.toLocaleString('fr-FR',{minimumFractionDigits:2})} €</div>
+          ${c.iban?`<div style="font-size:10px;color:var(--t2)">${c.iban}</div>`:''}
+        </div>`).join('') || `<div class="card"><div style="font-size:11px;color:var(--t2)">${s.label}</div><div style="color:var(--t2);font-size:12px">Aucun compte bancaire</div></div>`;
+      }).join('');
+    }
+
+    // Factures impayées
+    const impayes = data.societes.flatMap(s => s.impayes.map(f => ({...f, societe:s.label})));
+    const impayesEl = document.getElementById('pennylane-impayes-count');
+    if(impayesEl) impayesEl.textContent = `— ${impayes.length} facture(s) · ${data.groupe.total_impayes.toLocaleString('fr-FR')} € · ${data.groupe.nb_factures_en_retard} en retard`;
+    const listEl = document.getElementById('pennylane-impayes-list');
+    if(listEl){
+      if(!impayes.length){ listEl.innerHTML='<div style="font-size:12px;color:var(--grn)">✓ Aucune facture impayée</div>'; }
+      else listEl.innerHTML = impayes.map(f => `<div class="card" style="border-left:3px solid ${f.en_retard?'var(--red)':'var(--amb)'}">
+        <div style="display:flex;justify-content:space-between">
+          <div>
+            <div style="font-size:11px;color:var(--t2)">${f.societe} · ${f.numero}</div>
+            <div style="font-size:13px;font-weight:500">${f.client}</div>
+            ${f.date_echeance?`<div style="font-size:11px;color:${f.en_retard?'var(--red)':'var(--t2)'}">Éch. ${new Date(f.date_echeance).toLocaleDateString('fr-FR')}${f.en_retard?' ⚠ EN RETARD':''}</div>`:''}
+          </div>
+          <div style="text-align:right;font-family:'IBM Plex Mono',monospace;font-size:14px;font-weight:600;color:var(--red)">${f.montant_ttc.toLocaleString('fr-FR')} €</div>
+        </div>
+      </div>`).join('');
+    }
+    if(btn){ btn.textContent='✓ Pennylane'; btn.disabled=false; }
+  } catch(e){
+    console.error('Sync Pennylane:', e);
+    if(btn){ btn.textContent='⚡ Sync Pennylane'; btn.disabled=false; }
+    toast('Erreur sync Pennylane : '+e.message);
   }
 }
 
