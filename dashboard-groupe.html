@@ -204,6 +204,10 @@
     <!-- KPI -->
     <div class="tp active" id="p-kpi">
       <div id="co-kpis" class="kr"></div>
+      <!-- Soldes bancaires Pennylane par société -->
+      <div id="co-pennylane-soldes" style="display:none;margin-bottom:12px">
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px" id="co-pennylane-grid"></div>
+      </div>
       <div class="g2 mb">
         <div class="card"><div class="card-t">CA mensuel N vs N-1</div><div style="position:relative;height:200px"><canvas id="coCAc"></canvas></div></div>
         <div class="card"><div class="card-t">Trésorerie glissante 90j</div><div style="position:relative;height:200px"><canvas id="coTRc"></canvas></div></div>
@@ -694,15 +698,23 @@
 
     <!-- GRAPHIQUE -->
     <div id="treso-tab-graph">
-      <!-- SOLDES PENNYLANE -->
-      <div id="pennylane-soldes" style="display:none" class="card mb">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-          <div class="card-t" style="margin:0">🏦 Soldes bancaires réels (Pennylane)</div>
-          <span id="pennylane-sync-date" style="font-size:11px;color:var(--t2)"></span>
+      <!-- SOLDES PENNYLANE — Total consolidé uniquement -->
+      <div id="pennylane-soldes" style="display:none;margin-bottom:1rem">
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px">
+          <div class="kc" style="border-left:3px solid var(--grn)">
+            <div class="kl">🏦 Tréso bancaire réelle</div>
+            <div class="kv p" id="pennylane-total-solde">—</div>
+            <div class="ks" id="pennylane-sync-date">Pennylane</div>
+          </div>
+          <div class="kc" style="border-left:3px solid var(--red)" id="pennylane-impayes-kc" style="display:none">
+            <div class="kl">⚠️ Impayés</div>
+            <div class="kv n" id="pennylane-total-impayes">—</div>
+            <div class="ks" id="pennylane-impayes-count"></div>
+          </div>
         </div>
-        <div id="pennylane-soldes-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;margin-bottom:16px"></div>
-        <div style="font-size:13px;font-weight:500;color:var(--red);margin-bottom:8px">⚠️ Factures impayées <span id="pennylane-impayes-count" style="font-size:11px;font-weight:400;color:var(--t2)"></span></div>
-        <div id="pennylane-impayes-list" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:8px"></div>
+        <!-- Détail comptes par société — caché, visible dans onglets sociétés -->
+        <div id="pennylane-soldes-grid" style="display:none"></div>
+        <div id="pennylane-impayes-list" style="display:none"></div>
       </div>
       <div class="card mb">
         <div class="card-t">Flux de trésorerie — 12 mois glissants</div>
@@ -1937,6 +1949,7 @@ function selectCo(id){
   curCo=companies.find(c=>c.id===id);setViews('v-company');document.getElementById('ptabs').style.display='flex';
   document.getElementById('tb-title').textContent=curCo.name;document.getElementById('tb-sub').textContent=curCo.type+' · Vue détaillée';
   showPane('kpi');renderSidebar();renderCoKPIs();initCoCharts();loadTodos('co-todos',curCo.id);loadDocs();
+  renderCoPennylane();
 }
 async function showJuridique(){setViews('v-jur');document.getElementById('ptabs').style.display='none';document.getElementById('tb-title').textContent='Organigramme juridique';document.getElementById('tb-sub').textContent='Structure & flux';await renderJur('main-jur');renderFluxSequentiel(0);renderTimelinePaiements(0);}
 function showTodos(){setViews('v-todo');document.getElementById('ptabs').style.display='none';document.getElementById('tb-title').textContent='To-do général';document.getElementById('tb-sub').textContent='Toutes sociétés';loadTodos('main-todos','group')}
@@ -2755,7 +2768,10 @@ async function syncPennylane(){
     const data = await res.json();
     if(!data.ok) throw new Error(data.error||'Erreur sync');
 
-    // Afficher l'encart
+    // Stocker les données globalement pour usage dans les onglets société
+    window._pennylaneData = data;
+
+    // Afficher l'encart tréso
     const encart = document.getElementById('pennylane-soldes');
     if(encart) encart.style.display='block';
 
@@ -2763,46 +2779,54 @@ async function syncPennylane(){
     const dateEl = document.getElementById('pennylane-sync-date');
     if(dateEl) dateEl.textContent = 'Mis à jour : '+new Date(data.synced_at).toLocaleString('fr-FR');
 
-    // Soldes bancaires
-    const grid = document.getElementById('pennylane-soldes-grid');
-    if(grid){
-      grid.innerHTML = data.societes.map(s => {
-        if(s.error) return `<div class="card" style="border-left:3px solid var(--red)">
-          <div style="font-size:11px;color:var(--t2)">${s.label}</div>
-          <div style="font-size:12px;color:var(--red)">${s.error}</div>
-        </div>`;
-        return s.comptes.map(c => `<div class="card" style="border-left:3px solid var(--grn)">
-          <div style="font-size:11px;color:var(--t2)">${s.label} · ${c.banque||c.nom}</div>
-          <div style="font-family:'IBM Plex Mono',monospace;font-size:18px;font-weight:600;color:${c.solde>=0?'var(--grn)':'var(--red)'}">${c.solde.toLocaleString('fr-FR',{minimumFractionDigits:2})} €</div>
-          ${c.iban?`<div style="font-size:10px;color:var(--t2)">${c.iban}</div>`:''}
-        </div>`).join('') || `<div class="card"><div style="font-size:11px;color:var(--t2)">${s.label}</div><div style="color:var(--t2);font-size:12px">Aucun compte bancaire</div></div>`;
-      }).join('');
+    // Total consolidé soldes
+    const totalEl = document.getElementById('pennylane-total-solde');
+    if(totalEl){
+      const total = data.groupe.total_soldes_bancaires;
+      totalEl.textContent = total.toLocaleString('fr-FR',{minimumFractionDigits:2})+' €';
+      totalEl.className = 'kv '+(total>=0?'p':'n');
     }
 
-    // Factures impayées
+    // Factures impayées — encart discret
     const impayes = data.societes.flatMap(s => s.impayes.map(f => ({...f, societe:s.label})));
-    const impayesEl = document.getElementById('pennylane-impayes-count');
-    if(impayesEl) impayesEl.textContent = `— ${impayes.length} facture(s) · ${data.groupe.total_impayes.toLocaleString('fr-FR')} € · ${data.groupe.nb_factures_en_retard} en retard`;
-    const listEl = document.getElementById('pennylane-impayes-list');
-    if(listEl){
-      if(!impayes.length){ listEl.innerHTML='<div style="font-size:12px;color:var(--grn)">✓ Aucune facture impayée</div>'; }
-      else listEl.innerHTML = impayes.map(f => `<div class="card" style="border-left:3px solid ${f.en_retard?'var(--red)':'var(--amb)'}">
-        <div style="display:flex;justify-content:space-between">
-          <div>
-            <div style="font-size:11px;color:var(--t2)">${f.societe} · ${f.numero}</div>
-            <div style="font-size:13px;font-weight:500">${f.client}</div>
-            ${f.date_echeance?`<div style="font-size:11px;color:${f.en_retard?'var(--red)':'var(--t2)'}">Éch. ${new Date(f.date_echeance).toLocaleDateString('fr-FR')}${f.en_retard?' ⚠ EN RETARD':''}</div>`:''}
-          </div>
-          <div style="text-align:right;font-family:'IBM Plex Mono',monospace;font-size:14px;font-weight:600;color:var(--red)">${f.montant_ttc.toLocaleString('fr-FR')} €</div>
-        </div>
-      </div>`).join('');
-    }
+    const impayesKc = document.getElementById('pennylane-impayes-kc');
+    if(impayesKc && impayes.length>0) impayesKc.style.display='block';
+    const impayesTotalEl = document.getElementById('pennylane-total-impayes');
+    if(impayesTotalEl) impayesTotalEl.textContent = data.groupe.total_impayes.toLocaleString('fr-FR')+' €';
+    const impayesCount = document.getElementById('pennylane-impayes-count');
+    if(impayesCount) impayesCount.textContent = impayes.length+' facture(s) · '+data.groupe.nb_factures_en_retard+' en retard';
+
+    // Mettre à jour l'onglet société si ouvert
+    renderCoPennylane();
+
     if(btn){ btn.textContent='✓ Pennylane'; btn.disabled=false; }
   } catch(e){
     console.error('Sync Pennylane:', e);
     if(btn){ btn.textContent='⚡ Sync Pennylane'; btn.disabled=false; }
     toast('Erreur sync Pennylane : '+e.message);
   }
+}
+
+function renderCoPennylane(){
+  // Affiche les comptes bancaires Pennylane pour la société active
+  const data = window._pennylaneData;
+  const encart = document.getElementById('co-pennylane-soldes');
+  const grid = document.getElementById('co-pennylane-grid');
+  if(!data||!encart||!grid) return;
+
+  // Mapping company_id → key Pennylane
+  const keyMap = {'sas-living':'living','sarl-guiraud':'sarl','meulette':'meulette','real-gains':'realgains'};
+  const coKey = keyMap[curCo?.id];
+  const socData = data.societes.find(s => s.key === coKey);
+  if(!socData || socData.error || !socData.comptes?.length){ encart.style.display='none'; return; }
+
+  encart.style.display='block';
+  grid.innerHTML = socData.comptes.map(c => `
+    <div class="kc" style="border-left:3px solid ${c.solde>=0?'var(--grn)':'var(--red)'}">
+      <div class="kl">🏦 ${c.banque||c.nom}</div>
+      <div class="kv ${c.solde>=0?'p':'n'}">${c.solde.toLocaleString('fr-FR',{minimumFractionDigits:2})} €</div>
+      <div class="ks">${c.iban?c.iban.substring(0,18)+'…':'Compte bancaire'}</div>
+    </div>`).join('');
 }
 
 function shiftApurement(delta){
