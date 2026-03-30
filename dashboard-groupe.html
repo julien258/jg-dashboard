@@ -2833,6 +2833,41 @@ function renderCoPennylane(){
   }).join('');
 }
 
+// Auto-sync Pennylane au chargement (silencieux)
+async function autoSyncPennylane(){
+  try {
+    const res = await fetch('/api/pennylane-sync');
+    if(!res.ok) return;
+    const data = await res.json();
+    if(!data.ok) return;
+    window._pennylaneData = data;
+
+    // Mettre à jour l'encart tréso si visible
+    const encart = document.getElementById('pennylane-soldes');
+    if(encart) encart.style.display='block';
+    const dateEl = document.getElementById('pennylane-sync-date');
+    if(dateEl) dateEl.textContent = 'Mis à jour : '+new Date(data.synced_at).toLocaleString('fr-FR');
+    const totalEl = document.getElementById('pennylane-total-solde');
+    if(totalEl){
+      const total = data.groupe.total_soldes_bancaires;
+      totalEl.textContent = total.toLocaleString('fr-FR',{minimumFractionDigits:2})+' €';
+      totalEl.className = 'kv '+(total>=0?'p':'n');
+    }
+    const impayes = data.societes.flatMap(s => s.impayes.map(f => ({...f, societe:s.label})));
+    const impayesKc = document.getElementById('pennylane-impayes-kc');
+    if(impayesKc && impayes.length>0) impayesKc.style.display='block';
+    const impayesTotalEl = document.getElementById('pennylane-total-impayes');
+    if(impayesTotalEl) impayesTotalEl.textContent = data.groupe.total_impayes.toLocaleString('fr-FR')+' €';
+    const impayesCount = document.getElementById('pennylane-impayes-count');
+    if(impayesCount) impayesCount.textContent = impayes.length+' facture(s) · '+data.groupe.nb_factures_en_retard+' en retard';
+    // Mettre à jour le bouton sync
+    const btn = document.getElementById('btn-pennylane-sync');
+    if(btn) btn.textContent='✓ Pennylane';
+    // Mettre à jour l'onglet société si ouvert
+    renderCoPennylane();
+  } catch(e){ /* silencieux */ }
+}
+
 function shiftApurement(delta){
   window._apurOffset=(window._apurOffset||0)+delta;
   loadApurement();
@@ -7691,6 +7726,7 @@ async function generateTrailingReceivables(){
   }
 }
 init();
+setTimeout(autoSyncPennylane, 2000); // Auto-sync Pennylane 2s après chargement
 </script>
 </body>
 </html>
