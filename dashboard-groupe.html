@@ -5101,6 +5101,7 @@ async function openContractEdit(id){
   document.getElementById('ce-payment-actual').value=data.payment_actual_date||'';
   if(document.getElementById('ce-max-recon'))document.getElementById('ce-max-recon').value=data.max_reconductions||'';
   if(document.getElementById('ce-rollover-date'))document.getElementById('ce-rollover-date').value=data.rollover_date||'';
+  // Note: ces champs sont lus mais non écrits tant que les colonnes ne sont pas créées en base
   document.getElementById('ce-recurrence-type').value=data.recurrence||'';
   document.getElementById('ce-recurrence-start').value=data.start_date||'';
   document.getElementById('ce-recurrence-end').value=data.end_date||'';
@@ -5187,8 +5188,7 @@ async function saveContractEdit(){
     signed_date:document.getElementById('ce-signed').value||null,
     payment_expected_date:document.getElementById('ce-payment-expected').value||null,
     payment_actual_date:document.getElementById('ce-payment-actual').value||null,
-    max_reconductions:parseInt(document.getElementById('ce-max-recon')?.value)||null,
-    rollover_date:document.getElementById('ce-rollover-date')?.value||null,
+    // max_reconductions et rollover_date : colonnes à créer en base (ALTER TABLE)
     recurrence:document.getElementById('ce-recurrence-type').value||null,
     start_date:document.getElementById('ce-recurrence-start').value||null,
     end_date:document.getElementById('ce-recurrence-end').value||null,
@@ -5210,10 +5210,16 @@ async function saveContractEdit(){
   };
   const{error}=await sb.from('contracts').update(updates).eq('id',id);
   if(error){toast('Erreur : '+error.message);return;}
+  // Sauvegarder champs roll-over séparément (colonnes optionnelles)
+  const maxRecon=parseInt(document.getElementById('ce-max-recon')?.value)||null;
+  const rolloverDate=document.getElementById('ce-rollover-date')?.value||null;
+  if(maxRecon||rolloverDate){
+    try{
+      await sb.from('contracts').update({max_reconductions:maxRecon,rollover_date:rolloverDate}).eq('id',id);
+    }catch(e){/* colonnes pas encore créées */}
+  }
   document.getElementById('contract-edit-modal').style.display='none';
   toast('✓ Contrat mis à jour');loadContracts();loadCRMData();
-  // Recharge la tréso si elle a déjà été chargée
-  
 }
 
 async function delContract(id){if(!confirm('Supprimer ce contrat ?'))return;await sb.from('contracts').delete().eq('id',id);loadContracts();loadCRMData();}
