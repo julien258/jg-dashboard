@@ -1733,6 +1733,8 @@
         <div class="fg"><label style="color:var(--acc)">Date signature ⚡ utilisée par la tréso</label><input type="date" id="ce-signed"></div>
         <div class="fg"><label style="color:var(--grn)">📅 Date paiement prévu</label><input type="date" id="ce-payment-expected"></div>
         <div class="fg"><label>✅ Date paiement réel</label><input type="date" id="ce-payment-actual"></div>
+        <div class="fg"><label style="color:var(--acc)">🧾 N° facture Pennylane</label><input type="text" id="ce-pennylane-num" placeholder="FL-2026-0001" style="font-family:monospace"></div>
+        <div class="fg"><label>📅 Date émission facture</label><input type="date" id="ce-pennylane-date"></div>
         <div class="fg">
           <label>🔄 Type de prestation</label>
           <select id="ce-recurrence-type" onchange="toggleCeRecurrence()">
@@ -4896,7 +4898,11 @@ async function loadContracts(filter){
         ${c.lld_bailleur?`<div style="font-size:10px;color:var(--t2);margin-top:2px">${c.lld_bailleur}${c.lld_co_courtier?' · via '+c.lld_co_courtier:''}</div>`:''}
         ${c.lld_retrocession_montant>0?`<div style="font-size:10px;color:var(--red)">Rétro: ${Math.round(Number(c.lld_retrocession_montant)).toLocaleString('fr-FR')} €</div>`:''}
       </td>
-      <td><span class="badge ${invoiceColors[c.invoice_status]||'bz'}" style="font-size:10px">${invoiceLabels[c.invoice_status]||'—'}</span></td>
+      <td>
+        <span class="badge ${invoiceColors[c.invoice_status]||'bz'}" style="font-size:10px">${invoiceLabels[c.invoice_status]||'—'}</span>
+        ${c.invoice_name?`<div style="font-size:10px;color:var(--acc);font-family:'IBM Plex Mono',monospace;margin-top:2px">${c.invoice_name}</div>`:''}
+        ${c.invoice_date?`<div style="font-size:10px;color:var(--t2)">${new Date(c.invoice_date).toLocaleDateString('fr-FR')}</div>`:''}
+      </td>
       <td style="font-size:11px;color:${c.next_reminder&&new Date(c.next_reminder)<new Date()?'var(--red)':'var(--t2)'}">${c.next_reminder?new Date(c.next_reminder).toLocaleDateString('fr-FR'):'—'}</td>
       <td style="display:flex;gap:4px">
         <button onclick="updateContractStatus('${c.id}','${c.status}')" style="border:none;background:none;cursor:pointer;color:var(--acc);font-size:12px;padding:2px 6px">✎</button>
@@ -5099,6 +5105,8 @@ async function openContractEdit(id){
   document.getElementById('ce-signed').value=data.signed_date||'';
   document.getElementById('ce-payment-expected').value=data.payment_expected_date||'';
   document.getElementById('ce-payment-actual').value=data.payment_actual_date||'';
+  if(document.getElementById('ce-pennylane-num'))document.getElementById('ce-pennylane-num').value=data.invoice_name||'';
+  if(document.getElementById('ce-pennylane-date'))document.getElementById('ce-pennylane-date').value=data.invoice_date||'';
   if(document.getElementById('ce-max-recon'))document.getElementById('ce-max-recon').value=data.max_reconductions||'';
   if(document.getElementById('ce-rollover-date'))document.getElementById('ce-rollover-date').value=data.rollover_date||'';
   // Note: ces champs sont lus mais non écrits tant que les colonnes ne sont pas créées en base
@@ -5186,6 +5194,8 @@ async function saveContractEdit(){
     status:document.getElementById('ce-status').value,
     invoice_status:document.getElementById('ce-invoice').value,
     signed_date:document.getElementById('ce-signed').value||null,
+    invoice_name:document.getElementById('ce-pennylane-num')?.value||null,
+    invoice_date:document.getElementById('ce-pennylane-date')?.value||null,
     payment_expected_date:document.getElementById('ce-payment-expected').value||null,
     payment_actual_date:document.getElementById('ce-payment-actual').value||null,
     // max_reconductions et rollover_date : colonnes à créer en base (ALTER TABLE)
