@@ -5195,7 +5195,6 @@ async function saveContractEdit(){
     invoice_status:document.getElementById('ce-invoice').value,
     signed_date:document.getElementById('ce-signed').value||null,
     invoice_name:document.getElementById('ce-pennylane-num')?.value||null,
-    invoice_date:document.getElementById('ce-pennylane-date')?.value||null,
     payment_expected_date:document.getElementById('ce-payment-expected').value||null,
     payment_actual_date:document.getElementById('ce-payment-actual').value||null,
     // max_reconductions et rollover_date : colonnes à créer en base (ALTER TABLE)
@@ -5220,6 +5219,11 @@ async function saveContractEdit(){
   };
   const{error}=await sb.from('contracts').update(updates).eq('id',id);
   if(error){toast('Erreur : '+error.message);return;}
+  // Sauvegarder invoice_date séparément (colonne optionnelle)
+  const invoiceDate=document.getElementById('ce-pennylane-date')?.value||null;
+  if(invoiceDate){
+    try{ await sb.from('contracts').update({invoice_date:invoiceDate}).eq('id',id); }catch(e){}
+  }
   // Sauvegarder champs roll-over séparément (colonnes optionnelles)
   const maxRecon=parseInt(document.getElementById('ce-max-recon')?.value)||null;
   const rolloverDate=document.getElementById('ce-rollover-date')?.value||null;
