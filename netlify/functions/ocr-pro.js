@@ -166,9 +166,10 @@ Réponds UNIQUEMENT avec un objet JSON valide, sans markdown, sans explication.
             },
             body: fileBuffer
           });
-          if (uploadRes.ok) storagePath = path;
+          if (uploadRes.ok) { storagePath = path; console.log('Storage OK:', path); }
+          else { const t = await uploadRes.text(); console.warn('Storage upload failed:', uploadRes.status, t.substring(0,200)); }
         }
-      } catch(e) { console.warn('Storage upload failed:', e.message); }
+      } catch(e) { console.warn('Storage upload exception:', e.message); }
     }
 
     // Détecte si c'est un PDF (base64 commence par JVBERi) ou une image

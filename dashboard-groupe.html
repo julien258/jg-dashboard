@@ -6895,8 +6895,18 @@ function renderPayablesTable(data){
     <option value="2"${cur===2?' selected':''}>🍌🍌</option>
     <option value="3"${cur===3?' selected':''}>🍌🍌🍌</option>
   </select>`;
-  tbody.innerHTML=data.map(d=>{const prio=Number(d.priority||0);return`<tr data-pay-id="${d.id}"
-    <td><strong>${d.fournisseur}</strong></td>
+  let prevFournisseur = null;
+  tbody.innerHTML=data.map(d=>{
+    const prio=Number(d.priority||0);
+    const isNewFourn = d.fournisseur !== prevFournisseur;
+    prevFournisseur = d.fournisseur;
+    const separator = isNewFourn && prevFournisseur !== null
+      ? `<tr><td colspan="9" style="padding:0;border-top:2px solid var(--b1)"></td></tr>` : '';
+    const fournisseurLabel = isNewFourn
+      ? `<strong style="color:var(--t1)">${d.fournisseur}</strong>`
+      : `<span style="color:var(--t2);font-size:11px">↳ idem</span>`;
+    return separator+`<tr data-pay-id="${d.id}"
+    <td>${fournisseurLabel}</td>
     <td style="font-size:12px">${d.label||'—'}</td>
     <td style="text-align:right;font-family:monospace;font-size:12px">${d.amount_ht?Math.round(d.amount_ht).toLocaleString('fr-FR')+' €':'—'}</td>
     <td style="text-align:right;font-family:monospace;font-weight:600;color:var(--red)">${d.amount_ttc?Math.round(d.amount_ttc).toLocaleString('fr-FR')+' €':'—'}</td>
@@ -6909,7 +6919,7 @@ function renderPayablesTable(data){
       ${d.doc_name?`<button onclick="openPayableDoc('${d.id}','${d.doc_name}')" style="border:none;background:none;cursor:pointer;color:var(--acc);font-size:13px" title="Voir la facture">📎</button>`:''}
       <button onclick="delPayable('${d.id}')" style="border:none;background:none;cursor:pointer;color:var(--t2);font-size:13px">✕</button>
     </td>
-  </tr>`}).join('');
+  </tr>`;}).join('');
 }
 
 async function openPayableDoc(id, docName) {
