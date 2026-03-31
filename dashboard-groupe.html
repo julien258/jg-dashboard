@@ -5943,7 +5943,7 @@ async function loadContracts(filter){
       </td>
       <td style="font-size:11px;color:${c.next_reminder&&new Date(c.next_reminder)<new Date()?'var(--red)':'var(--t2)'}">${c.next_reminder?new Date(c.next_reminder).toLocaleDateString('fr-FR'):'—'}</td>
       <td style="display:flex;gap:4px">
-        <button onclick="updateContractStatus('${c.id}','${c.status}')" style="border:none;background:none;cursor:pointer;color:var(--acc);font-size:12px;padding:2px 6px">✎</button>
+        <button onclick="openContractEdit('${c.id}')" style="border:none;background:none;cursor:pointer;color:var(--acc);font-size:12px;padding:2px 6px" title="Modifier">✎</button>
         <button onclick="openPLModal(window._contractsMap['${c.id}'])" style="border:none;background:none;cursor:pointer;color:var(--grn);font-size:11px;padding:2px 6px" title="Créer dans Pennylane">🧾</button>
         <button onclick="delContract('${c.id}')" style="border:none;background:none;cursor:pointer;color:var(--t2);font-size:13px">✕</button>
       </td>
