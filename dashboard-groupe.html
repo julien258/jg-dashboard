@@ -5042,7 +5042,7 @@ function showCRM(){
 }
 
 function showCRMView(view){
-  ['catalogue','clients','contrats','revenus','client-detail'].forEach(v=>{
+  ['catalogue','clients','contrats','revenus','client-detail','fournisseurs','supplier-form'].forEach(v=>{
     const el=document.getElementById('crm-view-'+v);
     if(el)el.style.display=v===view?'block':'none';
   });
