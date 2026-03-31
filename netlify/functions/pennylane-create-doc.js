@@ -4,8 +4,7 @@
 const PENNYLANE_API = 'https://app.pennylane.com/api/external/v2';
 
 function getEnv(key) {
-  try { return Netlify.env.get(key) || process.env[key] || null; }
-  catch(e) { return process.env[key] || null; }
+  return process.env[key] || null;
 }
 
 const TOKEN_MAP = {

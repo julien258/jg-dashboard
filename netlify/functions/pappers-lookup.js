@@ -1,8 +1,7 @@
 // pappers-lookup.js — Enrichissement fournisseur depuis SIREN via API Pappers
 
 function getEnv(key) {
-  try { return Netlify.env.get(key) || process.env[key] || null; }
-  catch(e) { return process.env[key] || null; }
+  return process.env[key] || null;
 }
 
 export default async (req) => {

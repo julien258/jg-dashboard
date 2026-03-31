@@ -1,10 +1,7 @@
 const PENNYLANE_API = 'https://app.pennylane.com/api/external/v2';
 
 export default async (req) => {
-  const getToken = (key) => {
-    try { return Netlify.env.get(key) || process.env[key] || null; }
-    catch(e) { return process.env[key] || null; }
-  };
+  const getToken = (key) => process.env[key] || null;
 
   const SOCIETIES = [
     { key: 'living',   label: 'SAS Living',   token: getToken('PENNYLANE_LIVING_TOKEN') },
