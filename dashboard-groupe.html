@@ -4953,13 +4953,14 @@ async function loadTresoChart(){
   }
 
   // Charge toutes les données en parallèle
-  const[{data:contracts},{data:debts},{data:placements},{data:payables},{data:receivables},{data:charges}]=await Promise.all([
+  const[{data:contracts},{data:debts},{data:placements},{data:payables},{data:receivables},{data:charges},{data:forecasts}]=await Promise.all([
     sb.from('contracts').select('*,products(category,trailing_rate,trailing_frequency)').not('status','eq','termine'),
     sb.from('debts').select('*').eq('status','en_cours').not('company_id','eq','sarl-guiraud'), // dettes SARL déjà déduites via intraGroupe
     sb.from('placements').select('*').eq('statut','actif'),
     sb.from('payables').select('*').eq('status','a_payer'),
     sb.from('receivables').select('*').not('status','eq','payee'),
-    sb.from('recurring_charges').select('*').eq('status','actif')
+    sb.from('recurring_charges').select('*').eq('status','actif'),
+    sb.from('cash_forecast').select('*').eq('company_id','sas-living')
   ]);
 
   // Stocker dans window pour accès depuis les tooltips
@@ -5061,6 +5062,21 @@ async function loadTresoChart(){
   // Ajoute les trailing CGW aux revenus SAS Living
   revenusTrailing.forEach((v,i)=>{
     if(v>0&&revenusParSoc['sas-living'])revenusParSoc['sas-living'][i]+=v;
+  });
+
+  // Cash forecasts (coupons CGW, autres entrées manuelles)
+  window._tresoForecasts = forecasts || [];
+  (forecasts||[]).forEach(f=>{
+    const amt=Number(f.amount||0);
+    if(!amt||f.type==='depense')return;
+    const proba=Number(f.probability||100)/100;
+    months.forEach((m,i)=>{
+      const mKey=m.getFullYear()+'-'+String(m.getMonth()+1).padStart(2,'0');
+      if(f.month_label===mKey){
+        const soc=f.company_id||'sas-living';
+        if(revenusParSoc[soc])revenusParSoc[soc][i]+=Math.round(amt*proba);
+      }
+    });
   });
 
   // Roll-overs LLD : commissions récurrentes tous les ~105 jours (quarterly)
@@ -5468,37 +5484,48 @@ async function loadTresoChart(){
               }
               return `${ctx.dataset.label} : ${v.toLocaleString('fr-FR')} €`;
             },
-            afterBody:ctx=>{
+            afterBody:function(ctx){
               try{
-                const i=ctx[0]?.dataIndex;
-                const cs=window._tresoContracts||[];
-                const ms=window._tresoMonths||[];
-                const m=ms[i];
-                if(!m||!cs.length)return[];
-                const lines2=[];
-                cs.forEach(function(c){
-                  try{
-                    const com=Number(c.commission_amount||0);
-                    if(!com)return;
-                    const freq={monthly:1,quarterly:3,semi_annual:6,annual:12}[c.recurrence]||0;
-                    var match=false;
-                    if(freq>0){
-                      var startRef=c.start_date||c.signed_date;
-                      if(!startRef)return;
-                      var sd2=new Date(startRef);
-                      if(isNaN(sd2.getTime()))return;
-                      var sy=sd2.getFullYear(),sm=sd2.getMonth();
-                      var isAfter=m>=new Date(sy,sm,1);
-                      var dM=(m.getFullYear()-sy)*12+(m.getMonth()-sm);
-                      match=isAfter&&dM>=0&&dM%freq===0;
-                    } else {
-                      var dr=c.payment_expected_date||c.signed_date;
-                      if(dr){var d2=new Date(dr);if(!isNaN(d2.getTime()))match=d2.getMonth()===m.getMonth()&&d2.getFullYear()===m.getFullYear();}
+                var i=ctx[0]?ctx[0].dataIndex:0;
+                var ms=window._tresoMonths||[];
+                var m=ms[i];
+                if(!m)return[];
+                var mKey=m.getFullYear()+'-'+(m.getMonth()<9?'0':'')+(m.getMonth()+1);
+                var lines2=[];
+                // Forecasts (coupons CGW)
+                var fcs=window._tresoForecasts||[];
+                for(var fi=0;fi<fcs.length;fi++){
+                  var f=fcs[fi];
+                  if(f.month_label===mKey&&Number(f.amount)>0){
+                    lines2.push('  • '+f.label+' : '+Math.round(Number(f.amount)).toLocaleString('fr-FR')+' €');
+                  }
+                }
+                // Contrats ponctuels et récurrents
+                var cs=window._tresoContracts||[];
+                for(var ci=0;ci<cs.length;ci++){
+                  var c=cs[ci];
+                  var com=Number(c.commission_amount||0);
+                  if(!com)continue;
+                  var freq={monthly:1,quarterly:3,semi_annual:6,annual:12}[c.recurrence]||0;
+                  var match=false;
+                  if(freq>0){
+                    var sr=c.start_date||c.signed_date;
+                    if(sr){
+                      var sd=new Date(sr);
+                      if(!isNaN(sd.getTime())){
+                        var sy=sd.getFullYear(),sm2=sd.getMonth();
+                        var isA=m>=new Date(sy,sm2,1);
+                        var dM=(m.getFullYear()-sy)*12+(m.getMonth()-sm2);
+                        match=isA&&dM>=0&&dM%freq===0;
+                      }
                     }
-                    if(match)lines2.push('  • '+(c.label||'Contrat')+' : '+Math.round(com).toLocaleString('fr-FR')+' €');
-                  }catch(e2){}
-                });
-                return lines2.length?['─ Détail dossiers ─',...lines2]:[];
+                  } else {
+                    var dr=c.payment_expected_date||c.signed_date;
+                    if(dr){var d2=new Date(dr);if(!isNaN(d2.getTime()))match=d2.getMonth()===m.getMonth()&&d2.getFullYear()===m.getFullYear();}
+                  }
+                  if(match)lines2.push('  • '+(c.label||'Contrat')+' : '+Math.round(com).toLocaleString('fr-FR')+' €');
+                }
+                return lines2.length?['─ Détail ─',...lines2]:[];
               }catch(e){return[];}
             }
           }}
