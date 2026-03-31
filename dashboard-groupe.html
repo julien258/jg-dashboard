@@ -302,8 +302,50 @@
             <div class="card-t" style="margin:0">Factures à payer</div>
             <span id="pay-total" style="font-family:'IBM Plex Mono',monospace;font-size:18px;color:var(--red)">—</span>
           </div>
+          <!-- Filtres CC & Dettes -->
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:1rem;align-items:flex-end" id="pay-filters">
+            <div>
+              <div style="font-size:10px;color:var(--t2);margin-bottom:3px;text-transform:uppercase">Fournisseur</div>
+              <input type="text" id="pay-f-fournisseur" placeholder="Tous" style="width:130px;font-size:12px" oninput="filterPayables()">
+            </div>
+            <div>
+              <div style="font-size:10px;color:var(--t2);margin-bottom:3px;text-transform:uppercase">N° Facture</div>
+              <input type="text" id="pay-f-invoice" placeholder="Tous" style="width:110px;font-size:12px" oninput="filterPayables()">
+            </div>
+            <div>
+              <div style="font-size:10px;color:var(--t2);margin-bottom:3px;text-transform:uppercase">Montant max (€)</div>
+              <input type="number" id="pay-f-montant" placeholder="∞" style="width:100px;font-size:12px" oninput="filterPayables()">
+            </div>
+            <div>
+              <div style="font-size:10px;color:var(--t2);margin-bottom:3px;text-transform:uppercase">Échéance avant</div>
+              <input type="date" id="pay-f-echeance" style="width:130px;font-size:12px" oninput="filterPayables()">
+            </div>
+            <div>
+              <div style="font-size:10px;color:var(--t2);margin-bottom:3px;text-transform:uppercase">Priorité</div>
+              <select id="pay-f-priorite" style="font-size:12px" onchange="filterPayables()">
+                <option value="">Toutes</option>
+                <option value="3">🍌🍌🍌 Critique</option>
+                <option value="2">🍌🍌 Important</option>
+                <option value="1">🍌 Souple</option>
+                <option value="0">Sans priorité</option>
+              </select>
+            </div>
+            <div>
+              <div style="font-size:10px;color:var(--t2);margin-bottom:3px;text-transform:uppercase">Statut</div>
+              <select id="pay-f-statut" style="font-size:12px" onchange="filterPayables()">
+                <option value="">Tous</option>
+                <option value="a_payer">À payer</option>
+                <option value="paye">Payé</option>
+                <option value="en_litige">En litige</option>
+              </select>
+            </div>
+            <button class="btn btn-g btn-sm" onclick="resetPayFilters()" style="height:28px;font-size:11px">✕ Réinitialiser</button>
+            <div id="pay-filter-count" style="font-size:11px;color:var(--t2);padding:4px 0;align-self:flex-end"></div>
+          </div>
+          <!-- Alerte doublons -->
+          <div id="pay-doublon-alert" style="display:none;background:#fef9ec;border:1px solid var(--amb);border-radius:8px;padding:10px 14px;margin-bottom:1rem;font-size:12px;color:#854f0b"></div>
           <div style="overflow-x:auto"><table>
-            <thead><tr><th>Fournisseur</th><th>Objet</th><th style="text-align:right">HT</th><th style="text-align:right">TTC</th><th>Facture</th><th>Échéance</th><th>Statut</th><th>Source</th><th></th></tr></thead>
+            <thead><tr><th>Fournisseur</th><th>Objet</th><th style="text-align:right">HT</th><th style="text-align:right">TTC</th><th>Facture</th><th>Échéance</th><th>Statut</th><th>Priorité</th><th></th></tr></thead>
             <tbody id="pay-tbody"><tr><td colspan="9" style="text-align:center;color:var(--t2);padding:2rem"><span class="spin"></span></td></tr></tbody>
           </table></div>
         </div>
@@ -6790,23 +6832,65 @@ async function addPayable(){
 async function loadPayables(){
   if(!curCo)return;
   const{data}=await sb.from('payables').select('*').eq('company_id',curCo.id).order('due_date',{ascending:true});
+  window._payAllData = data || [];
+  renderPayablesTable(data || []);
+}
+
+function filterPayables(){
+  if(!window._payAllData) return;
+  const fournisseur = document.getElementById('pay-f-fournisseur')?.value?.toLowerCase()||'';
+  const invoice = document.getElementById('pay-f-invoice')?.value?.toLowerCase()||'';
+  const montantMax = parseFloat(document.getElementById('pay-f-montant')?.value)||Infinity;
+  const echeance = document.getElementById('pay-f-echeance')?.value||'';
+  const priorite = document.getElementById('pay-f-priorite')?.value;
+  const statut = document.getElementById('pay-f-statut')?.value||'';
+  let filtered = window._payAllData;
+  if(fournisseur) filtered = filtered.filter(p=>(p.fournisseur||'').toLowerCase().includes(fournisseur));
+  if(invoice) filtered = filtered.filter(p=>(p.invoice_number||p.label||'').toLowerCase().includes(invoice));
+  if(montantMax<Infinity) filtered = filtered.filter(p=>Number(p.amount_ttc||0)<=montantMax);
+  if(echeance) filtered = filtered.filter(p=>!p.due_date||p.due_date<=echeance);
+  if(priorite!==''&&priorite!==undefined) filtered = filtered.filter(p=>String(p.priority||0)===priorite);
+  if(statut) filtered = filtered.filter(p=>p.status===statut);
+  const countEl = document.getElementById('pay-filter-count');
+  if(countEl){
+    const total=window._payAllData.length, shown=filtered.length;
+    countEl.textContent = shown<total?`${shown} / ${total} factures`:`${total} factures`;
+    countEl.style.color = shown<total?'var(--acc)':'var(--t2)';
+  }
+  renderPayablesTable(filtered);
+}
+
+function resetPayFilters(){
+  ['pay-f-fournisseur','pay-f-invoice','pay-f-montant','pay-f-echeance'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  ['pay-f-priorite','pay-f-statut'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  filterPayables();
+}
+
+function renderPayablesTable(data){
   const tbody=document.getElementById('pay-tbody');
+  if(!tbody) return;
   if(!data?.length){
     tbody.innerHTML='<tr><td colspan="9" style="text-align:center;color:var(--t2);padding:2rem">Aucune facture — ajoutez manuellement ou uploadez dans Documents</td></tr>';
     document.getElementById('pay-total').textContent='0 €';
+    // Détecter doublons même si vide
+    showPayDoublons(window._payAllData||[]);
     return;
   }
+  // Détecter doublons
+  showPayDoublons(window._payAllData||[]);
   const statusColors={a_payer:'br',en_litige:'ba',paye:'bg'};
   const statusLabels={a_payer:'À payer',en_litige:'En litige',paye:'Payé'};
   const totalDu=data.filter(d=>d.status!=='paye').reduce((s,d)=>s+Number(d.amount_ttc||0),0);
   document.getElementById('pay-total').textContent=Math.round(totalDu).toLocaleString('fr-FR')+' € TTC dus';
+  const countEl=document.getElementById('pay-filter-count');
+  if(countEl&&!countEl.textContent) countEl.textContent=data.length+' factures';
   const bananeSelect=(id,cur)=>`<select onchange="updatePayablePriority('${id}',this.value)" style="font-size:14px;border:1px solid var(--b1);background:var(--s1);border-radius:4px;cursor:pointer;padding:2px 4px" title="Priorité facture">
     <option value="0"${cur===0?' selected':''}>—</option>
     <option value="1"${cur===1?' selected':''}>🍌</option>
     <option value="2"${cur===2?' selected':''}>🍌🍌</option>
     <option value="3"${cur===3?' selected':''}>🍌🍌🍌</option>
   </select>`;
-  tbody.innerHTML=data.map(d=>{const prio=Number(d.priority||0);return`<tr>
+  tbody.innerHTML=data.map(d=>{const prio=Number(d.priority||0);return`<tr data-pay-id="${d.id}"
     <td><strong>${d.fournisseur}</strong></td>
     <td style="font-size:12px">${d.label||'—'}</td>
     <td style="text-align:right;font-family:monospace;font-size:12px">${d.amount_ht?Math.round(d.amount_ht).toLocaleString('fr-FR')+' €':'—'}</td>
@@ -6820,6 +6904,33 @@ async function loadPayables(){
       <button onclick="delPayable('${d.id}')" style="border:none;background:none;cursor:pointer;color:var(--t2);font-size:13px">✕</button>
     </td>
   </tr>`}).join('');
+}
+
+function showPayDoublons(payables){
+  const alertEl = document.getElementById('pay-doublon-alert');
+  if(!alertEl) return;
+  const seen={};
+  const doublons=[];
+  payables.filter(p=>p.status==='a_payer').forEach(p=>{
+    const mois=(p.due_date||p.invoice_date||'').substring(0,7);
+    const key=`${(p.fournisseur||'').toLowerCase()}_${Math.round(Number(p.amount_ttc||0))}_${mois}`;
+    if(seen[key]) doublons.push({a:seen[key],b:p});
+    else seen[key]=p;
+  });
+  if(!doublons.length){ alertEl.style.display='none'; return; }
+  alertEl.style.display='block';
+  alertEl.innerHTML = `⚠️ <strong>${doublons.length} doublon(s) détecté(s)</strong> — même fournisseur, même montant, même période :<br>`+
+    doublons.map(d=>
+      `• <strong>${d.a.fournisseur}</strong> — ${Number(d.a.amount_ttc).toLocaleString('fr-FR')} € — ${d.a.due_date||'?'} `+
+      `<button onclick="deletePayDoublon('${d.b.id}')" style="font-size:11px;padding:1px 8px;border:1px solid var(--red);background:none;border-radius:4px;cursor:pointer;color:var(--red);margin-left:4px">Supprimer le doublon</button>`
+    ).join('<br>');
+}
+
+async function deletePayDoublon(id){
+  if(!confirm('Supprimer cette facture en doublon ?')) return;
+  await sb.from('payables').delete().eq('id',id);
+  toast('Doublon supprimé');
+  loadPayables();
 }
 
 function togglePayableInstallments(){
