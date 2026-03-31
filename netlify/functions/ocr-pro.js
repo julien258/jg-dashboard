@@ -20,7 +20,7 @@ export async function handler(event) {
   }
 
   try {
-    const { base64, docType = 'document_universel', company = '', companyId = '' } = JSON.parse(event.body || '{}');
+    const { base64, docType = 'document_universel', company = '', companyId = '', fileName = '' } = JSON.parse(event.body || '{}');
 
     if (!base64) {
       return { statusCode: 400, headers, body: JSON.stringify({ error: 'base64 manquant' }) };
@@ -147,6 +147,30 @@ Réponds UNIQUEMENT avec un objet JSON valide, sans markdown, sans explication.
     const systemPrompt = prompts[docType] || prompts['document_universel'];
     const contextNote = company ? `\nContexte : document appartenant à ${company}.` : '';
 
+    // Sauvegarder le fichier original dans Supabase Storage si c'est une facture reçue
+    let storagePath = null;
+    if (docType === 'facture_recue' && base64 && fileName) {
+      try {
+        const sbUrl = process.env.SUPABASE_URL;
+        const sbKey = process.env.SUPABASE_SERVICE_KEY;
+        if (sbUrl && sbKey) {
+          const fileBuffer = Buffer.from(base64, 'base64');
+          const safeName = fileName.replace(/[^a-zA-Z0-9._-]/g, '_');
+          const path = `${companyId || 'unknown'}/${Date.now()}_${safeName}`;
+          const uploadRes = await fetch(`${sbUrl}/storage/v1/object/payables-docs/${path}`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${sbKey}`,
+              'Content-Type': 'application/pdf',
+              'x-upsert': 'true'
+            },
+            body: fileBuffer
+          });
+          if (uploadRes.ok) storagePath = path;
+        }
+      } catch(e) { console.warn('Storage upload failed:', e.message); }
+    }
+
     // Détecte si c'est un PDF (base64 commence par JVBERi) ou une image
     const isPDF = base64.startsWith('JVBERi') || base64.startsWith('/9j/') === false && base64.length > 100;
     
@@ -216,7 +240,7 @@ Réponds UNIQUEMENT avec un objet JSON valide, sans markdown, sans explication.
     return {
       statusCode: 200,
       headers,
-      body: JSON.stringify(parsed)
+      body: JSON.stringify({...parsed, _storage_path: storagePath})
     };
 
   } catch (err) {

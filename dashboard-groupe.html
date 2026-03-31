@@ -6413,8 +6413,9 @@ async function processFactureOCR(file){
   toast('OCR en cours...');
   try{
     const base64=await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result.split(',')[1]);r.onerror=rej;r.readAsDataURL(file);});
-    const resp=await fetch('/.netlify/functions/ocr-pro',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({base64,docType:'facture_recue'})});
+    const resp=await fetch('/.netlify/functions/ocr-pro',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({base64,docType:'facture_recue',fileName:file.name,companyId:curCo?.id||'unknown'})});
     const parsed=await resp.json();
+    const _storagePath=parsed._storage_path||null; // chemin du PDF dans Supabase Storage
 
     if(!parsed||parsed.error){toast('Erreur OCR — remplissez manuellement');openOcrModal({},null);return;}
 
@@ -6435,15 +6436,15 @@ async function processFactureOCR(file){
 
     if(supplier){
       // Fournisseur connu -> création payable directe
-      await createPayableFromOCR(parsed,supplier);
+      await createPayableFromOCR(parsed,supplier,_storagePath);
     } else {
       // Nouveau fournisseur -> ouvre modale
-      openOcrModal(parsed,null);
+      openOcrModal(parsed,null,_storagePath);
     }
   }catch(e){toast('Erreur : '+e.message);openOcrModal({},null);}
 }
 
-async function createPayableFromOCR(parsed,supplier){
+async function createPayableFromOCR(parsed,supplier,storagePath=null){
   const coId=curCo?.id||document.getElementById('ocr-company')?.value||'sas-living';
   const ht=parseFloat(parsed.montant_ht||parsed.ht||0);
   const ttc=parseFloat(parsed.montant_ttc||parsed.ttc||0);
@@ -6460,7 +6461,8 @@ async function createPayableFromOCR(parsed,supplier){
     status:'a_payer',
     payment_mode:parsed.mode_paiement?.toLowerCase().includes('prel')?'prelevement':'virement',
     notes:parsed.iban_fournisseur?('IBAN : '+parsed.iban_fournisseur):null,
-    supplier_id:supplier.id
+    supplier_id:supplier.id,
+    doc_name:storagePath||null
   });
   if(error){toast('Erreur creation payable : '+error.message);return;}
   toast('Facture '+supplier.nom+' '+ttc+'€ ajoutee dans A payer');
@@ -6910,13 +6912,14 @@ function renderPayablesTable(data){
 
 async function openPayableDoc(id, docName) {
   if (!docName) { toast('Aucun document attaché'); return; }
-  // Chercher le fichier dans Supabase storage ou documents
-  const { data } = await sb.from('documents').select('id,name,file_path,company_id').eq('name', docName).limit(1);
-  if (data?.length && data[0].file_path) {
-    // Générer URL signée Supabase Storage
-    const { data: urlData } = await sb.storage.from('documents').createSignedUrl(data[0].file_path, 3600);
+  try {
+    // docName contient le chemin Storage dans payables-docs (ex: sas-living/1234_facture.pdf)
+    const { data: urlData, error } = await sb.storage.from('payables-docs').createSignedUrl(docName, 3600);
     if (urlData?.signedUrl) { window.open(urlData.signedUrl, '_blank'); return; }
-  }
+    console.warn('Storage error:', error?.message);
+  } catch(e) { console.warn('Storage exception:', e.message); }
+  toast('Document non disponible — sera stocké automatiquement pour les prochains uploads');
+}
   // Fallback : chercher dans payables.doc_name directement via OCR
   const { data: pay } = await sb.from('payables').select('doc_name,company_id').eq('id', id).single();
   if (pay?.doc_name) {
