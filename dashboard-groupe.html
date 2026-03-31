@@ -6970,10 +6970,37 @@ function renderPayablesTable(data){
     <td>${bananeSelect(d.id,prio)}</td>
     <td style="display:flex;gap:4px">
       <button onclick="editPayable('${d.id}')" style="border:none;background:none;cursor:pointer;color:var(--acc);font-size:12px">✎</button>
-      ${d.doc_name?`<button onclick="openPayableDoc('${d.id}','${d.doc_name}')" style="border:none;background:none;cursor:pointer;color:var(--acc);font-size:13px" title="Voir la facture">📎</button>`:''}
+      ${d.doc_name
+        ? `<button onclick="openPayableDoc('${d.id}','${d.doc_name}')" style="border:none;background:none;cursor:pointer;color:var(--acc);font-size:13px" title="Voir la facture">📎</button>`
+        : `<label title="Attacher une PJ" style="cursor:pointer;font-size:12px;color:var(--t2);border:none;background:none" onclick="attachPayableDoc('${d.id}')">📎+</label><input type="file" id="pj-input-${d.id}" style="display:none" accept=".pdf,.png,.jpg,.jpeg" onchange="uploadPayableDoc('${d.id}',this)">`
+      }
       <button onclick="delPayable('${d.id}')" style="border:none;background:none;cursor:pointer;color:var(--t2);font-size:13px">✕</button>
     </td>
   </tr>`;}).join('');
+}
+
+function attachPayableDoc(id) {
+  const input = document.getElementById('pj-input-'+id);
+  if(input) input.click();
+}
+
+async function uploadPayableDoc(id, input) {
+  const file = input.files[0];
+  if(!file) return;
+  toast('Upload en cours...');
+  try {
+    const coId = curCo?.id || 'unknown';
+    const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g,'_');
+    const path = `${coId}/${Date.now()}_${safeName}`;
+    const {data, error} = await sb.storage.from('payables-docs').upload(path, file, {contentType: file.type||'application/pdf', upsert:true});
+    if(error) { toast('Erreur upload : '+error.message); return; }
+    // Mettre à jour doc_name dans la table payables
+    const {error: upErr} = await sb.from('payables').update({doc_name: path}).eq('id', id);
+    if(upErr) { toast('Erreur mise à jour : '+upErr.message); return; }
+    toast('PJ attachée ✓');
+    if(typeof loadPayables==='function') loadPayables();
+  } catch(e) { toast('Erreur : '+e.message); }
+  input.value = '';
 }
 
 async function openPayableDoc(id, docName) {
