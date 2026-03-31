@@ -6469,10 +6469,11 @@ async function createPayableFromOCR(parsed,supplier,storagePath=null){
   if(typeof loadPayables==='function')loadPayables();
 }
 
-function openOcrModal(parsed,supplierId){
+function openOcrModal(parsed,supplierId,storagePath=null){
   const modal=document.getElementById('ocr-payable-modal');
   modal.style.display='block';
   modal._supplierId=supplierId;
+  modal._storagePath=storagePath; // conserver le chemin PDF
   // Reset
   ['ocr-fournisseur','ocr-invoice-num','ocr-objet','ocr-period','ocr-notes'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   ['ocr-ht','ocr-ttc'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=0;});
@@ -6585,7 +6586,8 @@ async function saveOcrPayable(){
     status:'a_payer',
     payment_mode:document.getElementById('ocr-payment-mode').value,
     notes:document.getElementById('ocr-notes').value||null,
-    supplier_id:supplierId||null
+    supplier_id:supplierId||null,
+    doc_name:modal._storagePath||null
   });
   if(error){toast('Erreur : '+error.message);return;}
   modal.style.display='none';
