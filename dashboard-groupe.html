@@ -4980,8 +4980,13 @@ async function loadTresoChart(){
       // Récurrent : distribue sur les mois correspondants
       months.forEach((m,i)=>{
         const mNum=m.getMonth();
-        const startM=c.signed_date?new Date(c.signed_date).getMonth():0;
-        if(freq===1||(freq===3&&(mNum-startM)%3===0)||(freq===6&&(mNum-startM)%6===0)||(freq===12&&mNum===startM)){
+        const startRef=c.start_date||c.signed_date;
+        const startM=startRef?new Date(startRef).getMonth():0;
+        const startY=startRef?new Date(startRef).getFullYear():0;
+        const mYear=m.getFullYear();
+          const startDateObj=startRef?new Date(startRef):null;
+          const isAfterStart=!startDateObj||(m>=new Date(startDateObj.getFullYear(),startDateObj.getMonth(),1));
+          if(isAfterStart&&(freq===1||(freq===3&&(mNum-startM+12)%3===0)||(freq===6&&(mNum-startM+12)%6===0)||(freq===12&&mNum===startM))){
           revenusParSoc[soc][i]+=com;
         }
       });
