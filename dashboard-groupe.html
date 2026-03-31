@@ -252,7 +252,7 @@
             <div>
               <div class="fg"><label>Montant (€) — positif = créance, négatif = dette</label><input type="number" id="cc-amount" placeholder="-1234815"></div>
               <div class="fg"><label>Date d'arrêté</label><input type="date" id="cc-date" value="2024-12-31"></div>
-              <div class="fg"><label>Source</label><select id="cc-source"><option value="manuel">Saisie manuelle</option><option value="bilan">Extrait bilan</option><option value="releve">Extrait relevé</option></select></div>
+              <div class="fg"><label>Priorité</label><select id="cc-source"><option value="manuel">Normale</option><option value="urgent">Urgente</option><option value="litige">Litige</option></select></div>
               <div class="fg"><label>Notes</label><textarea id="cc-notes" style="min-height:50px"></textarea></div>
             </div>
           </div>
@@ -1249,6 +1249,46 @@
           <span style="font-size:11px;color:var(--t2)">€/mois</span>
         </div>
       </div>
+    </div>
+    <!-- Filtres apurement -->
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:1rem;align-items:flex-end" id="apur-filters">
+      <div>
+        <div style="font-size:10px;color:var(--t2);margin-bottom:3px;text-transform:uppercase">Fournisseur</div>
+        <input type="text" id="apur-f-fournisseur" placeholder="Tous" style="width:140px;font-size:12px" oninput="applyApurFilters()">
+      </div>
+      <div>
+        <div style="font-size:10px;color:var(--t2);margin-bottom:3px;text-transform:uppercase">N° Facture</div>
+        <input type="text" id="apur-f-invoice" placeholder="Tous" style="width:120px;font-size:12px" oninput="applyApurFilters()">
+      </div>
+      <div>
+        <div style="font-size:10px;color:var(--t2);margin-bottom:3px;text-transform:uppercase">Montant max (€)</div>
+        <input type="number" id="apur-f-montant" placeholder="∞" style="width:100px;font-size:12px" oninput="applyApurFilters()">
+      </div>
+      <div>
+        <div style="font-size:10px;color:var(--t2);margin-bottom:3px;text-transform:uppercase">Échéance avant</div>
+        <input type="date" id="apur-f-echeance" style="width:130px;font-size:12px" oninput="applyApurFilters()">
+      </div>
+      <div>
+        <div style="font-size:10px;color:var(--t2);margin-bottom:3px;text-transform:uppercase">Priorité</div>
+        <select id="apur-f-priorite" style="font-size:12px" onchange="applyApurFilters()">
+          <option value="">Toutes</option>
+          <option value="3">🌶️🌶️🌶️ Critique</option>
+          <option value="2">🌶️🌶️ Important</option>
+          <option value="1">🌶️ Souple</option>
+          <option value="0">Sans priorité</option>
+        </select>
+      </div>
+      <div>
+        <div style="font-size:10px;color:var(--t2);margin-bottom:3px;text-transform:uppercase">Statut</div>
+        <select id="apur-f-statut" style="font-size:12px" onchange="applyApurFilters()">
+          <option value="">Tous</option>
+          <option value="a_payer">À payer</option>
+          <option value="paye">Payé</option>
+          <option value="litige">Litige</option>
+        </select>
+      </div>
+      <button class="btn btn-g btn-sm" onclick="resetApurFilters()" style="height:28px;font-size:11px">✕ Réinitialiser</button>
+      <div id="apur-filter-count" style="font-size:11px;color:var(--t2);padding:4px 0;align-self:flex-end"></div>
     </div>
     <!-- Grille principale -->
     <div id="apurement-main" style="display:grid;grid-template-columns:240px repeat(3,minmax(0,1fr));gap:12px;align-items:start;width:100%;min-width:0;overflow:hidden"></div>
@@ -3190,6 +3230,94 @@ async function deleteSupplier() {
   showCRMView('fournisseurs');
 }
 
+// ===== FILTRES APUREMENT =====
+let _apurAllPayables = []; // cache des payables chargés
+
+function applyApurFilters() {
+  const fournisseur = document.getElementById('apur-f-fournisseur')?.value?.toLowerCase() || '';
+  const invoice = document.getElementById('apur-f-invoice')?.value?.toLowerCase() || '';
+  const montantMax = parseFloat(document.getElementById('apur-f-montant')?.value) || Infinity;
+  const echeance = document.getElementById('apur-f-echeance')?.value || '';
+  const priorite = document.getElementById('apur-f-priorite')?.value;
+  const statut = document.getElementById('apur-f-statut')?.value || '';
+
+  let filtered = _apurAllPayables;
+  if (fournisseur) filtered = filtered.filter(p => (p.fournisseur||'').toLowerCase().includes(fournisseur));
+  if (invoice) filtered = filtered.filter(p => (p.invoice_number||p.label||'').toLowerCase().includes(invoice));
+  if (montantMax < Infinity) filtered = filtered.filter(p => Number(p.amount_ttc||0) <= montantMax);
+  if (echeance) filtered = filtered.filter(p => !p.due_date || p.due_date <= echeance);
+  if (priorite !== '' && priorite !== undefined) filtered = filtered.filter(p => String(p.priority||0) === priorite);
+  if (statut) filtered = filtered.filter(p => p.status === statut);
+
+  const countEl = document.getElementById('apur-filter-count');
+  if (countEl) {
+    const total = _apurAllPayables.length;
+    const shown = filtered.length;
+    countEl.textContent = shown < total ? `${shown} / ${total} factures` : `${total} factures`;
+    countEl.style.color = shown < total ? 'var(--acc)' : 'var(--t2)';
+  }
+
+  // Masquer/afficher les lignes dans les colonnes
+  const rows = document.querySelectorAll('[data-payable-id]');
+  const filteredIds = new Set(filtered.map(p => p.id));
+  rows.forEach(row => {
+    row.style.display = filteredIds.has(row.dataset.payableId) ? '' : 'none';
+  });
+}
+
+function resetApurFilters() {
+  ['apur-f-fournisseur','apur-f-invoice','apur-f-montant','apur-f-echeance'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  ['apur-f-priorite','apur-f-statut'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  applyApurFilters();
+}
+
+// Détection de doublons lors du chargement des payables
+function detectApurDoublons(payables) {
+  const doublons = [];
+  const seen = {};
+  payables.forEach(p => {
+    // Clé de doublon : même fournisseur + même montant + même mois
+    const mois = (p.due_date||p.invoice_date||'').substring(0, 7);
+    const key = `${(p.fournisseur||'').toLowerCase()}_${Math.round(Number(p.amount_ttc||0))}_${mois}`;
+    if (seen[key]) {
+      doublons.push({ a: seen[key], b: p });
+    } else {
+      seen[key] = p;
+    }
+  });
+  return doublons;
+}
+
+function showApurDoublonAlert(doublons) {
+  if (!doublons.length) return;
+  const existing = document.getElementById('apur-doublon-alert');
+  if (existing) existing.remove();
+
+  const div = document.createElement('div');
+  div.id = 'apur-doublon-alert';
+  div.style.cssText = 'background:#fef9ec;border:1px solid var(--amb);border-radius:8px;padding:10px 14px;margin-bottom:1rem;font-size:12px;color:#854f0b';
+  div.innerHTML = `⚠️ <strong>${doublons.length} doublon(s) détecté(s)</strong> — même fournisseur, même montant, même période :<br>`+
+    doublons.map(d =>
+      `• <strong>${d.a.fournisseur}</strong> — ${Number(d.a.amount_ttc).toLocaleString('fr-FR')} € — ${d.a.due_date||'?'} `+
+      `<button onclick="deletePayableDoublon('${d.b.id}')" style="font-size:11px;padding:1px 8px;border:1px solid var(--red);background:none;border-radius:4px;cursor:pointer;color:var(--red);margin-left:4px">Supprimer le doublon</button>`
+    ).join('<br>');
+  const filters = document.getElementById('apur-filters');
+  if (filters) filters.insertAdjacentElement('beforebegin', div);
+}
+
+async function deletePayableDoublon(id) {
+  if (!confirm('Supprimer cette facture en doublon ?')) return;
+  await sb.from('payables').delete().eq('id', id);
+  toast('Doublon supprimé');
+  loadApurement();
+}
+
 function shiftApurement(delta){
   window._apurOffset=(window._apurOffset||0)+delta;
   loadApurement();
@@ -3221,11 +3349,19 @@ async function loadApurement(){
   // Données depuis payables + debts + forecasts
   const safeQ=async(q)=>{try{const r=await q;return r.data||[];}catch(e){return[];}};
   const[allPayables,allDebts,allForecasts,allReceivables]=await Promise.all([
-    safeQ(sb.from('payables').select('*').eq('status','a_payer').not('fournisseur','is',null).not('amount_ttc','is',null).order('due_date',{ascending:true})),
+    safeQ(sb.from('payables').select('*').not('fournisseur','is',null).not('amount_ttc','is',null).order('due_date',{ascending:true})),
     safeQ(sb.from('debts').select('*').in('status',['en_cours']).order('urgency_level',{ascending:false})),
     safeQ(sb.from('cash_forecast').select('*')),
     safeQ(sb.from('receivables').select('*').in('status',['envoyee','en_attente']))
   ]);
+
+  // Stocker tous les payables pour les filtres
+  _apurAllPayables = allPayables;
+  // Détecter les doublons
+  const doublons = detectApurDoublons(allPayables.filter(p => p.status === 'a_payer'));
+  showApurDoublonAlert(doublons);
+  // Appliquer les filtres actifs (si déjà filtrés)
+  setTimeout(applyApurFilters, 100);
 
   // 3 mois : M-1+offset, M+offset, M+1+offset (mois courant au centre)
   const offset=window._apurOffset||0;
@@ -3446,7 +3582,9 @@ async function loadApurement(){
       const cbId='cb-'+mKeyCol+'-'+(item.id||Math.random().toString(36).slice(2));
       const cbHtml=item.type==='facture'
         ?'<input type="checkbox" id="'+cbId+'" data-amount="'+safeAmount+'" data-mkey="'+mKeyCol+'" onchange="updateApurCheck(this)" style="width:16px;height:16px;cursor:pointer;flex-shrink:0;accent-color:var(--grn)">':'';
-      return '<div style="padding:8px;background:var(--b2);border-radius:6px;margin-bottom:6px;display:flex;align-items:flex-start;gap:8px">'
+      const payableId = item.type==='facture' ? (item.id||'') : '';
+      const payableAttr = payableId ? ' data-payable-id="'+payableId+'"' : '';
+      return '<div'+payableAttr+' style="padding:8px;background:var(--b2);border-radius:6px;margin-bottom:6px;display:flex;align-items:flex-start;gap:8px">'
         +cbHtml
         +'<div style="flex:1;min-width:0">'
         +'<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:6px">'
