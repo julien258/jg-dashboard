@@ -3,32 +3,33 @@
 // Déployer dans : netlify/functions/ocr-pro.js
 // Variables d'environnement requises : ANTHROPIC_API_KEY
 
-export async function handler(event) {
-  // CORS
+export default async (req) => {
   const headers = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Headers': 'Content-Type',
     'Content-Type': 'application/json',
   };
 
-  if (event.httpMethod === 'OPTIONS') {
-    return { statusCode: 200, headers, body: '' };
+  if (req.method === 'OPTIONS') {
+    return new Response('', { status: 200, headers });
   }
 
-  if (event.httpMethod !== 'POST') {
-    return { statusCode: 405, headers, body: JSON.stringify({ error: 'Method not allowed' }) };
+  if (req.method !== 'POST') {
+    return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405, headers });
   }
 
   try {
-    const { base64, docType = 'document_universel', company = '', companyId = '', fileName = '' } = JSON.parse(event.body || '{}');
+    const body = await req.json();
+    const { base64, docType = 'document_universel', company = '', companyId = '', fileName = '' } = body;
 
     if (!base64) {
-      return { statusCode: 400, headers, body: JSON.stringify({ error: 'base64 manquant' }) };
+      return new Response(JSON.stringify({ error: 'base64 manquant' }), { status: 400, headers });
     }
 
     const apiKey = process.env.ANTHROPIC_API_KEY;
+    console.log('ENV check - SUPABASE_URL:', !!process.env.SUPABASE_URL, 'SERVICE_KEY:', !!process.env.SUPABASE_SERVICE_KEY);
     if (!apiKey) {
-      return { statusCode: 500, headers, body: JSON.stringify({ error: 'ANTHROPIC_API_KEY non configurée' }) };
+      return new Response(JSON.stringify({ error: 'ANTHROPIC_API_KEY non configurée' }), { status: 500, headers });
     }
 
     // Prompt selon le type de document
@@ -230,11 +231,7 @@ Réponds UNIQUEMENT avec un objet JSON valide, sans markdown, sans explication.
     if (!response.ok) {
       const errText = await response.text();
       console.error('Anthropic API error:', response.status, errText);
-      return {
-        statusCode: 502,
-        headers,
-        body: JSON.stringify({ error: 'Erreur API Anthropic: ' + response.status, detail: errText })
-      };
+      return new Response(JSON.stringify({ error: 'Erreur API Anthropic: ' + response.status, detail: errText }), { status: 502, headers });
     }
 
     const claudeData = await response.json();
@@ -256,18 +253,12 @@ Réponds UNIQUEMENT avec un objet JSON valide, sans markdown, sans explication.
       parsed = { error: 'JSON malformé', raw: cleanText.substring(0, 500) };
     }
 
-    return {
-      statusCode: 200,
-      headers,
-      body: JSON.stringify({...parsed, _storage_path: storagePath})
-    };
+    return new Response(JSON.stringify({...parsed, _storage_path: storagePath}), { status: 200, headers });
 
   } catch (err) {
     console.error('ocr-pro error:', err);
-    return {
-      statusCode: 500,
-      headers,
-      body: JSON.stringify({ error: err.message })
-    };
+    return new Response(JSON.stringify({ error: err.message }), { status: 500, headers });
   }
-}
+};
+
+export const config = { path: '/.netlify/functions/ocr-pro' };
