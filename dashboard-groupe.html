@@ -5066,45 +5066,7 @@ async function loadTresoChart(){
 
   // Cash forecasts (coupons CGW, autres entrées manuelles)
   window._tresoForecasts = forecasts || [];
-  (forecasts||[]).forEach(f=>{
-    const amt=Number(f.amount||0);
-    if(!amt||f.type==='depense')return;
-    const proba=Number(f.probability||100)/100;
-    months.forEach((m,i)=>{
-      const mKey=m.getFullYear()+'-'+String(m.getMonth()+1).padStart(2,'0');
-      if(f.month_label===mKey){
-        const soc=f.company_id||'sas-living';
-        if(revenusParSoc[soc])revenusParSoc[soc][i]+=Math.round(amt*proba);
-      }
-    });
-  });
 
-  // Roll-overs LLD : commissions récurrentes tous les ~105 jours (quarterly)
-  // Pour tout contrat avec rollover_date ET commission_amount
-  const revenusRollover = new Array(12).fill(0);
-  (contracts||[]).forEach(c => {
-    if(!c.rollover_date || !c.commission_amount) return;
-    const com = Number(c.commission_amount);
-    const refDate = new Date(c.rollover_date);
-    const maxR = c.max_reconductions || 4; // par défaut 4 reconductions
-    // Interval : quarterly = 3 mois (105j ~= 3 mois)
-    const freqMois = 3;
-    months.forEach((m, i) => {
-      for(let n = 0; n < maxR; n++) {
-        const echeance = new Date(refDate.getFullYear(), refDate.getMonth() + n * freqMois, 1);
-        if(m.getFullYear() === echeance.getFullYear() && m.getMonth() === echeance.getMonth()) {
-          const soc = c.billing_company_id || 'sas-living';
-          if(revenusParSoc[soc]) revenusParSoc[soc][i] += com;
-          else revenusRollover[i] += com;
-          // Stocker le détail pour le tooltip
-          if(!window._tresoRolloverDetail) window._tresoRolloverDetail = {};
-          const key = m.getFullYear()+'-'+String(m.getMonth()+1).padStart(2,'0');
-          if(!window._tresoRolloverDetail[key]) window._tresoRolloverDetail[key] = [];
-          window._tresoRolloverDetail[key].push({label: c.label||'Contrat LLD', com, reconduction: n+1});
-        }
-      }
-    });
-  });
 
   // Placements = sortie de tréso au moment de l'entrée (capital placé ce mois)
   const placementsEntrees=new Array(12).fill(0);
@@ -5576,7 +5538,11 @@ async function loadTresoChart(){
     })),
     {
       label:'Coupons placements',
-      data:revenusPlac,
+      data:months.map((m,i)=>{
+        const mKey=m.getFullYear()+'-'+(m.getMonth()<9?'0':'')+(m.getMonth()+1);
+        const fcAmt=(window._tresoForecasts||[]).filter(f=>f.month_label===mKey&&Number(f.amount)>0).reduce((s,f)=>s+Math.round(Number(f.amount)*Number(f.probability||100)/100),0);
+        return revenusPlac[i]+fcAmt;
+      }),
       backgroundColor:'#9B59B688',
       borderColor:'#9B59B6',
       borderWidth:1,
