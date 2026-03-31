@@ -6448,9 +6448,17 @@ async function createPayableFromOCR(parsed,supplier,storagePath=null){
   const coId=curCo?.id||document.getElementById('ocr-company')?.value||'sas-living';
   const ht=parseFloat(parsed.montant_ht||parsed.ht||0);
   const ttc=parseFloat(parsed.montant_ttc||parsed.ttc||0);
+  const notesOcr=[
+    parsed.iban_fournisseur?'IBAN : '+parsed.iban_fournisseur:null,
+    parsed.bic_fournisseur?'BIC : '+parsed.bic_fournisseur:null,
+    parsed.banque_fournisseur?'Banque : '+parsed.banque_fournisseur:null,
+    parsed.code_client?'Code client : '+parsed.code_client:null,
+    parsed.reference_commande?'Réf. : '+parsed.reference_commande:null,
+    parsed.urgence?'⚠️ '+parsed.urgence:null
+  ].filter(Boolean).join(' | ');
   const{error}=await sb.from('payables').insert({
     company_id:coId,
-    fournisseur:supplier.nom,
+    fournisseur:supplier.raison_sociale||supplier.nom||supplier.name||parsed.fournisseur,
     objet:parsed.objet||null,
     amount_ht:ht,
     amount_ttc:ttc||Math.round(ht*1.2*100)/100,
@@ -6460,12 +6468,20 @@ async function createPayableFromOCR(parsed,supplier,storagePath=null){
     period_label:parsed.periode||null,
     status:'a_payer',
     payment_mode:parsed.mode_paiement?.toLowerCase().includes('prel')?'prelevement':'virement',
-    notes:parsed.iban_fournisseur?('IBAN : '+parsed.iban_fournisseur):null,
+    notes:notesOcr||null,
     supplier_id:supplier.id,
     doc_name:storagePath||null
   });
   if(error){toast('Erreur creation payable : '+error.message);return;}
-  toast('Facture '+supplier.nom+' '+ttc+'€ ajoutee dans A payer');
+  // Enrichir la fiche fournisseur si des infos manquantes
+  const suppUpdate={};
+  if(!supplier.email_compta&&parsed.email_fournisseur)suppUpdate.email_compta=parsed.email_fournisseur;
+  if(!supplier.telephone&&parsed.telephone_fournisseur)suppUpdate.telephone=parsed.telephone_fournisseur;
+  if(!supplier.iban&&parsed.iban_fournisseur)suppUpdate.iban=parsed.iban_fournisseur;
+  if(!supplier.adresse&&parsed.adresse_fournisseur)suppUpdate.adresse=parsed.adresse_fournisseur;
+  if(!supplier.tva_intracom&&parsed.tva_fournisseur)suppUpdate.tva_intracom=parsed.tva_fournisseur;
+  if(Object.keys(suppUpdate).length)await sb.from('suppliers').update(suppUpdate).eq('id',supplier.id);
+  toast('Facture '+(supplier.raison_sociale||supplier.nom||'')+' '+ttc+'€ ajoutée dans À payer');
   if(typeof loadPayables==='function')loadPayables();
 }
 
@@ -6491,12 +6507,20 @@ function openOcrModal(parsed,supplierId,storagePath=null){
   if(parsed.periode)document.getElementById('ocr-period').value=parsed.periode;
   if(parsed.mode_paiement){const pm=parsed.mode_paiement.toLowerCase();document.getElementById('ocr-payment-mode').value=pm.includes('prel')?'prelevement':'virement';}
   // Pre-remplie fiche nouveau fournisseur
+  // Pré-remplir la fiche fournisseur avec tous les champs OCR disponibles
   if(parsed.siret_fournisseur)document.getElementById('ns-siret').value=parsed.siret_fournisseur;
   if(parsed.tva_fournisseur)document.getElementById('ns-tva').value=parsed.tva_fournisseur;
-  if(parsed.adresse_fournisseur)document.getElementById('ns-adresse').value=parsed.adresse_fournisseur;
   if(parsed.iban_fournisseur)document.getElementById('ns-iban').value=parsed.iban_fournisseur;
+  if(parsed.bic_fournisseur)document.getElementById('ns-bic').value=parsed.bic_fournisseur;
   if(parsed.email_fournisseur)document.getElementById('ns-email').value=parsed.email_fournisseur;
   if(parsed.telephone_fournisseur)document.getElementById('ns-tel').value=parsed.telephone_fournisseur;
+  if(parsed.adresse_fournisseur)document.getElementById('ns-adresse').value=parsed.adresse_fournisseur;
+  if(parsed.forme_juridique_fournisseur)document.getElementById('ns-forme').value=parsed.forme_juridique_fournisseur;
+  // Remplir aussi les notes avec l'IBAN si présent
+  if(parsed.iban_fournisseur){
+    const notesEl=document.getElementById('ocr-notes');
+    if(notesEl&&!notesEl.value) notesEl.value='IBAN : '+parsed.iban_fournisseur+(parsed.bic_fournisseur?' | BIC : '+parsed.bic_fournisseur:'')+(parsed.banque_fournisseur?' ('+parsed.banque_fournisseur+')':'');
+  }
   // Status
   const matchEl=document.getElementById('ocr-supplier-match');
   const btnEl=document.getElementById('ocr-create-supplier-btn');

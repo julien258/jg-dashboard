@@ -33,24 +33,41 @@ export async function handler(event) {
 
     // Prompt selon le type de document
     const prompts = {
-      facture_recue: `Tu es un OCR expert. Analyse cette facture reçue et extrais les informations en JSON strict.
-Réponds UNIQUEMENT avec un objet JSON valide, sans markdown, sans explication.
-Champs requis :
+      facture_recue: `Tu es un OCR expert spécialisé dans les factures françaises et internationales. Extrais TOUTES les informations visibles.
+RÈGLES CRITIQUES :
+- Les montants avec espaces comme séparateurs (ex: "488 626,67" ou "488 626.67") = 488626.67 — convertis TOUJOURS en nombre décimal avec point
+- Le FOURNISSEUR est l'entreprise QUI ÉMET la facture (émetteur, en haut à gauche), PAS le destinataire
+- Réponds UNIQUEMENT avec un objet JSON valide, sans markdown, sans texte avant ou après le JSON
 {
-  "fournisseur": "nom du fournisseur/émetteur",
-  "siret_fournisseur": "SIRET si visible, sinon null",
-  "iban_fournisseur": "IBAN si visible, sinon null",
-  "numero_facture": "numéro de facture",
+  "fournisseur": "raison sociale complète de l'émetteur",
+  "forme_juridique_fournisseur": "SAS/SARL/SA/etc si visible, sinon null",
+  "siret_fournisseur": "SIRET (14 chiffres) si visible, sinon null",
+  "siren_fournisseur": "SIREN (9 chiffres) si visible, sinon null",
+  "tva_fournisseur": "numéro TVA intracommunautaire ex: FR66442110789, sinon null",
+  "adresse_fournisseur": "adresse complète de l'émetteur (rue, cp, ville), sinon null",
+  "telephone_fournisseur": "téléphone de l'émetteur si visible, sinon null",
+  "email_fournisseur": "email de l'émetteur si visible, sinon null",
+  "site_web_fournisseur": "site web si visible, sinon null",
+  "iban_fournisseur": "IBAN complet ex: FR76 1820 6002..., sinon null",
+  "bic_fournisseur": "BIC/SWIFT si visible, sinon null",
+  "banque_fournisseur": "nom de la banque si visible, sinon null",
+  "destinataire": "raison sociale du destinataire/client",
+  "siret_destinataire": "SIRET du destinataire si visible, sinon null",
+  "numero_facture": "numéro de facture exact",
   "date_facture": "date au format YYYY-MM-DD",
   "date_echeance": "date d'échéance au format YYYY-MM-DD, null si absent",
-  "periode": "période couverte ex: Mars 2026, null si absent",
-  "objet": "objet ou libellé de la facture",
-  "montant_ht": nombre décimal ou 0,
-  "tva": nombre décimal ou 0,
-  "montant_ttc": nombre décimal ou 0,
-  "mode_paiement": "virement ou prelevement",
-  "entite_concernee": "société destinataire si visible",
-  "urgence": "message si urgence détectée (retard, mise en demeure), sinon null"
+  "periode": "période couverte ex: Mars 2026, Q1 2026, null si absent",
+  "objet": "objet ou libellé principal de la facture",
+  "lignes": [{"designation": "...", "quantite": 0, "prix_unitaire": 0, "montant_ht": 0}],
+  "montant_ht": montant HT total en nombre décimal,
+  "tva_taux": taux TVA en pourcentage (ex: 20),
+  "montant_tva": montant TVA en nombre décimal,
+  "montant_ttc": montant TTC total en nombre décimal,
+  "remise": montant remise globale si visible sinon 0,
+  "mode_paiement": "virement ou prelevement ou cheque ou carte",
+  "code_client": "code client si visible, sinon null",
+  "reference_commande": "numéro de commande ou référence si visible, sinon null",
+  "urgence": "message si retard/mise en demeure/pénalités détectés, sinon null"
 }`,
 
       facture_emise: `Tu es un OCR expert. Analyse cette facture émise et extrais les informations en JSON strict.
