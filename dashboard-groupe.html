@@ -345,7 +345,7 @@
           <!-- Alerte doublons -->
           <div id="pay-doublon-alert" style="display:none;background:#fef9ec;border:1px solid var(--amb);border-radius:8px;padding:10px 14px;margin-bottom:1rem;font-size:12px;color:#854f0b"></div>
           <div style="overflow-x:auto"><table>
-            <thead><tr><th>Fournisseur</th><th>Objet</th><th style="text-align:right">HT</th><th style="text-align:right">TTC</th><th>Facture</th><th>Échéance</th><th>Statut</th><th>Priorité</th><th></th></tr></thead>
+            <thead><tr><th>Objet / Fournisseur</th><th style="text-align:right">HT</th><th style="text-align:right">TTC</th><th>Facture</th><th>Échéance</th><th>Statut</th><th>Priorité</th><th></th></tr></thead>
             <tbody id="pay-tbody"><tr><td colspan="9" style="text-align:center;color:var(--t2);padding:2rem"><span class="spin"></span></td></tr></tbody>
           </table></div>
         </div>
@@ -6950,7 +6950,6 @@ function renderPayablesTable(data){
     const ci = fournisseurColorMap[d.fournisseur] ?? 0;
     const rowBg = isDark ? darkBandColors[ci] + '22' : bandColors[ci];
     return `<tr data-pay-id="${d.id}" style="background:${rowBg}"
-    <td><strong>${d.fournisseur||'—'}</strong></td>
     <td style="font-size:12px">${d.label||('<strong>'+d.fournisseur+'</strong>')}</td>
     <td style="text-align:right;font-family:monospace;font-size:12px">${d.amount_ht?Math.round(d.amount_ht).toLocaleString('fr-FR')+' €':'—'}</td>
     <td style="text-align:right;font-family:monospace;font-weight:600;color:var(--red)">${d.amount_ttc?Math.round(d.amount_ttc).toLocaleString('fr-FR')+' €':'—'}</td>
