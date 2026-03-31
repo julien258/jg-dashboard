@@ -4962,6 +4962,9 @@ async function loadTresoChart(){
     sb.from('recurring_charges').select('*').eq('status','actif')
   ]);
 
+  // Stocker dans window pour accès depuis les tooltips
+  window._tresoContracts = contracts;
+  window._tresoMonths = months;
   const coColors={'sas-living':'#2ECC71','sarl-guiraud':'#3D8EF0','real-gains':'#9B59B6','meulette':'#F39C12'};
   const coIds=['sas-living','sarl-guiraud','real-gains','meulette'];
   const coNames={'sas-living':'SAS Living','sarl-guiraud':'SARL Guiraud','real-gains':'RG/Monikaza','meulette':'La Meulette'};
@@ -5468,6 +5471,8 @@ async function loadTresoChart(){
             afterBody:ctx=>{
               // Détail des dossiers pour les barres de revenus
               const i=ctx[0]?.dataIndex;
+              const contracts=window._tresoContracts||[];
+              const months=window._tresoMonths||[];
               const m=months[i];
               if(!m)return[];
               const key=m.getFullYear()+'-'+String(m.getMonth()+1).padStart(2,'0');
