@@ -4981,12 +4981,14 @@ async function loadTresoChart(){
       months.forEach((m,i)=>{
         const mNum=m.getMonth();
         const startRef=c.start_date||c.signed_date;
-        const startM=startRef?new Date(startRef).getMonth():0;
-        const startY=startRef?new Date(startRef).getFullYear():0;
-        const mYear=m.getFullYear();
-          const startDateObj=startRef?new Date(startRef):null;
-          const isAfterStart=!startDateObj||(m>=new Date(startDateObj.getFullYear(),startDateObj.getMonth(),1));
-          if(isAfterStart&&(freq===1||(freq===3&&(mNum-startM+12)%3===0)||(freq===6&&(mNum-startM+12)%6===0)||(freq===12&&mNum===startM))){
+        const startDateObj2=startRef?new Date(startRef):null;
+        const startM=startDateObj2?startDateObj2.getMonth():0;
+        const startY=startDateObj2?startDateObj2.getFullYear():2020;
+        const isAfterStart=!startDateObj2||(m>=new Date(startY,startM,1));
+          // Calculer l'offset en mois depuis start_date
+          const diffMois=(m.getFullYear()-startY)*12+(m.getMonth()-startM);
+          const matchFreq=freq===1||(freq>1&&diffMois>=0&&diffMois%freq===0);
+          if(isAfterStart&&matchFreq){
           revenusParSoc[soc][i]+=com;
         }
       });
