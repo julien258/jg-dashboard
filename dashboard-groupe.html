@@ -55,11 +55,7 @@
     .gbtn{display:flex;align-items:center;gap:10px;padding:9px 14px;cursor:pointer;border-radius:8px;margin:2px 8px;transition:all .15s;border:none;background:none;width:calc(100% - 16px);text-align:left;font-size:13px;color:var(--sb-t2)}
     .gbtn:hover{background:var(--sb-s1);color:var(--sb-t1)}.gbtn.active{background:var(--sb-s1);color:var(--sb-t1);border-left:3px solid var(--acc)}
     .ma{margin-left:var(--sw);flex:1;display:flex;flex-direction:column;min-height:100vh}
-    .tb{background:var(--sb-bg);border-bottom:1px solid var(--sb-b1);padding:0 2rem;height:56px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:40}
-    .tb-t{font-size:16px;font-weight:600;color:var(--sb-t1)}.tb-s{font-size:12px;color:var(--sb-t2);margin-top:2px}
-    .tb-r{display:flex;align-items:center;gap:12px;flex-shrink:0}
-    .db{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--t2);background:var(--s2);padding:5px 10px;border-radius:6px;border:1px solid var(--b1)}
-    .ab{background:var(--rdd);color:var(--red);border:1px solid var(--red);padding:4px 10px;border-radius:6px;font-size:12px}
+
     .cb-dot{width:8px;height:8px;border-radius:50%;background:#ccc;display:inline-block}
     .cb-dot.ok{background:var(--grn)}.cb-dot.err{background:var(--red)}
     .ptabs{background:var(--s1);border-bottom:1px solid var(--b1);box-shadow:0 1px 3px rgba(0,0,0,.06);padding:0 2rem;display:flex;gap:0}
@@ -167,10 +163,7 @@
 
 <!-- MAIN -->
 <div class="ma">
-  <div class="tb">
-    <div style="flex:1;min-width:0"><div class="tb-t" id="tb-title">Vue Groupe</div><div class="tb-s" id="tb-sub">Consolidé · Toutes sociétés</div></div>
-    <div class="tb-r"><div class="db" id="today"></div><div class="ab" id="alert-badge" style="display:none"></div></div>
-  </div>
+
   <div class="ptabs" id="ptabs" style="display:none">
     <button class="ptab active" onclick="showPane('kpi')">KPI & Bilan</button>
     <button class="ptab" onclick="showPane('cc')">CC & Dettes</button>
