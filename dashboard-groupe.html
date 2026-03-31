@@ -3326,7 +3326,7 @@ function detectApurDoublons(payables) {
   payables.forEach(p => {
     // Clé de doublon : même fournisseur + même montant + même mois
     const mois = (p.due_date||p.invoice_date||'').substring(0, 7);
-    const key = `${(p.fournisseur||'').toLowerCase()}_${Math.round(Number(p.amount_ttc||0))}_${mois}`;
+    const key = `${p.company_id||''}_${(p.fournisseur||'').toLowerCase()}_${Math.round(Number(p.amount_ttc||0))}_${mois}`;
     if (seen[key]) {
       doublons.push({ a: seen[key], b: p });
     } else {
@@ -3577,7 +3577,8 @@ async function loadApurement(){
       const barColor=pc===100?'var(--grn)':pc>50?'var(--amb)':'var(--red)';
       return '<div style="padding:8px;background:var(--b2);border-radius:6px;margin-bottom:6px">'
         +'<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:6px">'
-        +'<div style="flex:1;min-width:0">'
+        +(item.doc_name?'<a href="#" onclick="openPayableDoc(\"'+item.id+'\",\"'+item.doc_name+'\")"+" style=\"font-size:13px;text-decoration:none\" title=\"Voir la facture\">📎</a>':'')
+      +'<div style="flex:1;min-width:0">'
         +'<div style="font-size:11px;font-weight:600;display:flex;align-items:center;gap:4px;flex-wrap:wrap">'
         +(pim?'<span>'+pim+'</span>':'')
         +'<span style="color:'+col+'">'+item.label+'</span>'+badge+'</div>'
@@ -6901,9 +6902,31 @@ function renderPayablesTable(data){
     <td>${bananeSelect(d.id,prio)}</td>
     <td style="display:flex;gap:4px">
       <button onclick="editPayable('${d.id}')" style="border:none;background:none;cursor:pointer;color:var(--acc);font-size:12px">✎</button>
+      ${d.doc_name?`<button onclick="openPayableDoc('${d.id}','${d.doc_name}')" style="border:none;background:none;cursor:pointer;color:var(--acc);font-size:13px" title="Voir la facture">📎</button>`:''}
       <button onclick="delPayable('${d.id}')" style="border:none;background:none;cursor:pointer;color:var(--t2);font-size:13px">✕</button>
     </td>
   </tr>`}).join('');
+}
+
+async function openPayableDoc(id, docName) {
+  if (!docName) { toast('Aucun document attaché'); return; }
+  // Chercher le fichier dans Supabase storage ou documents
+  const { data } = await sb.from('documents').select('id,name,file_path,company_id').eq('name', docName).limit(1);
+  if (data?.length && data[0].file_path) {
+    // Générer URL signée Supabase Storage
+    const { data: urlData } = await sb.storage.from('documents').createSignedUrl(data[0].file_path, 3600);
+    if (urlData?.signedUrl) { window.open(urlData.signedUrl, '_blank'); return; }
+  }
+  // Fallback : chercher dans payables.doc_name directement via OCR
+  const { data: pay } = await sb.from('payables').select('doc_name,company_id').eq('id', id).single();
+  if (pay?.doc_name) {
+    const { data: docs } = await sb.from('documents').select('file_path').ilike('name', '%'+pay.doc_name+'%').limit(1);
+    if (docs?.length && docs[0].file_path) {
+      const { data: urlData } = await sb.storage.from('documents').createSignedUrl(docs[0].file_path, 3600);
+      if (urlData?.signedUrl) { window.open(urlData.signedUrl, '_blank'); return; }
+    }
+  }
+  toast('Document introuvable dans le stockage — vérifiez dans l'onglet Documents');
 }
 
 function showPayDoublons(payables){
@@ -6913,7 +6936,7 @@ function showPayDoublons(payables){
   const doublons=[];
   payables.filter(p=>p.status==='a_payer').forEach(p=>{
     const mois=(p.due_date||p.invoice_date||'').substring(0,7);
-    const key=`${(p.fournisseur||'').toLowerCase()}_${Math.round(Number(p.amount_ttc||0))}_${mois}`;
+    const key=`${p.company_id||''}_${(p.fournisseur||'').toLowerCase()}_${Math.round(Number(p.amount_ttc||0))}_${mois}`;
     if(seen[key]) doublons.push({a:seen[key],b:p});
     else seen[key]=p;
   });
