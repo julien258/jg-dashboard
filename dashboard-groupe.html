@@ -7601,7 +7601,8 @@ async function handleUpload(input,type){
               const{data:existing}=await sb.from('payables')
                 .select('id,doc_name')
                 .eq('company_id',curCo?.id||'group')
-                .or(`invoice_number.eq.${num},invoice_ref.eq.${num}`)
+                .or(`invoice_number.eq.${num},invoice_ref.eq.${num},invoice_number.ilike.%25${num}%25`)
+                .is('doc_name',null)
                 .limit(1);
               if(existing?.length)existingId=existing[0].id;
             }
