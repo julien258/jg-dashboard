@@ -6920,17 +6920,6 @@ async function openPayableDoc(id, docName) {
   } catch(e) { console.warn('Storage exception:', e.message); }
   toast('Document non disponible — sera stocké automatiquement pour les prochains uploads');
 }
-  // Fallback : chercher dans payables.doc_name directement via OCR
-  const { data: pay } = await sb.from('payables').select('doc_name,company_id').eq('id', id).single();
-  if (pay?.doc_name) {
-    const { data: docs } = await sb.from('documents').select('file_path').ilike('name', '%'+pay.doc_name+'%').limit(1);
-    if (docs?.length && docs[0].file_path) {
-      const { data: urlData } = await sb.storage.from('documents').createSignedUrl(docs[0].file_path, 3600);
-      if (urlData?.signedUrl) { window.open(urlData.signedUrl, '_blank'); return; }
-    }
-  }
-  toast('Document introuvable dans le stockage — vérifiez dans l\'onglet Documents');
-}
 
 function showPayDoublons(payables){
   const alertEl = document.getElementById('pay-doublon-alert');
