@@ -204,10 +204,6 @@
     <!-- KPI -->
     <div class="tp active" id="p-kpi">
       <div id="co-kpis" class="kr"></div>
-      <!-- Soldes bancaires Pennylane par société -->
-      <div id="co-pennylane-soldes" style="display:none;margin-bottom:12px">
-        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px" id="co-pennylane-grid"></div>
-      </div>
       <div class="g2 mb">
         <div class="card"><div class="card-t">CA mensuel N vs N-1</div><div style="position:relative;height:200px"><canvas id="coCAc"></canvas></div></div>
         <div class="card"><div class="card-t">Trésorerie glissante 90j</div><div style="position:relative;height:200px"><canvas id="coTRc"></canvas></div></div>
@@ -609,6 +605,11 @@
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
         <div style="font-size:16px;font-weight:600">🏦 Comptes bancaires — <span id="comptes-co-name"></span></div>
         <button class="btn btn-p btn-sm" onclick="toggleCompteForm()">+ Nouveau compte</button>
+      </div>
+      <!-- Soldes Pennylane temps réel -->
+      <div id="co-pennylane-soldes" style="display:none;margin-bottom:1.5rem">
+        <div style="font-size:12px;font-weight:500;color:var(--t2);margin-bottom:8px;text-transform:uppercase;letter-spacing:.05em">Soldes bancaires réels — Pennylane</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px" id="co-pennylane-grid"></div>
       </div>
 
       <!-- Formulaire -->
@@ -5955,6 +5956,7 @@ function showPane(n){
     const el=document.getElementById('comptes-co-name');
     if(el)el.textContent=curCo?.name||'';
     loadComptes();
+    renderCoPennylane();
   }
 }
 
