@@ -5477,7 +5477,7 @@ async function loadTresoChart(){
               if(!m)return[];
               const key=m.getFullYear()+'-'+String(m.getMonth()+1).padStart(2,'0');
               const lines=[];
-              // Contrats ponctuels et récurrents
+              // Contrats ponctuels et récurrents — même logique que loadTresoChart
               (contracts||[]).forEach(c=>{
                 const com=Number(c.commission_amount||0);
                 if(!com)return;
@@ -5486,10 +5486,11 @@ async function loadTresoChart(){
                 if(freq>0){
                   const startRef=c.start_date||c.signed_date;
                   const startDateObj=startRef?new Date(startRef):null;
-                  if(!startDateObj||m>=new Date(startDateObj.getFullYear(),startDateObj.getMonth(),1)){
-                    const mNum=m.getMonth();const startM=startDateObj?startDateObj.getMonth():0;
-                    match=freq===1||(freq===3&&(mNum-startM+12)%3===0)||(freq===6&&(mNum-startM+12)%6===0)||(freq===12&&mNum===startM);
-                  }
+                  const startY2=startDateObj?startDateObj.getFullYear():2020;
+                  const startM2=startDateObj?startDateObj.getMonth():0;
+                  const isAfter=!startDateObj||(m>=new Date(startY2,startM2,1));
+                  const diffM=(m.getFullYear()-startY2)*12+(m.getMonth()-startM2);
+                  match=isAfter&&(freq===1||(freq>1&&diffM>=0&&diffM%freq===0));
                 } else {
                   const dateRef=c.payment_expected_date||c.signed_date;
                   if(dateRef){const sd=new Date(dateRef);match=sd.getMonth()===m.getMonth()&&sd.getFullYear()===m.getFullYear();}
