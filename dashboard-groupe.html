@@ -1455,6 +1455,7 @@
       <div style="display:flex;gap:8px">
         <button class="btn btn-g btn-sm" onclick="showCRMView('catalogue')">📦 Catalogue</button>
         <button class="btn btn-g btn-sm" onclick="showCRMView('clients')">👥 Clients</button>
+        <button class="btn btn-g btn-sm" onclick="showCRMView('fournisseurs')">🏢 Fournisseurs</button>
         <button class="btn btn-g btn-sm" onclick="showCRMView('contrats')">📋 Contrats</button>
         <button class="btn btn-g btn-sm" onclick="showCRMView('revenus')">📊 Revenus</button>
       </div>
@@ -1682,6 +1683,79 @@
         <div id="revenus-detail"><div class="lo"><span class="spin"></span></div></div>
       </div>
     </div>
+
+  <!-- VUE FOURNISSEURS -->
+  <div id="crm-view-fournisseurs" style="display:none">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+      <div style="font-size:15px;font-weight:600">Fournisseurs</div>
+      <button class="btn btn-p btn-sm" onclick="openSupplierForm()">+ Nouveau</button>
+    </div>
+    <!-- Barre recherche -->
+    <div style="margin-bottom:1rem">
+      <input type="text" id="supplier-search" placeholder="Rechercher par nom, SIREN..." style="width:100%" oninput="filterSuppliers()">
+    </div>
+    <!-- Liste -->
+    <div id="suppliers-list"><div class="lo"><span class="spin"></span> Chargement...</div></div>
+  </div>
+
+  <!-- FORMULAIRE FOURNISSEUR (inline) -->
+  <div id="crm-view-supplier-form" style="display:none">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:1rem">
+      <button class="btn btn-g btn-sm" onclick="showCRMView('fournisseurs')">← Fournisseurs</button>
+      <div style="font-size:15px;font-weight:600" id="supplier-form-title">Nouveau fournisseur</div>
+    </div>
+
+    <!-- Enrichissement SIREN -->
+    <div class="card mb">
+      <div class="card-t">🔍 Enrichissement automatique via SIREN</div>
+      <div style="display:flex;gap:8px;align-items:flex-end">
+        <div class="fg" style="flex:1;margin:0">
+          <label>SIREN (9 chiffres)</label>
+          <input type="text" id="sf-siren-input" placeholder="123456789" maxlength="9" oninput="this.value=this.value.replace(/\D/g,'')">
+        </div>
+        <button class="btn btn-p" id="sf-enrich-btn" onclick="enrichFromSiren()" style="height:36px">🔍 Enrichir</button>
+      </div>
+      <div id="sf-enrich-result" style="margin-top:8px;font-size:12px;color:var(--t2)"></div>
+    </div>
+
+    <input type="hidden" id="sf-id">
+    <div class="g2">
+      <div>
+        <div class="fg"><label>Raison sociale *</label><input type="text" id="sf-raison-sociale" placeholder="Leasecom SAS"></div>
+        <div class="fg"><label>Nom commercial</label><input type="text" id="sf-nom-commercial"></div>
+        <div class="fg"><label>SIREN</label><input type="text" id="sf-siren" maxlength="9" oninput="this.value=this.value.replace(/\D/g,'')"></div>
+        <div class="fg"><label>SIRET siège</label><input type="text" id="sf-siret" maxlength="14"></div>
+        <div class="fg"><label>TVA intracommunautaire</label><input type="text" id="sf-tva-intracom" placeholder="FR12345678901"></div>
+        <div class="fg"><label>Code NAF</label><input type="text" id="sf-naf" placeholder="64.92Z"></div>
+        <div class="fg"><label>Forme juridique</label><input type="text" id="sf-forme-juridique" placeholder="SAS, SARL..."></div>
+      </div>
+      <div>
+        <div class="fg"><label>📧 Email comptabilité</label><input type="email" id="sf-email-compta" placeholder="compta@fournisseur.fr"></div>
+        <div class="fg"><label>📧 Email commercial</label><input type="email" id="sf-email-commercial" placeholder="commercial@fournisseur.fr"></div>
+        <div class="fg"><label>Téléphone</label><input type="tel" id="sf-telephone"></div>
+        <div class="fg"><label>Site web</label><input type="text" id="sf-site-web" placeholder="https://"></div>
+        <div class="fg"><label>Adresse</label><input type="text" id="sf-adresse"></div>
+        <div style="display:grid;grid-template-columns:1fr 2fr;gap:8px">
+          <div class="fg"><label>CP</label><input type="text" id="sf-cp" maxlength="10"></div>
+          <div class="fg"><label>Ville</label><input type="text" id="sf-ville"></div>
+        </div>
+        <div class="fg"><label>Société facturante</label>
+          <select id="sf-billing-company">
+            <option value="">Toutes</option>
+            <option value="sas-living">SAS Living</option>
+            <option value="sarl-guiraud">SARL Guiraud</option>
+            <option value="meulette">La Meulette</option>
+          </select>
+        </div>
+        <div class="fg"><label>Notes</label><textarea id="sf-notes" rows="2"></textarea></div>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:1rem">
+      <button class="btn btn-g" onclick="showCRMView('fournisseurs')" style="flex:1">Annuler</button>
+      <button class="btn btn-p" onclick="saveSupplier()" style="flex:2">💾 Enregistrer</button>
+      <button id="sf-delete-btn" class="btn" onclick="deleteSupplier()" style="flex:1;display:none;background:var(--red);color:#fff;border:none">Supprimer</button>
+    </div>
+  </div>
 
   </div>
 </div>
@@ -2955,6 +3029,166 @@ document.addEventListener('click', e => {
   const modal = document.getElementById('modal-pennylane-doc');
   if (modal && e.target === modal) closePLModal();
 });
+
+// ===== MODULE FOURNISSEURS =====
+let allSuppliers = [];
+
+async function loadSuppliers() {
+  const { data } = await sb.from('suppliers').select('*').eq('active', true).order('raison_sociale');
+  allSuppliers = data || [];
+  renderSuppliersList(allSuppliers);
+}
+
+function filterSuppliers() {
+  const q = document.getElementById('supplier-search')?.value?.toLowerCase() || '';
+  const filtered = q ? allSuppliers.filter(s =>
+    (s.raison_sociale||'').toLowerCase().includes(q) ||
+    (s.siren||'').includes(q) ||
+    (s.email_compta||'').toLowerCase().includes(q) ||
+    (s.email_commercial||'').toLowerCase().includes(q)
+  ) : allSuppliers;
+  renderSuppliersList(filtered);
+}
+
+function renderSuppliersList(list) {
+  const el = document.getElementById('suppliers-list');
+  if (!el) return;
+  if (!list.length) {
+    el.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--t2)">Aucun fournisseur — cliquez "+ Nouveau" pour en ajouter</div>';
+    return;
+  }
+  el.innerHTML = `<div class="card" style="overflow:hidden"><table>
+    <thead><tr>
+      <th>Raison sociale</th><th>SIREN</th><th>Email compta</th>
+      <th>Email commercial</th><th>TVA intra</th><th>Ville</th><th></th>
+    </tr></thead>
+    <tbody>${list.map(s => `<tr>
+      <td><strong>${s.raison_sociale||'—'}</strong>${s.nom_commercial?`<div style="font-size:11px;color:var(--t2)">${s.nom_commercial}</div>`:''}</td>
+      <td style="font-family:'IBM Plex Mono',monospace;font-size:12px">${s.siren||'—'}</td>
+      <td style="font-size:12px">${s.email_compta?`<a href="mailto:${s.email_compta}" style="color:var(--acc)">${s.email_compta}</a>`:'—'}</td>
+      <td style="font-size:12px">${s.email_commercial?`<a href="mailto:${s.email_commercial}" style="color:var(--acc)">${s.email_commercial}</a>`:'—'}</td>
+      <td style="font-size:11px;color:var(--t2)">${s.tva_intracom||'—'}</td>
+      <td style="font-size:12px">${s.ville||'—'}</td>
+      <td><button onclick="openSupplierForm('${s.id}')" style="border:none;background:none;cursor:pointer;color:var(--acc);font-size:12px">✎</button></td>
+    </tr>`).join('')}
+    </tbody>
+  </table></div>`;
+}
+
+async function openSupplierForm(id) {
+  document.getElementById('sf-enrich-result').textContent = '';
+  document.getElementById('sf-siren-input').value = '';
+  // Reset form
+  ['sf-id','sf-raison-sociale','sf-nom-commercial','sf-siren','sf-siret','sf-tva-intracom',
+   'sf-naf','sf-forme-juridique','sf-email-compta','sf-email-commercial','sf-telephone',
+   'sf-site-web','sf-adresse','sf-cp','sf-ville','sf-notes'].forEach(i => {
+    const el = document.getElementById(i);
+    if (el) el.value = '';
+  });
+  document.getElementById('sf-billing-company').value = '';
+  document.getElementById('sf-delete-btn').style.display = 'none';
+
+  if (id) {
+    const { data } = await sb.from('suppliers').select('*').eq('id', id).single();
+    if (data) {
+      document.getElementById('sf-form-title') && (document.getElementById('supplier-form-title').textContent = 'Modifier — ' + data.raison_sociale);
+      document.getElementById('sf-id').value = data.id || '';
+      document.getElementById('sf-raison-sociale').value = data.raison_sociale || '';
+      document.getElementById('sf-nom-commercial').value = data.nom_commercial || '';
+      document.getElementById('sf-siren').value = data.siren || '';
+      document.getElementById('sf-siren-input').value = data.siren || '';
+      document.getElementById('sf-siret').value = data.siret || '';
+      document.getElementById('sf-tva-intracom').value = data.tva_intracom || '';
+      document.getElementById('sf-naf').value = data.code_naf || '';
+      document.getElementById('sf-forme-juridique').value = data.forme_juridique || '';
+      document.getElementById('sf-email-compta').value = data.email_compta || '';
+      document.getElementById('sf-email-commercial').value = data.email_commercial || '';
+      document.getElementById('sf-telephone').value = data.telephone || '';
+      document.getElementById('sf-site-web').value = data.site_web || '';
+      document.getElementById('sf-adresse').value = data.adresse || '';
+      document.getElementById('sf-cp').value = data.cp || '';
+      document.getElementById('sf-ville').value = data.ville || '';
+      document.getElementById('sf-billing-company').value = data.billing_company_id || '';
+      document.getElementById('sf-notes').value = data.notes || '';
+      document.getElementById('sf-delete-btn').style.display = 'inline-block';
+    }
+  } else {
+    document.getElementById('supplier-form-title').textContent = 'Nouveau fournisseur';
+  }
+  showCRMView('supplier-form');
+}
+
+async function enrichFromSiren() {
+  const siren = document.getElementById('sf-siren-input').value.replace(/\s/g,'');
+  if (siren.length !== 9) { toast('SIREN doit faire 9 chiffres'); return; }
+  const btn = document.getElementById('sf-enrich-btn');
+  const resultEl = document.getElementById('sf-enrich-result');
+  btn.textContent = '⏳'; btn.disabled = true;
+  resultEl.textContent = 'Recherche en cours...';
+  try {
+    const res = await fetch(`/api/pappers-lookup?siren=${siren}`);
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error || 'Introuvable');
+    // Remplir le formulaire
+    document.getElementById('sf-raison-sociale').value = data.denomination || data.nom || '';
+    document.getElementById('sf-siren').value = data.siren || siren;
+    document.getElementById('sf-siret').value = data.siret_siege || '';
+    document.getElementById('sf-tva-intracom').value = data.numero_tva_intracommunautaire || '';
+    document.getElementById('sf-naf').value = data.code_naf || '';
+    document.getElementById('sf-forme-juridique').value = data.forme_juridique || '';
+    document.getElementById('sf-adresse').value = data.siege?.adresse_ligne_1 || '';
+    document.getElementById('sf-cp').value = data.siege?.code_postal || '';
+    document.getElementById('sf-ville').value = data.siege?.ville || '';
+    resultEl.style.color = 'var(--grn)';
+    resultEl.textContent = '✅ Enrichi depuis Pappers — vérifiez et complétez les emails';
+  } catch(e) {
+    resultEl.style.color = 'var(--red)';
+    resultEl.textContent = '❌ ' + e.message;
+  }
+  btn.textContent = '🔍 Enrichir'; btn.disabled = false;
+}
+
+async function saveSupplier() {
+  const rs = document.getElementById('sf-raison-sociale').value.trim();
+  if (!rs) { toast('Raison sociale obligatoire'); return; }
+  const id = document.getElementById('sf-id').value;
+  const payload = {
+    raison_sociale: rs,
+    nom_commercial: document.getElementById('sf-nom-commercial').value || null,
+    siren: document.getElementById('sf-siren').value || null,
+    siret: document.getElementById('sf-siret').value || null,
+    tva_intracom: document.getElementById('sf-tva-intracom').value || null,
+    code_naf: document.getElementById('sf-naf').value || null,
+    forme_juridique: document.getElementById('sf-forme-juridique').value || null,
+    email_compta: document.getElementById('sf-email-compta').value || null,
+    email_commercial: document.getElementById('sf-email-commercial').value || null,
+    telephone: document.getElementById('sf-telephone').value || null,
+    site_web: document.getElementById('sf-site-web').value || null,
+    adresse: document.getElementById('sf-adresse').value || null,
+    cp: document.getElementById('sf-cp').value || null,
+    ville: document.getElementById('sf-ville').value || null,
+    billing_company_id: document.getElementById('sf-billing-company').value || null,
+    notes: document.getElementById('sf-notes').value || null,
+    pappers_enriched_at: document.getElementById('sf-tva-intracom').value ? new Date().toISOString() : null
+  };
+  let error;
+  if (id) {
+    ({ error } = await sb.from('suppliers').update(payload).eq('id', id));
+  } else {
+    ({ error } = await sb.from('suppliers').insert(payload));
+  }
+  if (error) { toast('Erreur: ' + error.message); return; }
+  toast(id ? 'Fournisseur mis à jour' : 'Fournisseur créé');
+  showCRMView('fournisseurs');
+}
+
+async function deleteSupplier() {
+  const id = document.getElementById('sf-id').value;
+  if (!id || !confirm('Supprimer ce fournisseur ?')) return;
+  await sb.from('suppliers').update({ active: false }).eq('id', id);
+  toast('Fournisseur archivé');
+  showCRMView('fournisseurs');
+}
 
 function shiftApurement(delta){
   window._apurOffset=(window._apurOffset||0)+delta;
@@ -4814,6 +5048,7 @@ function showCRMView(view){
   });
   if(view==='catalogue')loadCatalogue();
   if(view==='clients')loadClients();
+  if(view==='fournisseurs')loadSuppliers();
   if(view==='contrats')loadContracts();
   if(view==='revenus')loadRevenus();
 }
