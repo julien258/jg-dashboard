@@ -706,11 +706,7 @@
             <div class="kv p" id="pennylane-total-solde">—</div>
             <div class="ks" id="pennylane-sync-date">Pennylane</div>
           </div>
-          <div class="kc" style="border-left:3px solid var(--red)" id="pennylane-impayes-kc" style="display:none">
-            <div class="kl">⚠️ Impayés</div>
-            <div class="kv n" id="pennylane-total-impayes">—</div>
-            <div class="ks" id="pennylane-impayes-count"></div>
-          </div>
+
         </div>
         <!-- Détail comptes par société — caché, visible dans onglets sociétés -->
         <div id="pennylane-soldes-grid" style="display:none"></div>
@@ -2787,14 +2783,7 @@ async function syncPennylane(){
       totalEl.className = 'kv '+(total>=0?'p':'n');
     }
 
-    // Factures impayées — encart discret
-    const impayes = data.societes.flatMap(s => s.impayes.map(f => ({...f, societe:s.label})));
-    const impayesKc = document.getElementById('pennylane-impayes-kc');
-    if(impayesKc && impayes.length>0) impayesKc.style.display='block';
-    const impayesTotalEl = document.getElementById('pennylane-total-impayes');
-    if(impayesTotalEl) impayesTotalEl.textContent = data.groupe.total_impayes.toLocaleString('fr-FR')+' €';
-    const impayesCount = document.getElementById('pennylane-impayes-count');
-    if(impayesCount) impayesCount.textContent = impayes.length+' facture(s) · '+data.groupe.nb_factures_en_retard+' en retard';
+
 
     // Mettre à jour l'onglet société si ouvert
     renderCoPennylane();
@@ -2853,13 +2842,6 @@ async function autoSyncPennylane(){
       totalEl.textContent = total.toLocaleString('fr-FR',{minimumFractionDigits:2})+' €';
       totalEl.className = 'kv '+(total>=0?'p':'n');
     }
-    const impayes = data.societes.flatMap(s => s.impayes.map(f => ({...f, societe:s.label})));
-    const impayesKc = document.getElementById('pennylane-impayes-kc');
-    if(impayesKc && impayes.length>0) impayesKc.style.display='block';
-    const impayesTotalEl = document.getElementById('pennylane-total-impayes');
-    if(impayesTotalEl) impayesTotalEl.textContent = data.groupe.total_impayes.toLocaleString('fr-FR')+' €';
-    const impayesCount = document.getElementById('pennylane-impayes-count');
-    if(impayesCount) impayesCount.textContent = impayes.length+' facture(s) · '+data.groupe.nb_factures_en_retard+' en retard';
     // Mettre à jour le bouton sync
     const btn = document.getElementById('btn-pennylane-sync');
     if(btn) btn.textContent='✓ Pennylane';
