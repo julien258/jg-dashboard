@@ -6762,10 +6762,13 @@ async function processFactureOCR(file){
       const safeName=file.name.replace(/[^a-zA-Z0-9._-]/g,'_');
       const path=`${coId}/${Date.now()}_${safeName}`;
       const{data:upData,error:upErr}=await sb.storage.from('payables-docs').upload(path,file,{contentType:file.type||'application/pdf',upsert:true});
-      if(upData){_storagePath=path;console.log('Storage OK:',path);}
+      if(upData){
+        _storagePath=path;
+        // Backup Drive en arrière-plan
+        backupToDrive(base64, file.name, curCo?.id||'unknown');
+      }
       else console.warn('Storage error:',upErr?.message);
     }catch(e){console.warn('Storage exception:',e.message);}
-    console.log('Storage path:', _storagePath);
 
     if(!parsed||parsed.error){toast('Erreur OCR : '+(parsed?.error||'inconnu')+' — remplissez manuellement');openOcrModal({},null,_storagePath);return;}
 
@@ -7322,6 +7325,9 @@ async function uploadPayableDoc(id, input) {
     const path = `${coId}/${Date.now()}_${safeName}`;
     const {data, error} = await sb.storage.from('payables-docs').upload(path, file, {contentType: file.type||'application/pdf', upsert:true});
     if(error) { toast('Erreur upload : '+error.message); return; }
+    // Backup Drive en arrière-plan
+    const b64att=await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result.split(',')[1]);r.onerror=rej;r.readAsDataURL(file);});
+    backupToDrive(b64att, file.name, coId);
     // Mettre à jour doc_name dans la table payables
     const {error: upErr} = await sb.from('payables').update({doc_name: path}).eq('id', id);
     if(upErr) { toast('Erreur mise à jour : '+upErr.message); return; }
@@ -7329,6 +7335,28 @@ async function uploadPayableDoc(id, input) {
     if(typeof loadPayables==='function') loadPayables();
   } catch(e) { toast('Erreur : '+e.message); }
   input.value = '';
+}
+
+// Backup automatique Drive après upload
+async function backupToDrive(base64, fileName, companyId) {
+  try {
+    const resp = await fetch('/api/drive-backup', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ base64, fileName, companyId })
+    });
+    const result = await resp.json();
+    if (result.success) {
+      console.log('Drive backup OK:', result.driveName);
+      return result.driveFileId;
+    } else {
+      console.warn('Drive backup failed:', result.error);
+      return null;
+    }
+  } catch(e) {
+    console.warn('Drive backup exception:', e.message);
+    return null;
+  }
 }
 
 async function openPayableDoc(id, docName) {
@@ -7920,7 +7948,10 @@ async function handleUpload(input,type){
               const safeName=f.name.replace(/[^a-zA-Z0-9._-]/g,'_');
               const path=`${curCo?.id||'group'}/${Date.now()}_${safeName}`;
               const{data:upData}=await sb.storage.from('payables-docs').upload(path,f,{contentType:f.type||'application/pdf',upsert:true});
-              if(upData)storagePath=path;
+              if(upData){
+              storagePath=path;
+              backupToDrive(base64, f.name, curCo?.id||'unknown');
+            }
             }catch(e){console.warn('Storage:',e.message);}
 
             // Cherche une ligne existante par numéro de facture (évite doublon)
