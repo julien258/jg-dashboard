@@ -6948,10 +6948,10 @@ function renderPayablesTable(data){
   tbody.innerHTML=data.map(d=>{
     const prio=Number(d.priority||0);
     const ci = fournisseurColorMap[d.fournisseur] ?? 0;
-    const rowBg = isDark ? darkBandColors[ci] + '33' : bandColors[ci];
+    const rowBg = isDark ? darkBandColors[ci] + '22' : bandColors[ci];
     return `<tr data-pay-id="${d.id}" style="background:${rowBg}"
     <td><strong>${d.fournisseur||'—'}</strong></td>
-    <td style="font-size:12px">${d.label||('<span style="color:var(--t2);font-style:italic">'+d.fournisseur+'</span>')}</td>
+    <td style="font-size:12px">${d.label||('<strong>'+d.fournisseur+'</strong>')}</td>
     <td style="text-align:right;font-family:monospace;font-size:12px">${d.amount_ht?Math.round(d.amount_ht).toLocaleString('fr-FR')+' €':'—'}</td>
     <td style="text-align:right;font-family:monospace;font-weight:600;color:var(--red)">${d.amount_ttc?Math.round(d.amount_ttc).toLocaleString('fr-FR')+' €':'—'}</td>
     <td style="font-size:11px;color:var(--t2)">${d.invoice_date?new Date(d.invoice_date).toLocaleDateString('fr-FR'):'—'}</td>
