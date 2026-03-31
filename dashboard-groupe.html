@@ -162,6 +162,7 @@
     <button class="gbtn" onclick="showOptim()"><span>⚖️</span> Optim. rémunération</button>
     <button class="gbtn" onclick="showApurement()"><span>🚨</span> Apurement dettes</button>
     <button class="gbtn" onclick="showGED()"><span>📂</span> GED Documents</button>
+    <button class="gbtn" id="btn-contentieux" onclick="showContentieux()"><span>⚖️</span> Contentieux</button>
   </div>
 </div>
 
@@ -1851,6 +1852,106 @@
 
   </div>
 
+  <!-- CONTENTIEUX -->
+  <div class="pv cnt" id="v-contentieux">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem">
+      <div>
+        <div style="font-size:20px;font-weight:600">⚖️ Contentieux</div>
+        <div style="font-size:12px;color:var(--t2);margin-top:2px">Dossiers en litige · Toutes sociétés</div>
+      </div>
+      <button class="btn btn-p btn-sm" onclick="openContentieuxForm()">+ Nouveau dossier</button>
+    </div>
+
+    <!-- KPIs -->
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:1.5rem" id="cont-kpis">
+      <div class="kc" style="border-left:3px solid var(--red)"><div class="kl">Dossiers actifs</div><div class="kv" id="ck-actifs-cont">—</div><div class="ks">En cours</div></div>
+      <div class="kc" style="border-left:3px solid var(--amb)"><div class="kl">Montant contesté</div><div class="kv" id="ck-montant-cont" style="color:var(--red)">—</div><div class="ks">Total en litige</div></div>
+      <div class="kc" style="border-left:3px solid var(--grn)"><div class="kl">Prochaine échéance</div><div class="kv" id="ck-echeance-cont">—</div><div class="ks">Audience / délai</div></div>
+      <div class="kc" style="border-left:3px solid var(--acc)"><div class="kl">Dossiers clôturés</div><div class="kv" id="ck-clotures-cont">—</div><div class="ks">Résolus</div></div>
+    </div>
+
+    <!-- Filtres -->
+    <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+      <select id="cont-filter-co" onchange="loadContentieux()" style="font-size:11px;padding:5px 8px;border-radius:6px">
+        <option value="">Toutes sociétés</option>
+        <option value="sas-living">SAS Living</option>
+        <option value="sarl-guiraud">SARL Guiraud</option>
+        <option value="meulette">La Meulette</option>
+        <option value="real-gains">Real Gains (Monikaza)</option>
+        <option value="spv-monikaza">Monikaza SPV</option>
+      </select>
+      <select id="cont-filter-statut" onchange="loadContentieux()" style="font-size:11px;padding:5px 8px;border-radius:6px">
+        <option value="">Tous statuts</option>
+        <option value="mise_en_demeure">Mise en demeure</option>
+        <option value="en_cours">En cours</option>
+        <option value="negociation">Négociation</option>
+        <option value="appel">Appel</option>
+        <option value="cloture">Clôturé</option>
+      </select>
+    </div>
+
+    <!-- Liste dossiers -->
+    <div id="cont-list"></div>
+
+    <!-- Modal nouveau dossier / édition -->
+    <div id="cont-modal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:1000;overflow-y:auto">
+      <div style="background:var(--s1);border-radius:12px;max-width:700px;margin:2rem auto;padding:2rem">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem">
+          <div style="font-size:16px;font-weight:600">⚖️ Dossier contentieux</div>
+          <button onclick="document.getElementById('cont-modal').style.display='none'" style="border:none;background:none;font-size:20px;cursor:pointer">×</button>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div class="fg" style="grid-column:1/-1"><label>Titre du dossier *</label><input type="text" id="cont-titre" placeholder="Ex: Real Gains c. Carrefour — T. Commerce Evry"></div>
+          <div class="fg"><label>Société</label>
+            <select id="cont-co">
+              <option value="sas-living">SAS Living</option>
+              <option value="sarl-guiraud">SARL Guiraud</option>
+              <option value="meulette">La Meulette</option>
+              <option value="real-gains">Real Gains (Monikaza)</option>
+              <option value="spv-monikaza">Monikaza SPV</option>
+            </select>
+          </div>
+          <div class="fg"><label>Partie adverse</label><input type="text" id="cont-adverse" placeholder="Carrefour, Crédit Agricole..."></div>
+          <div class="fg"><label>Juridiction</label><input type="text" id="cont-juridiction" placeholder="T. Commerce Evry, TGI Paris..."></div>
+          <div class="fg"><label>Type de litige</label>
+            <select id="cont-type">
+              <option value="civil">Civil</option>
+              <option value="commercial">Commercial</option>
+              <option value="social">Social / Prud'hommes</option>
+              <option value="fiscal">Fiscal / Admin</option>
+              <option value="penal">Pénal</option>
+            </select>
+          </div>
+          <div class="fg"><label>Statut</label>
+            <select id="cont-statut">
+              <option value="mise_en_demeure">Mise en demeure</option>
+              <option value="en_cours">En cours</option>
+              <option value="negociation">Négociation</option>
+              <option value="appel">Appel</option>
+              <option value="cloture">Clôturé</option>
+            </select>
+          </div>
+          <div class="fg"><label>Montant contesté (€)</label><input type="number" id="cont-montant" placeholder="0"></div>
+          <div class="fg"><label>Date ouverture</label><input type="date" id="cont-date-ouv"></div>
+          <div class="fg"><label>Prochaine échéance</label><input type="date" id="cont-echeance"></div>
+          <div class="fg"><label>Référence dossier</label><input type="text" id="cont-ref" placeholder="RG n°2024/..."></div>
+          <div class="fg" style="grid-column:1/-1"><label>Description / contexte</label><textarea id="cont-desc" rows="3" placeholder="Résumé du litige, historique..."></textarea></div>
+          <div class="fg" style="grid-column:1/-1">
+            <label>Document (PDF)</label>
+            <input type="file" id="cont-file" accept=".pdf,.jpg,.png" style="font-size:12px">
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:1.5rem">
+          <button class="btn btn-p" onclick="saveContentieux()" style="flex:1">💾 Enregistrer</button>
+          <button class="btn btn-g" onclick="analyseContentieux()" style="flex:1">🤖 Analyser avec Claude</button>
+          <button class="btn" onclick="document.getElementById('cont-modal').style.display='none'">Annuler</button>
+        </div>
+        <!-- Zone analyse Claude -->
+        <div id="cont-analyse-zone" style="display:none;margin-top:1.5rem;background:var(--s2);border-radius:8px;padding:1rem;font-size:13px"></div>
+      </div>
+    </div>
+  </div>
+
 </div><!-- fin .ma -->
 </div>
 </div>
@@ -2370,6 +2471,231 @@ function showTreso(){
   // Détruit le graphique existant pour forcer un rechargement frais
   if(tresoChartObj){tresoChartObj.destroy();tresoChartObj=null;}
   showTresoTab('graph');
+}
+
+// ===== CONTENTIEUX =====
+function showContentieux(){
+  setViews('v-contentieux');
+  document.getElementById('ptabs').style.display='none';
+  document.querySelectorAll('.gbtn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('btn-contentieux')?.classList.add('active');
+  loadContentieux();
+}
+
+let _contEditId = null;
+
+function openContentieuxForm(data=null){
+  _contEditId = data?.id || null;
+  const m = document.getElementById('cont-modal');
+  m.style.display='block';
+  document.getElementById('cont-titre').value = data?.titre||'';
+  document.getElementById('cont-co').value = data?.company_id||'real-gains';
+  document.getElementById('cont-adverse').value = data?.partie_adverse||'';
+  document.getElementById('cont-juridiction').value = data?.juridiction||'';
+  document.getElementById('cont-type').value = data?.type_litige||'commercial';
+  document.getElementById('cont-statut').value = data?.statut||'en_cours';
+  document.getElementById('cont-montant').value = data?.montant_conteste||0;
+  document.getElementById('cont-date-ouv').value = data?.date_ouverture||'';
+  document.getElementById('cont-echeance').value = data?.prochaine_echeance||'';
+  document.getElementById('cont-ref').value = data?.reference||'';
+  document.getElementById('cont-desc').value = data?.description||'';
+  document.getElementById('cont-analyse-zone').style.display='none';
+  if(data?.analyse_claude){
+    try{
+      const a=JSON.parse(data.analyse_claude);
+      renderAnalyse(a);
+    }catch(e){}
+  }
+}
+
+async function saveContentieux(){
+  const titre=document.getElementById('cont-titre').value.trim();
+  if(!titre){toast('Titre obligatoire');return;}
+  
+  // Upload doc si présent
+  let storagePath=null;
+  const fileInput=document.getElementById('cont-file');
+  if(fileInput.files[0]){
+    const f=fileInput.files[0];
+    const safeName=f.name.replace(/[^a-zA-Z0-9._-]/g,'_');
+    const path=`contentieux/${Date.now()}_${safeName}`;
+    const{data:upData}=await sb.storage.from('payables-docs').upload(path,f,{contentType:f.type,upsert:true});
+    if(upData)storagePath=path;
+  }
+
+  const payload={
+    company_id:document.getElementById('cont-co').value,
+    titre,
+    partie_adverse:document.getElementById('cont-adverse').value||null,
+    juridiction:document.getElementById('cont-juridiction').value||null,
+    type_litige:document.getElementById('cont-type').value,
+    statut:document.getElementById('cont-statut').value,
+    montant_conteste:parseFloat(document.getElementById('cont-montant').value)||0,
+    date_ouverture:document.getElementById('cont-date-ouv').value||null,
+    prochaine_echeance:document.getElementById('cont-echeance').value||null,
+    reference:document.getElementById('cont-ref').value||null,
+    description:document.getElementById('cont-desc').value||null,
+    updated_at:new Date().toISOString()
+  };
+  if(storagePath)payload.doc_name=storagePath;
+
+  let error;
+  if(_contEditId){
+    ({error}=await sb.from('contentieux').update(payload).eq('id',_contEditId));
+  } else {
+    ({error}=await sb.from('contentieux').insert(payload));
+  }
+  if(error){toast('Erreur : '+error.message);return;}
+  document.getElementById('cont-modal').style.display='none';
+  toast('✓ Dossier enregistré');
+  loadContentieux();
+}
+
+async function analyseContentieux(){
+  const titre=document.getElementById('cont-titre').value.trim();
+  if(!titre){toast("Remplis au moins le titre avant d'analyser");return;}
+  
+  const zone=document.getElementById('cont-analyse-zone');
+  zone.style.display='block';
+  zone.innerHTML='<div style="color:var(--t2);font-size:12px">🤖 Analyse en cours avec Claude...</div>';
+  
+  // Préparer le doc si présent
+  let base64=null;
+  const fileInput=document.getElementById('cont-file');
+  if(fileInput.files[0]){
+    base64=await new Promise((res,rej)=>{
+      const r=new FileReader();
+      r.onload=()=>res(r.result.split(',')[1]);
+      r.onerror=rej;
+      r.readAsDataURL(fileInput.files[0]);
+    });
+  }
+
+  try{
+    const resp=await fetch('/api/claude-legal',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        base64,
+        titre,
+        partie_adverse:document.getElementById('cont-adverse').value,
+        montant:document.getElementById('cont-montant').value,
+        description:document.getElementById('cont-desc').value,
+        juridiction:document.getElementById('cont-juridiction').value
+      })
+    });
+    const analyse=await resp.json();
+    renderAnalyse(analyse);
+    // Sauvegarder l'analyse si dossier existant
+    if(_contEditId){
+      await sb.from('contentieux').update({analyse_claude:JSON.stringify(analyse)}).eq('id',_contEditId);
+    }
+  }catch(e){
+    zone.innerHTML='<div style="color:var(--red)">Erreur : '+e.message+'</div>';
+  }
+}
+
+function renderAnalyse(a){
+  const zone=document.getElementById('cont-analyse-zone');
+  if(!a){zone.style.display='none';return;}
+  const urgColor={faible:'var(--grn)',modérée:'var(--amb)',élevée:'var(--red)',critique:'var(--red)'};
+  zone.style.display='block';
+  zone.innerHTML=`
+    <div style="font-weight:600;margin-bottom:8px;color:var(--acc)">🤖 Analyse Claude</div>
+    ${a.urgence?`<div style="margin-bottom:8px"><span style="background:${urgColor[a.urgence]||'var(--amb)'};color:#fff;padding:2px 8px;border-radius:4px;font-size:11px">Urgence : ${a.urgence}</span></div>`:''}
+    ${a.resume?`<div style="margin-bottom:10px;font-size:13px;color:var(--t1)">${a.resume}</div>`:''}
+    ${a.qualification?`<div style="margin-bottom:8px"><strong>Qualification :</strong> <span style="font-size:12px">${a.qualification}</span></div>`:''}
+    ${a.fondements?.length?`<div style="margin-bottom:8px"><strong>Fondements :</strong><ul style="margin:4px 0 0 16px;font-size:12px">${a.fondements.map(f=>`<li>${f}</li>`).join('')}</ul></div>`:''}
+    ${a.arguments_defense?.length?`<div style="margin-bottom:8px"><strong>Arguments défense :</strong><ul style="margin:4px 0 0 16px;font-size:12px">${a.arguments_defense.map(f=>`<li>${f}</li>`).join('')}</ul></div>`:''}
+    ${a.recommandations?.length?`<div style="margin-bottom:8px"><strong>Recommandations :</strong><ul style="margin:4px 0 0 16px;font-size:12px">${a.recommandations.map(f=>`<li>${f}</li>`).join('')}</ul></div>`:''}
+    ${a.draft_reponse?`<div style="margin-top:10px"><strong>Draft réponse :</strong><div style="margin-top:6px;background:var(--s1);border:1px solid var(--b1);border-radius:6px;padding:10px;font-size:12px;white-space:pre-wrap;max-height:200px;overflow-y:auto">${a.draft_reponse}</div></div>`:''}
+  `;
+}
+
+async function loadContentieux(){
+  const coFilter=document.getElementById('cont-filter-co')?.value||'';
+  const statutFilter=document.getElementById('cont-filter-statut')?.value||'';
+  let q=sb.from('contentieux').select('*').order('prochaine_echeance',{ascending:true,nullsFirst:false});
+  if(coFilter)q=q.eq('company_id',coFilter);
+  if(statutFilter)q=q.eq('statut',statutFilter);
+  const{data,error}=await q;
+  if(error){console.error(error);return;}
+  renderContentieux(data||[]);
+}
+
+function renderContentieux(data){
+  const el=document.getElementById('cont-list');
+  if(!el)return;
+  // KPIs
+  const actifs=data.filter(d=>d.statut!=='cloture').length;
+  const clotures=data.filter(d=>d.statut==='cloture').length;
+  const montantTotal=data.filter(d=>d.statut!=='cloture').reduce((s,d)=>s+Number(d.montant_conteste||0),0);
+  const prochaine=data.filter(d=>d.prochaine_echeance&&d.statut!=='cloture').sort((a,b)=>a.prochaine_echeance>b.prochaine_echeance?1:-1)[0];
+  document.getElementById('ck-actifs-cont').textContent=actifs;
+  document.getElementById('ck-montant-cont').textContent=montantTotal?Math.round(montantTotal).toLocaleString('fr-FR')+' €':'—';
+  document.getElementById('ck-echeance-cont').textContent=prochaine?.prochaine_echeance?new Date(prochaine.prochaine_echeance).toLocaleDateString('fr-FR'):'—';
+  document.getElementById('ck-clotures-cont').textContent=clotures;
+  if(!data.length){el.innerHTML='<div style="text-align:center;color:var(--t2);padding:3rem">Aucun dossier — cliquez sur "+ Nouveau dossier"</div>';return;}
+  const statutLabel={mise_en_demeure:'Mise en demeure',en_cours:'En cours',negociation:'Négociation',appel:'Appel',cloture:'Clôturé'};
+  const statutColor={mise_en_demeure:'ba',en_cours:'br',negociation:'bz',appel:'ba',cloture:'bg'};
+  const coNames={'sas-living':'SAS Living','sarl-guiraud':'SARL Guiraud','meulette':'La Meulette','real-gains':'Real Gains','spv-monikaza':'Monikaza SPV'};
+  el.innerHTML=data.map(d=>`
+    <div style="background:var(--s1);border:1px solid var(--b1);border-radius:10px;padding:16px;margin-bottom:10px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px">
+        <div style="flex:1">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+            <span style="font-weight:600;font-size:14px">${d.titre}</span>
+            <span class="badge ${statutColor[d.statut]||'bz'}">${statutLabel[d.statut]||d.statut}</span>
+            ${d.prochaine_echeance&&new Date(d.prochaine_echeance)<new Date()?'<span class="badge br">⚠ Échéance dépassée</span>':''}
+          </div>
+          <div style="display:flex;gap:16px;font-size:12px;color:var(--t2);flex-wrap:wrap">
+            ${d.partie_adverse?`<span>👤 ${d.partie_adverse}</span>`:''}
+            ${d.juridiction?`<span>🏛 ${d.juridiction}</span>`:''}
+            ${d.montant_conteste?`<span style="color:var(--red);font-weight:500">💰 ${Math.round(d.montant_conteste).toLocaleString('fr-FR')} €</span>`:''}
+            ${d.prochaine_echeance?`<span>📅 ${new Date(d.prochaine_echeance).toLocaleDateString('fr-FR')}</span>`:''}
+            <span>🏢 ${coNames[d.company_id]||d.company_id}</span>
+          </div>
+          ${d.description?`<div style="font-size:12px;color:var(--t2);margin-top:6px;max-height:40px;overflow:hidden">${d.description}</div>`:''}
+          ${d.analyse_claude?`<div style="font-size:11px;color:var(--acc);margin-top:4px">🤖 Analyse Claude disponible</div>`:''}
+        </div>
+        <div style="display:flex;gap:6px;flex-shrink:0">
+          ${d.doc_name?`<button onclick="openContDoc('${d.doc_name}')" style="border:none;background:none;cursor:pointer;font-size:13px;color:var(--acc)" title="Voir document">📎</button>`:''}
+          <button onclick="openContentieuxForm(${JSON.stringify(d).replace(/"/g,'&quot;')})" style="border:none;background:none;cursor:pointer;font-size:12px;color:var(--acc)">✎</button>
+          <button onclick="deleteContentieux('${d.id}')" style="border:none;background:none;cursor:pointer;font-size:12px;color:var(--t2)">✕</button>
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+async function deleteContentieux(id){
+  if(!confirm('Supprimer ce dossier ?'))return;
+  await sb.from('contentieux').delete().eq('id',id);
+  toast('Dossier supprimé');
+  loadContentieux();
+}
+
+async function openContDoc(path){
+  const{data}=await sb.storage.from('payables-docs').createSignedUrl(path,3600);
+  if(data?.signedUrl)window.open(data.signedUrl,'_blank');
+}
+
+// Basculer une payable en contentieux depuis CC & Dettes
+async function basculeContentieux(payableId){
+  const{data:pay}=await sb.from('payables').select('*').eq('id',payableId).single();
+  if(!pay)return;
+  // Créer le dossier contentieux pré-rempli
+  openContentieuxForm({
+    company_id:pay.company_id,
+    titre:(pay.fournisseur||'')+(pay.invoice_number?' — N°'+pay.invoice_number:''),
+    partie_adverse:pay.fournisseur,
+    montant_conteste:pay.amount_ttc,
+    description:'Basculé depuis CC & Dettes. Facture N°'+pay.invoice_number+' du '+pay.invoice_date
+  });
+  // Mettre à jour le statut de la payable
+  await sb.from('payables').update({status:'en_litige'}).eq('id',payableId);
+  showContentieux();
+  toast('Facture basculée en contentieux');
 }
 
 function showGED(){
@@ -6975,6 +7301,7 @@ function renderPayablesTable(data){
         ? `<button onclick="openPayableDoc('${d.id}','${d.doc_name}')" style="border:none;background:none;cursor:pointer;color:var(--acc);font-size:13px" title="Voir la facture">📎</button>`
         : `<label title="Attacher une PJ" style="cursor:pointer;font-size:12px;color:var(--t2);border:none;background:none" onclick="attachPayableDoc('${d.id}')">📎+</label><input type="file" id="pj-input-${d.id}" style="display:none" accept=".pdf,.png,.jpg,.jpeg" onchange="uploadPayableDoc('${d.id}',this)">`
       }
+      <button onclick="basculeContentieux('${d.id}')" style="border:none;background:none;cursor:pointer;color:var(--amb);font-size:12px" title="Basculer en contentieux">⚖️</button>
       <button onclick="delPayable('${d.id}')" style="border:none;background:none;cursor:pointer;color:var(--t2);font-size:13px">✕</button>
     </td>
   </tr>`;}).join('');
