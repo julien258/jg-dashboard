@@ -2850,6 +2850,90 @@ async function autoSyncPennylane(){
   } catch(e){ /* silencieux */ }
 }
 
+// === MODAL PENNYLANE DOCUMENT ===
+let _plContract = null;
+
+function openPLModal(contract) {
+  _plContract = contract;
+  const today = new Date().toISOString().split('T')[0];
+  const in30 = new Date(Date.now()+30*24*3600*1000).toISOString().split('T')[0];
+
+  document.getElementById('modal-pl-date').value = today;
+  document.getElementById('modal-pl-deadline').value = contract.payment_expected_date || in30;
+  document.getElementById('modal-pl-description').value = contract.label || '';
+  document.getElementById('modal-pl-amount').value = contract.commission_amount || '';
+  document.getElementById('modal-pl-tva').value = contract.tva_taux != null ? String(contract.tva_taux) : '20';
+  document.getElementById('modal-pl-result').style.display = 'none';
+
+  // Info contrat
+  document.getElementById('modal-pl-contract-info').innerHTML =
+    `<strong>${contract.label||'—'}</strong> · ${contract.billing_company_id||'—'} · `+
+    `Commission : <strong>${Number(contract.commission_amount||0).toLocaleString('fr-FR')} €</strong>`;
+
+  updatePLApercu();
+  document.getElementById('modal-pennylane-doc').style.display = 'flex';
+}
+
+function closePLModal() {
+  document.getElementById('modal-pennylane-doc').style.display = 'none';
+  _plContract = null;
+}
+
+function updatePLApercu() {
+  const ht = parseFloat(document.getElementById('modal-pl-amount').value) || 0;
+  document.getElementById('modal-pl-ht').textContent = ht.toLocaleString('fr-FR',{minimumFractionDigits:2})+' €';
+}
+document.addEventListener('DOMContentLoaded', () => {
+  const amtEl = document.getElementById('modal-pl-amount');
+  if (amtEl) amtEl.addEventListener('input', updatePLApercu);
+});
+
+async function submitPLDoc() {
+  const btn = document.getElementById('modal-pl-submit');
+  const resultEl = document.getElementById('modal-pl-result');
+  btn.textContent = '⏳ Création...'; btn.disabled = true;
+  resultEl.style.display = 'none';
+
+  try {
+    const body = {
+      contract_id: _plContract.id,
+      doc_type: document.getElementById('modal-pl-doc-type').value,
+      date: document.getElementById('modal-pl-date').value,
+      deadline: document.getElementById('modal-pl-deadline').value,
+      description: document.getElementById('modal-pl-description').value,
+      override_amount: parseFloat(document.getElementById('modal-pl-amount').value),
+      tva_taux: parseFloat(document.getElementById('modal-pl-tva').value)
+    };
+
+    const res = await fetch('/api/pennylane-create-doc', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(body)
+    });
+    const data = await res.json();
+
+    if (data.ok) {
+      resultEl.style.cssText = 'display:block;background:var(--grn-bg,#e8f8f0);border:1px solid var(--grn);border-radius:8px;padding:10px 14px;font-size:13px;color:var(--grn)';
+      resultEl.innerHTML = `✅ Document créé ! N° <strong>${data.invoice_number}</strong><br>`+
+        `<a href="${data.pennylane_url}" target="_blank" style="color:var(--acc)">Voir dans Pennylane →</a>`;
+      // Recharger les contrats pour afficher le nouveau numéro
+      setTimeout(()=>{ closePLModal(); if(typeof loadContracts==='function')loadContracts(); }, 2000);
+    } else {
+      resultEl.style.cssText = 'display:block;background:#fef2f2;border:1px solid var(--red);border-radius:8px;padding:10px 14px;font-size:13px;color:var(--red)';
+      resultEl.innerHTML = `❌ Erreur : ${data.error}`;
+    }
+  } catch(e) {
+    resultEl.style.cssText = 'display:block;background:#fef2f2;border:1px solid var(--red);border-radius:8px;padding:10px 14px;font-size:13px;color:var(--red)';
+    resultEl.innerHTML = `❌ Erreur réseau : ${e.message}`;
+  }
+  btn.textContent = '⚡ Créer dans Pennylane'; btn.disabled = false;
+}
+// Fermer la modal en cliquant dehors
+document.addEventListener('click', e => {
+  const modal = document.getElementById('modal-pennylane-doc');
+  if (modal && e.target === modal) closePLModal();
+});
+
 function shiftApurement(delta){
   window._apurOffset=(window._apurOffset||0)+delta;
   loadApurement();
@@ -4998,6 +5082,7 @@ async function loadContracts(filter){
 
   const filtered=activeContractFilter==='all'?allContracts:allContracts.filter(c=>c.status===activeContractFilter);
 
+  window._contractsMap = {}; filtered.forEach(c => window._contractsMap[c.id] = c);
   document.getElementById('contracts-list').innerHTML=`<div class="card"><div style="overflow-x:auto"><table>
     <thead><tr><th>Client</th><th>Produit</th><th>Libellé</th><th>Société</th><th style="text-align:right">Volume</th><th style="text-align:right">Commission</th><th>Statut</th><th>Facture</th><th>Rappel</th><th></th></tr></thead>
     <tbody>${filtered.map(c=>`<tr>
@@ -5020,6 +5105,7 @@ async function loadContracts(filter){
       <td style="font-size:11px;color:${c.next_reminder&&new Date(c.next_reminder)<new Date()?'var(--red)':'var(--t2)'}">${c.next_reminder?new Date(c.next_reminder).toLocaleDateString('fr-FR'):'—'}</td>
       <td style="display:flex;gap:4px">
         <button onclick="updateContractStatus('${c.id}','${c.status}')" style="border:none;background:none;cursor:pointer;color:var(--acc);font-size:12px;padding:2px 6px">✎</button>
+        <button onclick="openPLModal(window._contractsMap['${c.id}'])" style="border:none;background:none;cursor:pointer;color:var(--grn);font-size:11px;padding:2px 6px" title="Créer dans Pennylane">🧾</button>
         <button onclick="delContract('${c.id}')" style="border:none;background:none;cursor:pointer;color:var(--t2);font-size:13px">✕</button>
       </td>
     </tr>`).join('')}</tbody>
@@ -7752,5 +7838,66 @@ async function generateTrailingReceivables(){
 init();
 setTimeout(autoSyncPennylane, 2000); // Auto-sync Pennylane 2s après chargement
 </script>
+<!-- MODAL CRÉATION DOCUMENT PENNYLANE -->
+<div id="modal-pennylane-doc" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:none;align-items:center;justify-content:center">
+  <div style="background:var(--s1);border-radius:12px;padding:1.5rem;width:520px;max-width:95vw;box-shadow:0 8px 32px rgba(0,0,0,0.2)">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.2rem">
+      <div style="font-size:16px;font-weight:600" id="modal-pl-title">🧾 Créer un document Pennylane</div>
+      <button onclick="closePLModal()" style="border:none;background:none;cursor:pointer;font-size:18px;color:var(--t2)">✕</button>
+    </div>
+    <!-- Info contrat -->
+    <div style="background:var(--s2);border-radius:8px;padding:10px 14px;margin-bottom:1rem;font-size:13px">
+      <div id="modal-pl-contract-info" style="color:var(--t2)"></div>
+    </div>
+    <!-- Type de document -->
+    <div class="fg" style="margin-bottom:12px">
+      <label>Type de document</label>
+      <select id="modal-pl-doc-type">
+        <option value="invoice">Facture client</option>
+        <option value="quote">Devis</option>
+        <option value="credit_note">Avoir</option>
+      </select>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+      <div class="fg">
+        <label>Date d'émission</label>
+        <input type="date" id="modal-pl-date">
+      </div>
+      <div class="fg">
+        <label>Date d'échéance</label>
+        <input type="date" id="modal-pl-deadline">
+      </div>
+    </div>
+    <div class="fg" style="margin-bottom:12px">
+      <label>Description / libellé</label>
+      <input type="text" id="modal-pl-description" placeholder="Commission intermédiation LLD...">
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:1.2rem">
+      <div class="fg">
+        <label>Montant HT (€)</label>
+        <input type="number" id="modal-pl-amount" step="0.01">
+      </div>
+      <div class="fg">
+        <label>TVA applicable</label>
+        <select id="modal-pl-tva">
+          <option value="0">Exonéré (0%)</option>
+          <option value="20">TVA 20%</option>
+          <option value="10">TVA 10%</option>
+          <option value="5.5">TVA 5,5%</option>
+        </select>
+      </div>
+    </div>
+    <!-- Aperçu montants -->
+    <div style="background:var(--s2);border-radius:8px;padding:10px 14px;margin-bottom:1rem;font-size:13px;display:flex;justify-content:space-between">
+      <span style="color:var(--t2)">Montant HT</span><strong id="modal-pl-ht">—</strong>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-g" style="flex:1" onclick="closePLModal()">Annuler</button>
+      <button class="btn btn-p" style="flex:2;background:var(--acc);color:#fff;border:none" id="modal-pl-submit" onclick="submitPLDoc()">⚡ Créer dans Pennylane</button>
+    </div>
+    <div id="modal-pl-result" style="display:none;margin-top:1rem;padding:10px 14px;border-radius:8px;font-size:13px"></div>
+  </div>
+</div>
+
 </body>
 </html>
