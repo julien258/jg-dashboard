@@ -6417,8 +6417,17 @@ async function processFactureOCR(file){
     const base64=await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result.split(',')[1]);r.onerror=rej;r.readAsDataURL(file);});
     const resp=await fetch('/.netlify/functions/ocr-pro',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({base64,docType:'facture_recue',fileName:file.name,companyId:curCo?.id||'unknown'})});
     const parsed=await resp.json();
-    const _storagePath=parsed._storage_path||null; // chemin du PDF dans Supabase Storage
     console.log('OCR response:', JSON.stringify(parsed).substring(0,500));
+    // Upload PDF depuis le navigateur directement dans Supabase Storage
+    let _storagePath=null;
+    try{
+      const coId=curCo?.id||'unknown';
+      const safeName=file.name.replace(/[^a-zA-Z0-9._-]/g,'_');
+      const path=`${coId}/${Date.now()}_${safeName}`;
+      const{data:upData,error:upErr}=await sb.storage.from('payables-docs').upload(path,file,{contentType:file.type||'application/pdf',upsert:true});
+      if(upData){_storagePath=path;console.log('Storage OK:',path);}
+      else console.warn('Storage error:',upErr?.message);
+    }catch(e){console.warn('Storage exception:',e.message);}
     console.log('Storage path:', _storagePath);
 
     if(!parsed||parsed.error){toast('Erreur OCR : '+(parsed?.error||'inconnu')+' — remplissez manuellement');openOcrModal({},null,_storagePath);return;}
