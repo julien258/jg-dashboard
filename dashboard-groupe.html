@@ -7111,9 +7111,17 @@ async function loadEmises(){
     sb.from('receivables').select('*').eq('company_id',curCo.id).order('due_date',{ascending:true}),
     sb.from('payables').select('*').eq('company_id',curCo.id).eq('status','a_payer')
   ]);
+  // Fusionner avec les factures émises Pennylane si disponibles
+  const pennylaneEmises = (window._pennylaneData?.societes||[])
+    .find(s=>s.id===curCo.id||s.company_id===curCo.id)
+    ?.factures_emises||[];
+
+  // Chercher les factures Pennylane pour cette société
+  const pennyImpayes = (window._pennylaneData?.societes||[])
+    .find(s => s.id === curCo.id)?.impayes || [];
 
   const tbody=document.getElementById('emise-tbody');
-  if(!emises?.length){
+  if(!emises?.length && !pennyImpayes.length){
     tbody.innerHTML='<tr><td colspan="8" style="text-align:center;color:var(--t2);padding:2rem">Aucune facture émise — ajoutez ou uploadez dans Documents</td></tr>';
     document.getElementById('emise-total').textContent='0 €';
     return;
@@ -7122,9 +7130,25 @@ async function loadEmises(){
   const statusColors={en_attente:'bb',compensation:'ba',payee:'bg'};
   const statusLabels={en_attente:'En attente',compensation:'Compensation',payee:'Payée'};
 
-  // Calcul total à encaisser
-  const totalEncaisser=emises.filter(e=>e.status!=='payee').reduce((s,e)=>s+Number(e.amount_ttc||0),0);
-  document.getElementById('emise-total').textContent=Math.round(totalEncaisser).toLocaleString('fr-FR')+' €';
+  // Total Supabase + Pennylane
+  const totalSupabase=(emises||[]).filter(e=>e.status!=='payee').reduce((s,e)=>s+Number(e.amount_ttc||0),0);
+  const totalPennylane=pennyImpayes.reduce((s,f)=>s+Number(f.montant_ttc||0),0);
+  document.getElementById('emise-total').textContent=Math.round(totalSupabase+totalPennylane).toLocaleString('fr-FR')+' €';
+  
+  // Ajouter les lignes Pennylane dans le tbody
+  if(pennyImpayes.length){
+    const pennyRows = pennyImpayes.map(f=>`<tr style="background:var(--acd)">
+      <td style="font-size:11px"><span class="badge ba">Pennylane</span></td>
+      <td style="font-size:12px">${f.client||'—'}</td>
+      <td style="font-size:12px;color:var(--t2)">${f.numero||'—'}</td>
+      <td style="text-align:right;font-family:monospace;font-weight:600;color:var(--grn)">${Math.round(f.montant_ttc||0).toLocaleString('fr-FR')} €</td>
+      <td style="font-size:11px;color:${f.en_retard?'var(--red)':'var(--t2)'}">${f.date_echeance?new Date(f.date_echeance).toLocaleDateString('fr-FR'):'—'}</td>
+      <td><span class="badge ${f.en_retard?'br':'bz'}">${f.en_retard?'En retard':f.statut||'—'}</span></td>
+      <td></td><td></td>
+    </tr>`).join('');
+    tbody.insertAdjacentHTML('beforeend', pennyRows);
+  }
+  const totalEncaisser=totalSupabase;
 
   // Calcul compensation par client
   const compensations={};
@@ -7291,7 +7315,7 @@ function renderPayablesTable(data){
     const rowBg = isDark ? darkBandColors[ci] + '22' : bandColors[ci];
     return `<tr data-pay-id="${d.id}" style="background:${rowBg}">
     <td style="font-size:12px;font-weight:600">${d.fournisseur||'—'}</td>
-    <td style="font-size:12px;color:var(--t2)">${d.label||''}</td>
+    <td style="font-size:12px;color:var(--t2)">${d.objet||d.label||''}</td>
     <td style="text-align:right;font-family:monospace;font-size:12px">${d.amount_ht?Math.round(d.amount_ht).toLocaleString('fr-FR')+' €':'—'}</td>
     <td style="text-align:right;font-family:monospace;font-weight:600;color:var(--red)">${d.amount_ttc?Math.round(d.amount_ttc).toLocaleString('fr-FR')+' €':'—'}</td>
     <td style="font-size:11px;color:var(--t2)">${d.invoice_date?new Date(d.invoice_date).toLocaleDateString('fr-FR'):'—'}</td>
