@@ -7586,22 +7586,63 @@ async function handleUpload(input,type){
           const echeance=extracted.echeance||extracted.date_echeance||extracted.date_paiement||null;
           const num=extracted.numero||extracted.numero_facture||extracted.reference||null;
           if(ttc>0||ht>0){
-            const{error:pe}=await sb.from('payables').insert({
-              company_id:curCo?.id||'group',
-              fournisseur,
-              label:objet,
-              amount_ht:ht||Math.round(ttc/1.2),
-              amount_ttc:ttc||Math.round(ht*1.2),
-              invoice_date:dateF,
-              due_date:echeance,
-              invoice_ref:num,
-              status:'a_payer',
-              doc_name:f.name,
-              source:'ocr',
-              notes:'Importé automatiquement depuis OCR'
-            });
-            if(pe)toast('OCR OK mais erreur payable : '+pe.message);
-            else toast('✓ Facture reçue — '+(ttc||ht).toLocaleString('fr-FR')+' € créée dans CC → À payer');
+            // Upload PDF dans Storage
+            let storagePath=null;
+            try{
+              const safeName=f.name.replace(/[^a-zA-Z0-9._-]/g,'_');
+              const path=`${curCo?.id||'group'}/${Date.now()}_${safeName}`;
+              const{data:upData}=await sb.storage.from('payables-docs').upload(path,f,{contentType:f.type||'application/pdf',upsert:true});
+              if(upData)storagePath=path;
+            }catch(e){console.warn('Storage:',e.message);}
+
+            // Cherche une ligne existante par numéro de facture (évite doublon)
+            let existingId=null;
+            if(num){
+              const{data:existing}=await sb.from('payables')
+                .select('id,doc_name')
+                .eq('company_id',curCo?.id||'group')
+                .or(`invoice_number.eq.${num},invoice_ref.eq.${num}`)
+                .limit(1);
+              if(existing?.length)existingId=existing[0].id;
+            }
+            // Fallback: cherche par fournisseur + montant + mois
+            if(!existingId&&fournisseur&&dateF){
+              const mois=dateF.substring(0,7);
+              const{data:existing2}=await sb.from('payables')
+                .select('id,doc_name')
+                .eq('company_id',curCo?.id||'group')
+                .ilike('fournisseur','%'+fournisseur.split(' ')[0]+'%')
+                .eq('amount_ttc',ttc||Math.round(ht*1.2))
+                .gte('invoice_date',mois+'-01')
+                .lte('invoice_date',mois+'-31')
+                .limit(1);
+              if(existing2?.length)existingId=existing2[0].id;
+            }
+
+            if(existingId){
+              // Ligne existante → attache juste le PDF
+              await sb.from('payables').update({doc_name:storagePath||f.name}).eq('id',existingId);
+              toast('✓ PJ attachée à la facture existante — '+(ttc||ht).toLocaleString('fr-FR')+' €');
+            } else {
+              // Nouvelle ligne
+              const{error:pe}=await sb.from('payables').insert({
+                company_id:curCo?.id||'group',
+                fournisseur,
+                label:objet,
+                amount_ht:ht||Math.round(ttc/1.2),
+                amount_ttc:ttc||Math.round(ht*1.2),
+                invoice_date:dateF,
+                due_date:echeance,
+                invoice_number:num,
+                invoice_ref:num,
+                status:'a_payer',
+                doc_name:storagePath||f.name,
+                source:'ocr',
+                notes:'Importé depuis GED'
+              });
+              if(pe)toast('OCR OK mais erreur payable : '+pe.message);
+              else toast('✓ Facture reçue — '+(ttc||ht).toLocaleString('fr-FR')+' € créée dans CC → À payer');
+            }
           } else {
             toast('✓ '+f.name+' analysé — montant non détecté, vérifier manuellement');
           }
