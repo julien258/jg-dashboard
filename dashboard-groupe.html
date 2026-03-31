@@ -2870,6 +2870,20 @@ function openPLModal(contract) {
     `<strong>${contract.label||'—'}</strong> · ${contract.billing_company_id||'—'} · `+
     `Commission : <strong>${Number(contract.commission_amount||0).toLocaleString('fr-FR')} €</strong>`;
 
+  // Avertissement si facture déjà créée
+  const submitBtn = document.getElementById('modal-pl-submit');
+  const resultEl = document.getElementById('modal-pl-result');
+  if (contract.invoice_name) {
+    resultEl.style.cssText = 'display:block;background:#fef9ec;border:1px solid var(--amb);border-radius:8px;padding:10px 14px;font-size:13px;color:#854f0b';
+    resultEl.innerHTML = `⚠️ Facture déjà créée : <strong>${contract.invoice_name}</strong><br>`+
+      `<span style="font-size:12px">Créer quand même générera une nouvelle facture. Utilise "Avoir" pour annuler.</span>`;
+    submitBtn.textContent = '⚠️ Créer quand même';
+    submitBtn.style.background = 'var(--amb)';
+  } else {
+    submitBtn.textContent = '⚡ Créer dans Pennylane';
+    submitBtn.style.background = 'var(--acc)';
+  }
+
   updatePLApercu();
   document.getElementById('modal-pennylane-doc').style.display = 'flex';
 }
@@ -2888,7 +2902,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if (amtEl) amtEl.addEventListener('input', updatePLApercu);
 });
 
-async function submitPLDoc() {
+async function submitPLDoc(force = false) {
   const btn = document.getElementById('modal-pl-submit');
   const resultEl = document.getElementById('modal-pl-result');
   btn.textContent = '⏳ Création...'; btn.disabled = true;
@@ -2897,6 +2911,7 @@ async function submitPLDoc() {
   try {
     const body = {
       contract_id: _plContract.id,
+      force,
       doc_type: document.getElementById('modal-pl-doc-type').value,
       date: document.getElementById('modal-pl-date').value,
       deadline: document.getElementById('modal-pl-deadline').value,
@@ -2913,11 +2928,18 @@ async function submitPLDoc() {
     const data = await res.json();
 
     if (data.ok) {
-      resultEl.style.cssText = 'display:block;background:var(--grn-bg,#e8f8f0);border:1px solid var(--grn);border-radius:8px;padding:10px 14px;font-size:13px;color:var(--grn)';
+      resultEl.style.cssText = 'display:block;background:#e8f8f0;border:1px solid var(--grn);border-radius:8px;padding:10px 14px;font-size:13px;color:var(--grn)';
       resultEl.innerHTML = `✅ Document créé ! N° <strong>${data.invoice_number}</strong><br>`+
         `<a href="${data.pennylane_url}" target="_blank" style="color:var(--acc)">Voir dans Pennylane →</a>`;
-      // Recharger les contrats pour afficher le nouveau numéro
       setTimeout(()=>{ closePLModal(); if(typeof loadContracts==='function')loadContracts(); }, 2000);
+    } else if (data.already_exists) {
+      // Facture déjà existante — proposer de forcer ou créer un avoir
+      resultEl.style.cssText = 'display:block;background:#fef9ec;border:1px solid var(--amb);border-radius:8px;padding:10px 14px;font-size:13px;color:#854f0b';
+      resultEl.innerHTML = `⚠️ Facture <strong>${data.invoice_number}</strong> déjà créée.<br>`+
+        `<div style="margin-top:8px;display:flex;gap:8px">`+
+        `<button onclick="submitPLDoc(true)" style="font-size:11px;padding:4px 10px;border:1px solid var(--amb);background:none;border-radius:6px;cursor:pointer;color:#854f0b">Créer quand même</button>`+
+        `<button onclick="document.getElementById('modal-pl-doc-type').value='credit_note';submitPLDoc()" style="font-size:11px;padding:4px 10px;border:1px solid var(--red);background:none;border-radius:6px;cursor:pointer;color:var(--red)">Créer un avoir</button>`+
+        `</div>`;
     } else {
       resultEl.style.cssText = 'display:block;background:#fef2f2;border:1px solid var(--red);border-radius:8px;padding:10px 14px;font-size:13px;color:var(--red)';
       resultEl.innerHTML = `❌ Erreur : ${data.error}`;

@@ -107,6 +107,16 @@ export default async (req) => {
     const token = TOKEN_MAP[contract.billing_company_id]?.();
     if (!token) throw new Error(`Token Pennylane manquant pour ${contract.billing_company_id}`);
 
+    // Bloquer si facture déjà existante (sauf si force=true ou doc_type=credit_note)
+    if (contract.invoice_name && doc_type === 'invoice' && !body.force) {
+      return new Response(JSON.stringify({
+        ok: false,
+        already_exists: true,
+        invoice_number: contract.invoice_name,
+        error: `Facture ${contract.invoice_name} déjà créée pour ce contrat. Passez force:true pour créer quand même, ou créez un avoir.`
+      }), { status: 409, headers: { 'Content-Type': 'application/json' } });
+    }
+
     // Trouver ou créer le client dans Pennylane
     const plCustomerId = await findOrCreateCustomer(token, client);
 
