@@ -5265,7 +5265,15 @@ async function loadTresoChart(){
 
   // KPIs — vision groupe consolidée (pas de retraitement intra-groupe)
   // Revenus = CRM toutes sociétés + placements + cessions patrimoine (actifs en_vente)
-  const totalRevenus12=Object.values(revenusParSoc).flat().reduce((s,v)=>s+v,0)+revenusPlac.reduce((s,v)=>s+v,0)+encaissements.reduce((s,v)=>s+v,0);
+  // Total forecasts (coupons CGW + FCR) filtrés sur les 12 mois affichés
+  const totalForecasts12=(window._tresoForecasts||[]).filter(f=>{
+    if(!f.month_label||!Number(f.amount))return false;
+    return months.some(m=>{
+      const mKey=m.getFullYear()+'-'+(m.getMonth()<9?'0':'')+(m.getMonth()+1);
+      return f.month_label===mKey;
+    });
+  }).reduce((s,f)=>s+Math.round(Number(f.amount)*Number(f.probability||100)/100),0);
+  const totalRevenus12=Object.values(revenusParSoc).flat().reduce((s,v)=>s+v,0)+revenusPlac.reduce((s,v)=>s+v,0)+encaissements.reduce((s,v)=>s+v,0)+totalForecasts12;
 
   // Charges = dettes PRO + dettes PERSO + payables + charges fixes + TVA
   // (depenses contient déjà tout ça sauf les dettes perso)
