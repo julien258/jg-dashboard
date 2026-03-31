@@ -370,9 +370,13 @@
                 <option value="sas-living">SAS Living</option>
                 <option value="sarl-guiraud">SARL Guiraud</option>
                 <option value="meulette">La Meulette</option>
-                <option value="real-gains">RG/Monikaza</option>
-                <option value="spv-monikaza">SPV Monikaza</option>
-                <option value="cross-border">Cross Border Capital (CBC)</option>
+                <optgroup label="Real Gains / Monikaza">
+                  <option value="real-gains">Real Gains (nom commercial : Monikaza)</option>
+                  <option value="spv-monikaza">Monikaza SPV</option>
+                </optgroup>
+                <optgroup label="Inactif">
+                  <option value="cross-border" disabled>Cross Border Capital / CBC (Dubai — inactif)</option>
+                </optgroup>
               </select>
             </div>
             <div class="fg"><label>N° facture</label><input type="text" id="ocr-invoice-num" placeholder="2026/03-000187"></div>
