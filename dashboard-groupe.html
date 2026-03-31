@@ -6895,18 +6895,25 @@ function renderPayablesTable(data){
     <option value="2"${cur===2?' selected':''}>🍌🍌</option>
     <option value="3"${cur===3?' selected':''}>🍌🍌🍌</option>
   </select>`;
-  let prevFournisseur = null;
+  // Palette de couleurs alternées par fournisseur
+  const bandColors = ['#EFF6FF','#F0FDF4','#FFFBEB','#FDF4FF','#FFF7ED','#F0FDFA','#FEF2F2','#F5F3FF'];
+  const darkBandColors = ['#1e3a5f','#14532d','#713f12','#4a044e','#7c2d12','#134e4a','#7f1d1d','#3b0764'];
+  const fournisseurColorMap = {};
+  let colorIdx = 0;
+  data.forEach(d => {
+    if (d.fournisseur && !fournisseurColorMap[d.fournisseur]) {
+      fournisseurColorMap[d.fournisseur] = colorIdx++ % bandColors.length;
+    }
+  });
+  const isDark = document.documentElement.classList.contains('dark') || 
+    window.matchMedia('(prefers-color-scheme: dark)').matches;
+
   tbody.innerHTML=data.map(d=>{
     const prio=Number(d.priority||0);
-    const isNewFourn = d.fournisseur !== prevFournisseur;
-    prevFournisseur = d.fournisseur;
-    const separator = isNewFourn && prevFournisseur !== null
-      ? `<tr><td colspan="9" style="padding:0;border-top:2px solid var(--b1)"></td></tr>` : '';
-    const fournisseurLabel = isNewFourn
-      ? `<strong style="color:var(--t1)">${d.fournisseur}</strong>`
-      : `<span style="color:var(--t2);font-size:11px">↳ idem</span>`;
-    return separator+`<tr data-pay-id="${d.id}"
-    <td>${fournisseurLabel}</td>
+    const ci = fournisseurColorMap[d.fournisseur] ?? 0;
+    const rowBg = isDark ? darkBandColors[ci] + '33' : bandColors[ci];
+    return `<tr data-pay-id="${d.id}" style="background:${rowBg}"
+    <td><strong>${d.fournisseur||'—'}</strong></td>
     <td style="font-size:12px">${d.label||'—'}</td>
     <td style="text-align:right;font-family:monospace;font-size:12px">${d.amount_ht?Math.round(d.amount_ht).toLocaleString('fr-FR')+' €':'—'}</td>
     <td style="text-align:right;font-family:monospace;font-weight:600;color:var(--red)">${d.amount_ttc?Math.round(d.amount_ttc).toLocaleString('fr-FR')+' €':'—'}</td>
