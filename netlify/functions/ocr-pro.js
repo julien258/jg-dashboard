@@ -253,7 +253,14 @@ Réponds UNIQUEMENT avec un objet JSON valide, sans markdown, sans explication.
       parsed = { error: 'JSON malformé', raw: cleanText.substring(0, 500) };
     }
 
-    return new Response(JSON.stringify({...parsed, _storage_path: storagePath}), { status: 200, headers });
+    const debugInfo = {
+      _storage_path: storagePath,
+      _storage_attempted: !!(process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_KEY && fileName),
+      _supabase_url_set: !!process.env.SUPABASE_URL,
+      _supabase_key_set: !!process.env.SUPABASE_SERVICE_KEY,
+      _filename: fileName || null
+    };
+    return new Response(JSON.stringify({...parsed, ...debugInfo}), { status: 200, headers });
 
   } catch (err) {
     console.error('ocr-pro error:', err);
