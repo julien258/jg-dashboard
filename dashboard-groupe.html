@@ -1403,7 +1403,8 @@
               <option value="sas-living">💼 SAS Living</option>
               <option value="sarl-guiraud">🏛️ SARL Guiraud</option>
               <option value="meulette">🏠 La Meulette</option>
-              <option value="monikaza">🌐 Monikaza/CBC</option>
+              <option value="real-gains">🌐 Real Gains (Monikaza)</option>
+          <option value="spv-monikaza">🌐 Monikaza SPV</option>
             </select>
           </div>
           <div>
@@ -1460,12 +1461,15 @@
       <!-- Filtres -->
       <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center">
         <select id="ged-filter-entity" onchange="loadGEDList()" style="font-size:11px;padding:5px 8px;border-radius:6px">
-          <option value="">Toutes entités</option>
-          <option value="perso">Perso</option>
+<option value="">Toutes entités</option>
           <option value="sas-living">SAS Living</option>
           <option value="sarl-guiraud">SARL Guiraud</option>
           <option value="meulette">La Meulette</option>
-          <option value="monikaza">Monikaza/CBC</option>
+          <optgroup label="Real Gains / Monikaza">
+            <option value="real-gains">Real Gains (Monikaza)</option>
+            <option value="spv-monikaza">Monikaza SPV</option>
+          </optgroup>
+          <option value="perso">Perso (Julien)</option>
         </select>
         <select id="ged-filter-type" onchange="loadGEDList()" style="font-size:11px;padding:5px 8px;border-radius:6px">
           <option value="">Tous types</option>
@@ -2473,10 +2477,10 @@ function showGEDBatchReview(){
   const panel=document.getElementById('ged-classify-panel');
 
   // Construit le formulaire de révision batch
-  const entityOpts=['<option value="perso">👤 Perso</option>','<option value="sas-living">💼 SAS Living</option>','<option value="sarl-guiraud">🏛️ SARL Guiraud</option>','<option value="meulette">🏠 La Meulette</option>','<option value="monikaza">🌐 Monikaza/CBC</option>'].join('');
+  const entityOpts=['<option value="sas-living">💼 SAS Living</option>','<option value="sarl-guiraud">🏛️ SARL Guiraud</option>','<option value="meulette">🏠 La Meulette</option>','<option value="real-gains">🌐 Real Gains (Monikaza)</option>','<option value="spv-monikaza">🌐 Monikaza SPV</option>','<option value="perso">👤 Perso</option>'].join('');
   const typeOpts=['<option value="facture_recue">🧾 Facture reçue</option>','<option value="recommande">📮 Recommandé</option>','<option value="recouvrement">⚖️ Recouvrement</option>','<option value="releve">🏦 Relevé</option>','<option value="fiscal">🏛️ Fiscal</option>','<option value="social">👥 Social</option>','<option value="contrat">📋 Contrat</option>','<option value="assurance">🛡️ Assurance</option>','<option value="juridique">⚖️ Juridique</option>','<option value="autre">📄 Autre</option>'].join('');
 
-  const entityMap={'SAS Living':'sas-living','SARL Guiraud':'sarl-guiraud','La Meulette':'meulette','Monikaza':'monikaza','Julien':'perso'};
+  const entityMap={'SAS Living':'sas-living','SARL Guiraud':'sarl-guiraud','La Meulette':'meulette','Real Gains':'real-gains','Monikaza':'real-gains','RG':'real-gains','SPV Monikaza':'spv-monikaza','Monikaza SPV':'spv-monikaza','Julien':'perso'};
   const typeMap={facture:'facture_recue',FACTURE:'facture_recue',recommandé:'recommande',huissier:'recouvrement',recouvrement:'recouvrement',relevé:'releve',fiscal:'fiscal',impôt:'fiscal',URSSAF:'social',contrat:'contrat',assurance:'assurance'};
 
   const rows=batch.results.map((r,i)=>{
@@ -2629,7 +2633,7 @@ async function analyzeGEDFile(file){
     document.getElementById('ged-docfrom').value=parsed.emetteur||parsed.fournisseur||'';
     document.getElementById('ged-docmount').value=parsed.montant_ttc||parsed.montant_total||parsed.montant||'';
 
-    const entityMap={'SAS Living':'sas-living','SARL Guiraud':'sarl-guiraud','La Meulette':'meulette','Monikaza':'monikaza','Julien':'perso'};
+    const entityMap={'SAS Living':'sas-living','SARL Guiraud':'sarl-guiraud','La Meulette':'meulette','Real Gains':'real-gains','Monikaza':'real-gains','RG':'real-gains','SPV Monikaza':'spv-monikaza','Monikaza SPV':'spv-monikaza','Julien':'perso'};
     const entityDetected=Object.entries(entityMap).find(([k])=>(parsed.entite_concernee||'').includes(k));
     if(entityDetected)document.getElementById('ged-entity').value=entityDetected[1];
 
@@ -2745,7 +2749,7 @@ async function loadGEDList(){
   document.getElementById('ged-count').textContent=docs.length+' document'+(docs.length>1?'s':'');
 
   const typeLabels={facture_recue:'🧾 Facture',facture_emise:'📤 Fact. émise',recommande:'📮 Recommandé',recouvrement:'⚖️ Recouvrement',releve:'🏦 Relevé',fiscal:'🏛️ Fiscal',social:'👥 Social',contrat:'📋 Contrat',assurance:'🛡️ Assurance',juridique:'⚖️ Juridique',autre:'📄 Autre'};
-  const entityLabels={'perso':'👤 Perso','sas-living':'💼 Living','sarl-guiraud':'🏛️ SARL','meulette':'🏠 Meulette','monikaza':'🌐 CBC'};
+  const entityLabels={'perso':'👤 Perso','sas-living':'💼 Living','sarl-guiraud':'🏛️ SARL','meulette':'🏠 Meulette','real-gains':'🌐 Real Gains','spv-monikaza':'🌐 Moni. SPV','monikaza':'🌐 RG/Moni.'};
 
   if(!docs.length){
     el.innerHTML='<div style="text-align:center;padding:3rem;color:var(--t2)">Aucun document archivé — déposez votre premier document</div>';
