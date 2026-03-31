@@ -6416,8 +6416,10 @@ async function processFactureOCR(file){
     const resp=await fetch('/.netlify/functions/ocr-pro',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({base64,docType:'facture_recue',fileName:file.name,companyId:curCo?.id||'unknown'})});
     const parsed=await resp.json();
     const _storagePath=parsed._storage_path||null; // chemin du PDF dans Supabase Storage
+    console.log('OCR response:', JSON.stringify(parsed).substring(0,500));
+    console.log('Storage path:', _storagePath);
 
-    if(!parsed||parsed.error){toast('Erreur OCR — remplissez manuellement');openOcrModal({},null);return;}
+    if(!parsed||parsed.error){toast('Erreur OCR : '+(parsed?.error||'inconnu')+' — remplissez manuellement');openOcrModal({},null,_storagePath);return;}
 
     // Cherche fournisseur en base (par nom OU SIRET)
     const nomFourn=parsed.fournisseur||'';
@@ -6430,7 +6432,7 @@ async function processFactureOCR(file){
     if(!supplier&&nomFourn){
       // Cherche sur les 3-4 premiers mots significatifs
       const mots=nomFourn.replace(/^(sas|sarl|sa|sasu|eurl|sci)\s+/i,'').split(' ').slice(0,2).join('%');
-      const{data:byNom}=await sb.from('suppliers').select('*').ilike('nom','%'+mots+'%').limit(1);
+      const{data:byNom}=await sb.from('suppliers').select('*').ilike('raison_sociale','%'+mots+'%').limit(1);
       if(byNom?.length)supplier=byNom[0];
     }
 

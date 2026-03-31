@@ -174,11 +174,12 @@ Réponds UNIQUEMENT avec un objet JSON valide, sans markdown, sans explication.
           const fileBuffer = Buffer.from(base64, 'base64');
           const safeName = fileName.replace(/[^a-zA-Z0-9._-]/g, '_');
           const path = `${companyId || 'unknown'}/${Date.now()}_${safeName}`;
+          const contentType = fileName.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? 'image/' + (fileName.match(/\.([^.]+)$/)[1].toLowerCase().replace('jpg','jpeg')) : 'application/pdf';
           const uploadRes = await fetch(`${sbUrl}/storage/v1/object/payables-docs/${path}`, {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${sbKey}`,
-              'Content-Type': 'application/pdf',
+              'Content-Type': contentType,
               'x-upsert': 'true'
             },
             body: fileBuffer
