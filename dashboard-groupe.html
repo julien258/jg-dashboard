@@ -682,6 +682,16 @@
 
       <!-- Alerte prélèvements inhabituels -->
       <div id="comptes-alertes" style="margin-top:1rem"></div>
+
+      <!-- Module détection prélèvements -->
+      <div style="margin-top:2rem">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+          <div style="font-size:14px;font-weight:600">📅 Prélèvements détectés</div>
+          <button class="btn btn-g btn-sm" onclick="analysePrelevements()" id="btn-analyse-prel">🔍 Analyser depuis Pennylane</button>
+        </div>
+        <div id="prel-status" style="font-size:12px;color:var(--t2);margin-bottom:8px"></div>
+        <div id="prel-list"></div>
+      </div>
     </div>
 
     <div class="tp" id="p-docs">
@@ -6700,6 +6710,110 @@ async function saveCompte(){
   toggleCompteForm();toast(editId?'✓ Compte mis à jour':'✓ Compte ajouté');loadComptes();
 }
 
+// ===== PRÉLÈVEMENTS FOURNISSEURS =====
+async function analysePrelevements(){
+  const btn = document.getElementById('btn-analyse-prel');
+  const status = document.getElementById('prel-status');
+  const list = document.getElementById('prel-list');
+  if(btn){ btn.textContent='⏳ Analyse...'; btn.disabled=true; }
+  status.textContent='Récupération des transactions Pennylane...';
+
+  try {
+    const societe = curCo?.id || '';
+    const url = societe ? `/api/pennylane-transactions?societe=${societe}` : '/api/pennylane-transactions';
+    const res = await fetch(url);
+    const data = await res.json();
+
+    if(!data.ok){ status.textContent='Erreur : ' + (data.error||'inconnue'); return; }
+
+    const patterns = data.recurring_patterns || [];
+    status.textContent = `${patterns.length} pattern(s) récurrents détectés sur 6 mois`;
+
+    if(!patterns.length){
+      list.innerHTML = '<div style="color:var(--t2);font-size:12px;padding:1rem">Aucun prélèvement récurrent détecté — vérifiez que Pennylane est synchronisé</div>';
+      return;
+    }
+
+    // Récupérer les soldes actuels pour alertes
+    const soldePennylane = window._pennylaneData?.societes?.find(s=>s.id===curCo?.id||s.key===curCo?.id)?.comptes || [];
+    const soldeTotal = soldePennylane.reduce((s,c)=>s+c.solde,0);
+
+    list.innerHTML = `<div style="overflow-x:auto"><table style="width:100%;font-size:12px;border-collapse:collapse">
+      <thead><tr style="border-bottom:1px solid var(--b1)">
+        <th style="text-align:left;padding:6px 8px">Libellé transaction</th>
+        <th style="text-align:center;padding:6px 8px">Jour habituel</th>
+        <th style="text-align:right;padding:6px 8px">Montant moy.</th>
+        <th style="text-align:center;padding:6px 8px">Occurrences</th>
+        <th style="text-align:center;padding:6px 8px">Alerte tréso</th>
+        <th style="text-align:left;padding:6px 8px">Fournisseur lié</th>
+        <th style="padding:6px 8px"></th>
+      </tr></thead>
+      <tbody>
+        ${patterns.slice(0,30).map(p => {
+          const today = new Date();
+          const nextPrel = new Date(today.getFullYear(), today.getMonth(), p.avg_day);
+          if(nextPrel < today) nextPrel.setMonth(nextPrel.getMonth()+1);
+          const daysLeft = Math.ceil((nextPrel - today) / 86400000);
+          const alerteOrange = daysLeft <= 5 && soldeTotal < p.avg_amount * 1.5;
+          const alerteRouge = daysLeft <= 3 && soldeTotal < p.avg_amount;
+          const alerteColor = alerteRouge ? 'var(--red)' : alerteOrange ? 'var(--amb)' : 'var(--grn)';
+          const alerteIcon = alerteRouge ? '🔴' : alerteOrange ? '🟡' : '🟢';
+          const alerteMsg = alerteRouge ? 'SOLDE INSUFFISANT' : alerteOrange ? 'Approv. conseillé' : `J-${daysLeft}`;
+          return `<tr style="border-bottom:0.5px solid var(--b1)">
+            <td style="padding:6px 8px;font-family:monospace;font-size:11px;max-width:200px;overflow:hidden;text-overflow:ellipsis">${p.label}</td>
+            <td style="text-align:center;padding:6px 8px"><strong>${p.avg_day}</strong></td>
+            <td style="text-align:right;padding:6px 8px;color:var(--red);font-weight:500">${p.avg_amount.toLocaleString('fr-FR')} €</td>
+            <td style="text-align:center;padding:6px 8px;color:var(--t2)">${p.count}×</td>
+            <td style="text-align:center;padding:6px 8px;color:${alerteColor};font-size:11px">${alerteIcon} ${alerteMsg}</td>
+            <td style="padding:6px 8px">
+              <input type="text" placeholder="Lier à un fournisseur..." id="prel-link-${p.label.replace(/[^a-z0-9]/gi,'_')}"
+                style="font-size:11px;padding:3px 6px;border:1px solid var(--b1);border-radius:4px;width:140px;background:var(--s2)"
+                list="prel-suppliers-list">
+            </td>
+            <td style="padding:6px 4px">
+              <button onclick="savePrelFournisseur('${p.label.replace(/'/g,"\'")}',${p.avg_day},${p.avg_amount},'prel-link-${p.label.replace(/[^a-z0-9]/gi,'_')}')"
+                style="font-size:10px;padding:2px 6px;border:1px solid var(--b1);border-radius:4px;cursor:pointer;background:var(--s2)">💾</button>
+            </td>
+          </tr>`;
+        }).join('')}
+      </tbody>
+    </table></div>
+    <datalist id="prel-suppliers-list" id="prel-suppliers-list"></datalist>`;
+
+    // Remplir la datalist avec les fournisseurs existants
+    const { data: suppliers } = await sb.from('suppliers').select('id, raison_sociale, prelevement_jour').order('raison_sociale');
+    const datalist = document.getElementById('prel-suppliers-list');
+    if(datalist && suppliers) {
+      datalist.innerHTML = suppliers.map(s => `<option value="${s.raison_sociale}">`).join('');
+    }
+
+  } catch(e) {
+    status.textContent = 'Erreur : ' + e.message;
+  } finally {
+    if(btn){ btn.textContent='🔍 Analyser depuis Pennylane'; btn.disabled=false; }
+  }
+}
+
+async function savePrelFournisseur(label, avgDay, avgAmount, inputId){
+  const inputEl = document.getElementById(inputId);
+  const fournisseurNom = inputEl?.value?.trim();
+  if(!fournisseurNom){ toast('Renseignez un fournisseur'); return; }
+
+  // Chercher le fournisseur par raison_sociale
+  const { data: suppliers } = await sb.from('suppliers').select('id').ilike('raison_sociale', '%'+fournisseurNom.split(' ')[0]+'%').limit(1);
+  if(!suppliers?.length){ toast('Fournisseur non trouvé dans la base'); return; }
+
+  const { error } = await sb.from('suppliers').update({
+    prelevement_jour: avgDay,
+    prelevement_montant: avgAmount,
+    prelevement_libelle: label
+  }).eq('id', suppliers[0].id);
+
+  if(error) { toast('Erreur : ' + error.message); return; }
+  toast('✓ Jour de prélèvement enregistré (J=' + avgDay + ')');
+  inputEl.style.borderColor = 'var(--grn)';
+}
+
 async function loadComptes(){
   const coId=curCo?.id;
   if(!coId)return;
@@ -6766,6 +6880,34 @@ async function loadComptes(){
   }
 
   // Détection prélèvements inhabituels (comparaison GL si dispo)
+  // Charger et afficher les prélèvements programmés depuis suppliers
+  const { data: suppliersWithPrel } = await sb.from('suppliers')
+    .select('raison_sociale, prelevement_jour, prelevement_montant, prelevement_libelle')
+    .not('prelevement_jour', 'is', null)
+    .order('prelevement_jour');
+
+  if(suppliersWithPrel?.length){
+    const today = new Date();
+    const prelAlertes = suppliersWithPrel.map(s => {
+      const next = new Date(today.getFullYear(), today.getMonth(), s.prelevement_jour);
+      if(next < today) next.setMonth(next.getMonth()+1);
+      const daysLeft = Math.ceil((next - today) / 86400000);
+      return {...s, daysLeft, next};
+    }).sort((a,b) => a.daysLeft - b.daysLeft);
+
+    const prelDiv = document.createElement('div');
+    prelDiv.style.cssText = 'margin-bottom:1rem';
+    prelDiv.innerHTML = '<div style="font-size:12px;font-weight:500;color:var(--t2);margin-bottom:8px">📅 Prochains prélèvements</div>' +
+      prelAlertes.map(p => {
+        const color = p.daysLeft <= 3 ? 'var(--red)' : p.daysLeft <= 7 ? 'var(--amb)' : 'var(--t2)';
+        return `<div style="display:flex;justify-content:space-between;padding:4px 8px;border-radius:4px;margin-bottom:3px;background:var(--s2);font-size:12px">
+          <span><strong>${p.raison_sociale}</strong> — ${p.prelevement_libelle||''}</span>
+          <span style="color:${color}">J-${p.daysLeft} (le ${p.prelevement_jour}) · ${Math.round(p.prelevement_montant||0).toLocaleString('fr-FR')} €</span>
+        </div>`;
+      }).join('');
+    if(alertesEl) alertesEl.prepend(prelDiv);
+  }
+
   const alertesEl=document.getElementById('comptes-alertes');
   if(alertesEl){
     const alertes=[];
