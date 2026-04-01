@@ -3308,20 +3308,32 @@ function renderCoPennylane(){
   if(!data||!encart||!grid) return;
 
   // Mapping company_id → key Pennylane
-  const keyMap = {'sas-living':'living','sarl-guiraud':'sarl','meulette':'meulette','real-gains':'realgains'};
+  const keyMap = {'sas-living':'living','sarl-guiraud':'sarl','meulette':'meulette','real-gains':'real-gains'};
   const coKey = keyMap[curCo?.id];
   const socData = data.societes.find(s => s.key === coKey);
   if(!socData || socData.error || !socData.comptes?.length){ encart.style.display='none'; return; }
 
   encart.style.display='block';
-  grid.innerHTML = socData.comptes.map(c => {
+  // Dédoublonner par solde+nom, garder les comptes avec solde non nul en priorité
+  const comptesFiltres = socData.comptes.filter((c,i,arr) => {
+    if(c.solde === 0) {
+      // Garder quand même si c'est le seul compte ou si aucun autre avec même nom n'a un solde
+      const hasBetterVersion = arr.some((c2,j) => j!==i && c2.solde!==0);
+      return !hasBetterVersion;
+    }
+    return true;
+  });
+  grid.innerHTML = comptesFiltres.map(c => {
     const banque = c.banque && c.banque !== c.nom ? c.banque : null;
     const nom = c.nom || 'Compte';
     const iban = c.iban ? c.iban.substring(0,8)+'…'+c.iban.slice(-4) : null;
-    return `<div class="kc" style="border-left:3px solid ${c.solde>=0?'var(--grn)':'var(--red)'}">
-      <div class="kl">🏦 ${banque||nom}</div>
-      <div class="kv ${c.solde>=0?'p':'n'}">${c.solde.toLocaleString('fr-FR',{minimumFractionDigits:2})} €</div>
-      <div class="ks">${banque?nom+(iban?' · '+iban:''):(iban||'Compte bancaire')}</div>
+    const label = banque || (nom.length > 30 ? nom.substring(0,28)+'…' : nom);
+    const syncNeeded = c.solde === 0;
+    return `<div class="kc" style="border-left:3px solid ${syncNeeded?'var(--b1)':c.solde>=0?'var(--grn)':'var(--red)'}">
+      <div class="kl">🏦 ${label}</div>
+      <div class="kv ${syncNeeded?'':''}${c.solde>=0?'p':'n'}" style="${syncNeeded?'color:var(--t2);font-size:13px':''}">
+        ${syncNeeded?'Sync requise':c.solde.toLocaleString('fr-FR',{minimumFractionDigits:2})+' €'}</div>
+      <div class="ks">${banque?nom+(iban?' · '+iban:''):(iban||'Synchronisez Pennylane')}</div>
     </div>`;
   }).join('');
 }
