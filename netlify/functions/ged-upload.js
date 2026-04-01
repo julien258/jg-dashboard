@@ -211,33 +211,31 @@ export default async (req) => {
       }
     }
 
-    // 5. Upload Supabase Storage (fallback pour le bouton 👁 si Drive échoue)
-    let storageUrl = null;
-    if (!driveUrl) {
-      try {
-        const sbUrl = 'https://uqpgwypgkwlvrpxtxhia.supabase.co';
-        const sbKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
-        const storagePath = `${finalCompany}/${finalType}/${normalizedName}`;
+    // 5. Upload Supabase Storage (bucket privé — URL signée générée côté dashboard)
+    let storagePath = null;
+    try {
+      const sbUrl = 'https://uqpgwypgkwlvrpxtxhia.supabase.co';
+      const sbServiceKey = process.env.SUPABASE_SERVICE_KEY;
+      if (sbServiceKey) {
+        const path = `${finalCompany}/${finalType}/${normalizedName}`;
         const binaryStr = atob(base64);
         const bytes = new Uint8Array(binaryStr.length);
         for (let i = 0; i < binaryStr.length; i++) bytes[i] = binaryStr.charCodeAt(i);
 
-        const uploadRes = await fetch(`${sbUrl}/storage/v1/object/documents/${storagePath}`, {
+        const uploadRes = await fetch(`${sbUrl}/storage/v1/object/documents/${path}`, {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${sbKey}`,
-            'apikey': sbKey,
+            'Authorization': `Bearer ${sbServiceKey}`,
+            'apikey': sbServiceKey,
             'Content-Type': 'application/pdf',
             'x-upsert': 'true',
           },
           body: bytes,
         });
-        if (uploadRes.ok) {
-          storageUrl = `${sbUrl}/storage/v1/object/public/documents/${storagePath}`;
-        }
-      } catch (storageErr) {
-        console.error('Supabase Storage error (non-bloquant):', storageErr.message);
+        if (uploadRes.ok) storagePath = path;
       }
+    } catch (storageErr) {
+      console.error('Supabase Storage error (non-bloquant):', storageErr.message);
     }
 
     // 6. Retourner tout pour que le dashboard insère dans Supabase
@@ -257,7 +255,7 @@ export default async (req) => {
       action_notes:    ocr?.action_notes    || null,
       deadline_date:   ocr?.deadline_date   || null,
       ocr_raw:     ocr,
-      file_url:      storageUrl,
+      storage_path:  storagePath,
       drive_pending: !driveUrl,
       drive_error:   driveError,
     }), { headers: H });

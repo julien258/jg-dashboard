@@ -3187,6 +3187,17 @@ async function syncDriveDoc(docId, fileName, companyId, docType, docDate){
   else toast('Erreur Drive : '+d.error);
 }
 
+
+async function openGEDDoc(storagePath){
+  toast('⏳ Ouverture...');
+  try{
+    const res=await fetch('/api/ged-signed-url?path='+encodeURIComponent(storagePath));
+    const d=await res.json();
+    if(d.ok) window.open(d.url,'_blank');
+    else toast('Erreur : '+d.error);
+  }catch(e){toast('Erreur : '+e.message);}
+}
+
 function showGED(){
   setViews('v-ged');
   document.getElementById('ptabs').style.display='none';
@@ -3597,7 +3608,8 @@ async function saveGEDDocument(){
         amount:     result.amount||parseFloat(document.getElementById('ged-docmount')?.value)||null,
         from_name:  result.from_name||document.getElementById('ged-docfrom')?.value||null,
         file_name:  result.normalized_name||file.name,
-        file_url:   result.file_url||result.drive_url||null,
+        file_url:   result.drive_url||null,
+        storage_path: result.storage_path||null,
         drive_url:  result.drive_url||null,
         status:     actionRequired?'action_requise':'actif',
         ocr_data:   result.ocr_raw||null,
@@ -3702,9 +3714,10 @@ async function loadGEDList(){
       const actionColor=actionColors[actionVal]||'var(--t2)';
       const actionLabel=actionLabels[actionVal]||actionVal||'—';
       const driveOk=d.drive_url?'<span style="color:var(--grn);font-size:11px">✅</span>':'<span style="color:var(--t2);font-size:11px">—</span>';
-      const viewBtn=d.drive_url
-        ?'<a href="'+d.drive_url+'" target="_blank" style="font-size:16px;text-decoration:none" title="Voir document">👁</a>'
-        :(d.file_url?'<a href="'+d.file_url+'" target="_blank" style="font-size:16px;text-decoration:none" title="Voir document">👁</a>':'<span style="color:var(--b2);font-size:16px">👁</span>');
+      const viewBtn=(d.drive_url?'<a href="'+d.drive_url+'" target="_blank" style="font-size:16px;text-decoration:none">👁</a>':(d.storage_path?'<button onclick="openGEDDoc(\''+d.storage_path+'\')" style="border:none;background:none;cursor:pointer;font-size:16px">👁</button>':'<span style="color:var(--t2);font-size:14px">—</span>'));
+
+
+
       const dossierBadge=d.dossier?'<span style="font-size:9px;color:var(--t2);display:block">📁 '+d.dossier+'</span>':'';
       return '<tr>'
         +'<td style="font-size:11px;font-family:monospace;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+(d.file_name||'')+'">'+((d.file_name||'—'))+'</td>'
