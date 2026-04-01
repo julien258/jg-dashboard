@@ -8,6 +8,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-annotation/3.0.1/chartjs-plugin-annotation.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
   <style>
     :root{
   /* Contenu clair */
@@ -1401,6 +1402,18 @@
         </div>
       </div>
 
+      <!-- Fusion multi-pages -->
+      <div id="ged-merge-panel" style="display:none;background:var(--amd);border:1px solid var(--amb);border-radius:12px;padding:1rem;margin-bottom:14px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+          <div style="font-size:13px;font-weight:600;color:var(--amb)">📎 <span id="ged-merge-count">0</span> fichiers détectés — pages d'un même document ?</div>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-sm" style="background:var(--amb);color:#fff;border:none" onclick="mergeAndAnalyzeGED()">🔗 Fusionner en 1 PDF puis analyser</button>
+            <button class="btn btn-g btn-sm" onclick="analyzeGEDSeparately()">📄 Analyser séparément</button>
+          </div>
+        </div>
+        <div id="ged-merge-files" style="font-size:11px;color:var(--t1);font-family:monospace"></div>
+      </div>
+
       <!-- Classification proposée -->
       <div id="ged-classify-panel" style="display:none;background:var(--s1);border:1px solid var(--b1);border-radius:12px;padding:1.5rem;margin-bottom:14px">
         <div style="font-size:13px;font-weight:700;margin-bottom:14px;color:var(--acc)">📌 Classification proposée</div>
@@ -2758,15 +2771,84 @@ async function handleGEDFiles(files){
   const fileArr=Array.from(files);
   if(!fileArr.length)return;
 
-  // Mode batch si plusieurs fichiers
+  // Multi-fichiers : proposer fusion ou analyse séparée
   if(fileArr.length>1){
-    initGEDBatch(fileArr);
+    window._gedPendingFiles=fileArr;
+    const panel=document.getElementById('ged-merge-panel');
+    if(panel){
+      panel.style.display='block';
+      document.getElementById('ged-merge-count').textContent=fileArr.length;
+      document.getElementById('ged-merge-files').innerHTML=fileArr.map((f,i)=>`${i+1}. ${f.name}`).join('<br>');
+    }
     return;
   }
 
-  // Mode simple (1 fichier)
-  await analyzeGEDFile(fileArr[0]);
+  // Fichier unique
+  analyzeGEDFile(fileArr[0]);
 }
+
+async function mergeAndAnalyzeGED(){
+  const files=window._gedPendingFiles||[];
+  if(!files.length)return;
+  document.getElementById('ged-merge-panel').style.display='none';
+
+  // Afficher progression
+  const content=document.getElementById('ged-ocr-content');
+  if(content)content.textContent='🔗 Fusion des '+files.length+' pages en cours...';
+
+  try{
+    // Lire tous les fichiers en ArrayBuffer
+    const buffers=await Promise.all(files.map(f=>f.arrayBuffer()));
+
+    // Créer le PDF fusionné avec pdf-lib
+    const { PDFDocument }=PDFLib;
+    const mergedPdf=await PDFDocument.create();
+
+    for(const buf of buffers){
+      let srcDoc;
+      try{
+        srcDoc=await PDFDocument.load(buf);
+      }catch(e){
+        // Si ce n'est pas un PDF (image), on skippe
+        console.warn('Fichier non-PDF ignoré pour fusion:', e.message);
+        continue;
+      }
+      const pages=await mergedPdf.copyPages(srcDoc,srcDoc.getPageIndices());
+      pages.forEach(p=>mergedPdf.addPage(p));
+    }
+
+    const mergedBytes=await mergedPdf.save();
+
+    // Convertir en base64 et créer un File
+    const b64=btoa(String.fromCharCode(...new Uint8Array(mergedBytes)));
+    const firstName=files[0].name.replace(/\.[^.]+$/,'');
+    const mergedName=firstName+'_MERGED.pdf';
+
+    // Créer un objet File synthétique
+    const mergedBlob=new Blob([mergedBytes],{type:'application/pdf'});
+    const mergedFile=new File([mergedBlob],mergedName,{type:'application/pdf'});
+
+    if(content)content.textContent='✅ '+files.length+' pages fusionnées → '+mergedName+' — Analyse OCR en cours...';
+
+    window._gedPendingFiles=null;
+    await analyzeGEDFile(mergedFile);
+  }catch(e){
+    toast('Erreur fusion PDF : '+e.message);
+    if(content)content.textContent='Erreur : '+e.message;
+  }
+}
+
+function analyzeGEDSeparately(){
+  const files=window._gedPendingFiles||[];
+  document.getElementById('ged-merge-panel').style.display='none';
+  window._gedPendingFiles=null;
+  if(files.length>1){
+    initGEDBatch(files);
+  }else if(files.length===1){
+    analyzeGEDFile(files[0]);
+  }
+}
+
 
 function initGEDBatch(files){
   window._gedBatch={files,current:0,results:[],total:files.length};
