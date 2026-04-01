@@ -725,11 +725,89 @@
   <div class="pv cnt" id="v-jur"><div id="main-jur"></div></div>
   <!-- TODO standalone -->
   <div class="pv cnt" id="v-todo">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem"><div style="font-size:16px;font-weight:600">To-do général</div><button class="btn btn-p btn-sm" onclick="toggleTodoForm('main-todo-form')">+ Nouvelle tâche</button></div>
-    <div id="main-todo-form" style="display:none;margin-bottom:1rem"><div class="card"><div class="g2">
-      <div><div class="fg"><label>Tâche</label><input type="text" id="mt-ti" placeholder="Titre"></div><div class="fg"><label>Catégorie</label><select id="mt-ca"><option>Comptabilité</option><option>Fiscal</option><option>Juridique</option><option>Deal / Commercial</option><option>Administratif</option><option>Autre</option></select></div></div>
-      <div><div class="fg"><label>Échéance</label><input type="text" id="mt-dt" placeholder="15 avr. 2026"></div><div class="fg"><label>Priorité</label><select id="mt-pr"><option value="high">Haute</option><option value="med">Moyenne</option><option value="low">Basse</option></select></div></div>
-    </div><div style="display:flex;gap:8px"><button class="btn btn-p btn-sm" onclick="addTodo('main')">Ajouter</button><button class="btn btn-g btn-sm" onclick="toggleTodoForm('main-todo-form')">Annuler</button></div></div></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem">
+      <div>
+        <div style="font-size:20px;font-weight:600">✅ To-do général</div>
+        <div style="font-size:12px;color:var(--t2);margin-top:2px">Courriers · Paiements · Suivis · Actions GED</div>
+      </div>
+      <button class="btn btn-p btn-sm" onclick="toggleTodoForm('main-todo-form')">+ Nouvelle tâche</button>
+    </div>
+
+    <!-- Formulaire ajout -->
+    <div id="main-todo-form" style="display:none;margin-bottom:1.5rem">
+      <div class="card">
+        <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:12px;margin-bottom:12px">
+          <div class="fg"><label>Tâche</label><input type="text" id="mt-ti" placeholder="Titre de la tâche..."></div>
+          <div class="fg"><label>Société</label><select id="mt-co">
+            <option value="group">🏢 Groupe</option>
+            <option value="sas-living">💼 SAS Living</option>
+            <option value="sarl-guiraud">🏛️ SARL Guiraud</option>
+            <option value="meulette">🏠 Meulette</option>
+            <option value="real-gains">🌐 Real Gains</option>
+            <option value="perso">👤 Perso</option>
+          </select></div>
+          <div class="fg"><label>Catégorie</label><select id="mt-ca">
+            <option value="juridique">⚖️ Juridique</option>
+            <option value="fiscal">🏛️ Fiscal</option>
+            <option value="paiement">💸 Paiement</option>
+            <option value="suivi">🔄 Suivi</option>
+            <option value="commercial">💼 Commercial</option>
+            <option value="admin">📋 Admin</option>
+            <option value="autre">📄 Autre</option>
+          </select></div>
+          <div class="fg"><label>Priorité</label><select id="mt-pr">
+            <option value="high">🔴 Haute</option>
+            <option value="medium">🟠 Moyenne</option>
+            <option value="low">🟢 Basse</option>
+          </select></div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px">
+          <div class="fg"><label>Échéance</label><input type="date" id="mt-dt"></div>
+          <div class="fg"><label>Statut</label><select id="mt-st">
+            <option value="a_faire">📌 À faire</option>
+            <option value="en_cours">🔄 En cours</option>
+            <option value="en_attente_tiers">⏳ En attente tiers</option>
+          </select></div>
+          <div class="fg"><label>Notes</label><input type="text" id="mt-no" placeholder="Détail, référence..."></div>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-p btn-sm" onclick="addTodo('main')">✅ Ajouter</button>
+          <button class="btn btn-g btn-sm" onclick="toggleTodoForm('main-todo-form')">Annuler</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Filtres -->
+    <div style="display:flex;gap:8px;margin-bottom:1.5rem;flex-wrap:wrap">
+      <select id="todo-filter-status" onchange="loadTodos('main-todos','group')" style="font-size:11px;padding:5px 8px;border-radius:6px;border:1px solid var(--b1)">
+        <option value="">Tous statuts</option>
+        <option value="a_faire">📌 À faire</option>
+        <option value="en_cours">🔄 En cours</option>
+        <option value="en_attente_tiers">⏳ En attente tiers</option>
+        <option value="fait">✅ Fait</option>
+      </select>
+      <select id="todo-filter-cat" onchange="loadTodos('main-todos','group')" style="font-size:11px;padding:5px 8px;border-radius:6px;border:1px solid var(--b1)">
+        <option value="">Toutes catégories</option>
+        <option value="juridique">⚖️ Juridique</option>
+        <option value="fiscal">🏛️ Fiscal</option>
+        <option value="paiement">💸 Paiement</option>
+        <option value="suivi">🔄 Suivi</option>
+        <option value="commercial">💼 Commercial</option>
+      </select>
+      <select id="todo-filter-co" onchange="loadTodos('main-todos','group')" style="font-size:11px;padding:5px 8px;border-radius:6px;border:1px solid var(--b1)">
+        <option value="">Toutes sociétés</option>
+        <option value="sas-living">SAS Living</option>
+        <option value="sarl-guiraud">SARL Guiraud</option>
+        <option value="meulette">Meulette</option>
+        <option value="real-gains">Real Gains</option>
+        <option value="perso">Perso</option>
+      </select>
+      <span id="todo-count" style="font-size:11px;color:var(--t2);align-self:center"></span>
+    </div>
+
+    <!-- Sections -->
+    <div id="todo-section-urgent" style="margin-bottom:1.5rem"></div>
+    <div id="todo-section-paiements" style="margin-bottom:1.5rem"></div>
     <div id="main-todos"></div>
   </div>
 
@@ -3241,22 +3319,31 @@ async function loadGEDList(){
   }
 
   el.innerHTML='<table><thead><tr>'
-    +'<th>Document</th><th>Entité</th><th>Type / Dossier</th><th>Date</th><th>Expéditeur</th><th style="text-align:right">Montant</th><th>Statut</th><th>Drive</th><th></th>'
+    +'<th>Document</th><th>Entité</th><th>Type / Dossier</th><th>Date</th><th>Expéditeur</th><th style="text-align:center">Voir</th><th style="text-align:right">Montant</th><th>Action</th><th style="text-align:center">Drive</th><th></th>'
     +'</tr></thead><tbody>'
     +docs.map(d=>{
       const urgBadge=d.status==='urgent'?'<span style="font-size:9px;background:var(--red);color:#fff;padding:1px 5px;border-radius:3px">URGENT</span>':'';
-      const actionBadge=d.action_required?'<span style="font-size:9px;background:var(--amb);color:#fff;padding:1px 5px;border-radius:3px;display:block;margin-top:2px">'+(d.deadline_date?'⏰ '+d.deadline_date:'ACTION')+'</span>':'';
-      const driveLnk=d.drive_url?'<a href="'+d.drive_url+'" target="_blank" style="font-size:10px;color:var(--acc)" title="Voir sur Drive">📂</a>':'';
+      // Action badge
+      const actionVal=d.action||d.status||'';
+      const actionColors={'classe':'var(--grn)','a_traiter':'var(--amb)','facture':'var(--acc)','urgent':'var(--red)'};
+      const actionLabels={'classe':'✅ Classé','a_traiter':'⚡ À traiter','facture':'🧾 Facture','urgent':'🚨 Urgent','actif':'—','action_requise':'⚡ À traiter'};
+      const actionColor=actionColors[actionVal]||'var(--t2)';
+      const actionLabel=actionLabels[actionVal]||actionVal||'—';
+      const driveOk=d.drive_url?'<span style="color:var(--grn);font-size:11px">✅</span>':'<span style="color:var(--t2);font-size:11px">—</span>';
+      const viewBtn=d.drive_url
+        ?'<a href="'+d.drive_url+'" target="_blank" style="font-size:16px;text-decoration:none" title="Voir document">👁</a>'
+        :(d.file_url?'<a href="'+d.file_url+'" target="_blank" style="font-size:16px;text-decoration:none" title="Voir document">👁</a>':'<span style="color:var(--b2);font-size:16px">👁</span>');
       const dossierBadge=d.dossier?'<span style="font-size:9px;color:var(--t2);display:block">📁 '+d.dossier+'</span>':'';
-      return '<tr style="'+(d.action_required?'background:rgba(230,126,34,0.04)':'')+'">'
-        +'<td style="font-size:11px;font-family:monospace;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(d.file_url?'<a href="'+d.file_url+'" target="_blank" style="color:var(--acc)">'+d.file_name+'</a>':d.file_name||'—')+'</td>'
+      return '<tr>'
+        +'<td style="font-size:11px;font-family:monospace;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+(d.file_name||'')+'">'+((d.file_name||'—'))+'</td>'
         +'<td style="font-size:11px">'+(entityLabels[d.company_id]||d.company_id||'—')+'</td>'
         +'<td style="font-size:11px">'+(typeLabels[d.doc_type]||d.doc_type||'—')+dossierBadge+'</td>'
         +'<td style="font-size:11px;font-family:monospace">'+(d.doc_date||'—')+'</td>'
-        +'<td style="font-size:11px">'+(d.from_name||'—')+'</td>'
+        +'<td style="font-size:11px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(d.from_name||'—')+'</td>'
+        +'<td style="text-align:center">'+viewBtn+'</td>'
         +'<td style="text-align:right;font-family:monospace;font-size:11px;color:var(--red)">'+(d.amount?Math.round(d.amount).toLocaleString('fr-FR')+' €':'—')+'</td>'
-        +'<td style="font-size:11px">'+urgBadge+actionBadge+'</td>'
-        +'<td style="text-align:center">'+driveLnk+'</td>'
+        +'<td><span style="font-size:11px;font-weight:500;color:'+actionColor+'">'+actionLabel+'</span>'+(d.deadline_date?'<span style="font-size:9px;color:var(--t2);display:block">⏰ '+d.deadline_date+'</span>':'')+'</td>'
+        +'<td style="text-align:center">'+driveOk+'</td>'
         +'<td><button onclick="deleteGEDDoc(\''+d.id+'\')" style="border:none;background:none;cursor:pointer;color:var(--t2);font-size:12px">✕</button></td>'
         +'</tr>';
     }).join('')
@@ -8241,27 +8328,143 @@ async function addDeal(){
 
 // TODOS
 async function loadTodos(containerId,companyId){
-  const q=sb.from('todos').select('*').order('created_at',{ascending:false});
-  const{data,error}=companyId&&companyId!=='group'?await q.eq('company_id',companyId):await q;
-  setConn(!error);
   const el=document.getElementById(containerId);
   if(!el)return;
-  if(error||!data.length){el.innerHTML='<div class="lo">Aucune tâche</div>';return}
-  const pc={high:'br',med:'ba',low:'bz'};const pl={high:'Haute',med:'Moyenne',low:'Basse'};
-  el.innerHTML=data.map(t=>`<div class="td-item ${t.done?'td-done':''}" id="ti-${t.id}">
-    <div class="tdc${t.done?' done':''}" onclick="toggleTodo('${t.id}',${!t.done},'${containerId}','${companyId}')"></div>
-    <div style="flex:1"><div class="dn">${t.title}</div><div style="font-size:11px;color:var(--t2);margin-top:2px">${t.category||''} · ${t.due_date||''}</div></div>
-    <span class="badge ${pc[t.priority]||'bz'}">${pl[t.priority]||'—'}</span>
-  </div>`).join('');
+
+  // Filtres (seulement pour la vue principale)
+  const isMain=containerId==='main-todos';
+  const fStatus=isMain?document.getElementById('todo-filter-status')?.value:'';
+  const fCat=isMain?document.getElementById('todo-filter-cat')?.value:'';
+  const fCo=isMain?document.getElementById('todo-filter-co')?.value:'';
+
+  let q=sb.from('todos').select('*,ged_documents(file_name,drive_url)').order('due_date',{ascending:true,nullsFirst:false}).order('created_at',{ascending:false});
+  if(companyId&&companyId!=='group')q=q.eq('company_id',companyId);
+  if(fStatus)q=q.eq('status',fStatus);
+  else q=q.neq('status','fait');  // Par défaut masquer les "fait"
+  if(fCat)q=q.eq('category',fCat);
+  if(fCo)q=q.eq('company_id',fCo);
+
+  const{data,error}=await q;
+  setConn(!error);
+  if(error){el.innerHTML='<div class="lo">Erreur chargement</div>';return;}
+
+  const todos=data||[];
+  if(isMain)document.getElementById('todo-count').textContent=todos.length+' tâche'+(todos.length>1?'s':'');
+
+  // Sections urgentes + paiements auto (seulement vue principale)
+  if(isMain){
+    await renderTodoUrgent(todos);
+    await renderTodoPaiements();
+  }
+
+  // Statuts
+  const statusLabel={a_faire:'📌 À faire',en_cours:'🔄 En cours',en_attente_tiers:'⏳ En attente',fait:'✅ Fait'};
+  const statusColor={a_faire:'var(--acc)',en_cours:'var(--amb)',en_attente_tiers:'var(--pur)',fait:'var(--grn)'};
+  const prioColor={high:'var(--red)',medium:'var(--amb)',med:'var(--amb)',low:'var(--grn)'};
+  const coLabel={'sas-living':'💼 Living','sarl-guiraud':'🏛️ SARL','meulette':'🏠 Meulette','real-gains':'🌐 RG','spv-monikaza':'🌐 SPV','perso':'👤 Perso','group':'🏢 Groupe'};
+  const catIcon={juridique:'⚖️',fiscal:'🏛️',paiement:'💸',suivi:'🔄',commercial:'💼',admin:'📋',autre:'📄'};
+
+  if(!todos.length){el.innerHTML='<div style="text-align:center;padding:2rem;color:var(--t2);font-size:13px">✅ Aucune tâche en cours</div>';return;}
+
+  el.innerHTML=todos.map(t=>{
+    const isUrgent=t.due_date&&new Date(t.due_date)<=new Date(Date.now()+7*86400000)&&t.status!=='fait';
+    const isOverdue=t.due_date&&new Date(t.due_date)<new Date()&&t.status!=='fait';
+    const st=t.status||'a_faire';
+    const pr=t.priority||'medium';
+    const gedLink=t.ged_documents?.drive_url?'<a href="'+t.ged_documents.drive_url+'" target="_blank" style="font-size:10px;color:var(--acc);margin-left:6px" title="Document source">📂</a>':'';
+    const overdueTag=isOverdue?'<span style="font-size:9px;background:var(--red);color:#fff;padding:1px 5px;border-radius:3px;margin-left:4px">EN RETARD</span>':'';
+    return '<div style="background:var(--s1);border:1px solid '+(isOverdue?'var(--red)':isUrgent?'var(--amb)':'var(--b1)')+';border-radius:10px;padding:12px 14px;margin-bottom:8px;display:flex;align-items:flex-start;gap:12px">'
+      +'<div style="flex:1;min-width:0">'
+        +'<div style="font-size:13px;font-weight:500;color:var(--t1);margin-bottom:4px">'
+          +(t.done||st==='fait'?'<span style="text-decoration:line-through;opacity:.5">':'')
+          +t.title
+          +(t.done||st==='fait'?'</span>':'')
+          +overdueTag+gedLink
+        +'</div>'
+        +'<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px">'
+          +'<span style="font-size:10px;color:var(--t2)">'+(coLabel[t.company_id]||t.company_id||'—')+'</span>'
+          +(t.category?'<span style="font-size:10px;color:var(--t2)">'+(catIcon[t.category]||'')+''+t.category+'</span>':'')
+          +(t.due_date?'<span style="font-size:10px;color:'+(isOverdue?'var(--red)':isUrgent?'var(--amb)':'var(--t2)')+'">📅 '+t.due_date+'</span>':'')
+          +(t.notes?'<span style="font-size:10px;color:var(--t2);font-style:italic">'+t.notes+'</span>':'')
+        +'</div>'
+      +'</div>'
+      +'<div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0">'
+        +'<select onchange="updateTodoStatus(\''+t.id+'\',\''+(t.status||'a_faire')+'\',\''+containerId+'\',\''+companyId+'\')" style="font-size:10px;padding:3px 6px;border-radius:6px;border:1px solid '+statusColor[st]+';color:'+statusColor[st]+';background:var(--s2);cursor:pointer">'
+          +Object.entries(statusLabel).map(([v,l])=>'<option value="'+v+'"'+(st===v?' selected':'')+'>'+l+'</option>').join('')
+        +'</select>'
+        +'<div style="width:8px;height:8px;border-radius:50%;background:'+prioColor[pr]+'" title="Priorité '+pr+'"></div>'
+      +'</div>'
+    +'</div>';
+  }).join('');
 }
-async function toggleTodo(id,done,containerId,companyId){await sb.from('todos').update({done}).eq('id',id);loadTodos(containerId,companyId)}
+
+async function renderTodoUrgent(todos){
+  const el=document.getElementById('todo-section-urgent');
+  if(!el)return;
+  const urgents=todos.filter(t=>t.due_date&&new Date(t.due_date)<=new Date(Date.now()+7*86400000)&&(t.status||'a_faire')!=='fait');
+  if(!urgents.length){el.innerHTML='';return;}
+  el.innerHTML='<div style="font-size:12px;font-weight:600;color:var(--red);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">🚨 Urgent — échéance dans 7 jours ('+urgents.length+')</div>';
+}
+
+async function renderTodoPaiements(){
+  const el=document.getElementById('todo-section-paiements');
+  if(!el)return;
+  const in7=new Date(Date.now()+7*86400000).toISOString().split('T')[0];
+  const today=new Date().toISOString().split('T')[0];
+  const[{data:pays},{data:debts}]=await Promise.all([
+    sb.from('payables').select('fournisseur,amount_ttc,due_date,company_id').eq('status','a_payer').lte('due_date',in7),
+    sb.from('debts').select('debiteur,monthly_amount,company_id').eq('status','en_cours').neq('monthly_amount',0)
+  ]);
+  const items=[...(pays||[]).map(p=>({label:p.fournisseur,amount:p.amount_ttc,date:p.due_date,co:p.company_id,type:'facture'}))];
+  if(!items.length){el.innerHTML='';return;}
+  el.innerHTML='<div style="font-size:12px;font-weight:600;color:var(--amb);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">💸 Paiements à faire cette semaine ('+items.length+')</div>'
+    +'<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px">'
+    +items.map(i=>'<div style="background:var(--amd);border:1px solid var(--amb);border-radius:8px;padding:8px 12px;font-size:12px">'
+      +'<div style="font-weight:500">'+i.label+'</div>'
+      +'<div style="color:var(--amb);font-family:monospace">'+Math.round(i.amount).toLocaleString('fr-FR')+' €</div>'
+      +(i.date?'<div style="font-size:10px;color:var(--t2)">📅 '+i.date+'</div>':'')
+    +'</div>').join('')
+  +'</div>';
+}
+
+async function updateTodoStatus(id,status,containerId,companyId){
+  const done=status==='fait';
+  await sb.from('todos').update({status,done}).eq('id',id);
+  // Si fait et lié à un GED doc → archiver le doc
+  const{data:todo}=await sb.from('todos').select('ged_document_id').eq('id',id).single();
+  if(done&&todo?.ged_document_id){
+    await sb.from('ged_documents').update({status:'archive'}).eq('id',todo.ged_document_id);
+  }
+  loadTodos(containerId,companyId);
+}
+
+async function toggleTodo(id,done,containerId,companyId){
+  const status=done?'fait':'a_faire';
+  await sb.from('todos').update({done,status}).eq('id',id);
+  loadTodos(containerId,companyId);
+}
 function toggleTodoForm(id){const f=document.getElementById(id);f.style.display=f.style.display==='none'?'block':'none'}
 async function addTodo(scope){
   const isMain=scope==='main';
   const ti=isMain?'mt-ti':'t-ti',ca=isMain?'mt-ca':'t-ca',dt=isMain?'mt-dt':'t-dt',pr=isMain?'mt-pr':'t-pr';
-  const{error}=await sb.from('todos').insert({company_id:curCo?.id||'group',title:document.getElementById(ti).value,category:document.getElementById(ca).value,due_date:document.getElementById(dt).value,priority:document.getElementById(pr).value,done:false});
-  if(error){toast('Erreur : '+error.message);return}
-  toggleTodoForm(isMain?'main-todo-form':'co-todo-form');toast('✓ Tâche ajoutée');
+  const coId=isMain?(document.getElementById('mt-co')?.value||'group'):(curCo?.id||'group');
+  const status=isMain?(document.getElementById('mt-st')?.value||'a_faire'):'a_faire';
+  const notes=isMain?(document.getElementById('mt-no')?.value||null):null;
+  const title=document.getElementById(ti).value;
+  if(!title){toast('Titre requis');return;}
+  const{error}=await sb.from('todos').insert({
+    company_id:coId,
+    title,
+    category:document.getElementById(ca).value,
+    due_date:document.getElementById(dt).value||null,
+    priority:document.getElementById(pr).value,
+    status,
+    notes,
+    done:false
+  });
+  if(error){toast('Erreur : '+error.message);return;}
+  toggleTodoForm(isMain?'main-todo-form':'co-todo-form');
+  toast('✓ Tâche ajoutée');
   if(isMain)loadTodos('main-todos','group');else loadTodos('co-todos',curCo?.id||'group');
 }
 
