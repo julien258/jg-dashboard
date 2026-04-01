@@ -44,14 +44,21 @@ async function getAccessToken(societe) {
   const refreshToken = process.env[account.token];
   if (!refreshToken) throw new Error(`Token manquant pour ${societe} (${account.token})`);
 
+  // Les tokens Gmail ont été générés via OAuth Playground
+  // Le Playground utilise toujours son propre client même quand on entre les nôtres
+  // On utilise donc GMAIL_CLIENT_ID/SECRET (le client Web qu'on a créé avec URI Playground)
+  const clientId = process.env.GMAIL_CLIENT_ID;
+  const clientSecret = process.env.GMAIL_CLIENT_SECRET;
+
   const res = await fetch(OAUTH_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({
-      client_id:     process.env.GOOGLE_CLIENT_ID,
-      client_secret: process.env.GOOGLE_CLIENT_SECRET,
+      client_id:     clientId,
+      client_secret: clientSecret,
       refresh_token: refreshToken,
       grant_type:    'refresh_token',
+      redirect_uri:  'urn:ietf:wg:oauth:2.0:oob',
     }),
   });
   const data = await res.json();
