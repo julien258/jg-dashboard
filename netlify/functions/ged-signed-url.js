@@ -24,7 +24,9 @@ export default async (req) => {
     });
     const data = await res.json();
     if (!data.signedURL) throw new Error(data.error || 'URL signée non générée');
-    return Response.json({ ok: true, url: SUPABASE_URL + data.signedURL }, { headers: H });
+    // signedURL retourne /storage/v1/object/sign/... — on construit l'URL complète
+    const signedUrl = data.signedURL.startsWith('/storage') ? SUPABASE_URL + data.signedURL : `${SUPABASE_URL}/storage/v1${data.signedURL}`;
+    return Response.json({ ok: true, url: signedUrl }, { headers: H });
   } catch (e) {
     return Response.json({ ok: false, error: e.message }, { status: 500, headers: H });
   }
