@@ -1464,7 +1464,7 @@
             </div>
           </div>
         </div>
-        <div id="ged-action-fields" style="display:none;display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
+        <div id="ged-action-fields" style="display:none;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
           <div>
             <div style="font-size:10px;color:var(--t2);text-transform:uppercase;margin-bottom:4px">Action à faire</div>
             <input type="text" id="ged-action-notes" placeholder="Payer avant le..., Former opposition, Répondre à..." style="width:100%;font-size:12px;padding:6px">
@@ -2733,12 +2733,18 @@ function showGED(){
   document.getElementById('ptabs').style.display='none';
   document.getElementById('tb-title').textContent='GED — Documents';
   document.getElementById('tb-sub').textContent='OCR · Classification · Archivage';
+  // Afficher les deux zones par défaut
+  document.getElementById('ged-upload-zone').style.display='block';
+  document.getElementById('ged-list-zone').style.display='block';
   loadGEDList();
 }
 
 function toggleGEDView(view){
-  document.getElementById('ged-upload-zone').style.display=view==='upload'?'block':'none';
-  document.getElementById('ged-list-zone').style.display=view==='list'?'block':'none';
+  // Les deux zones restent visibles — le bouton scroll vers la zone voulue
+  document.getElementById('ged-upload-zone').style.display='block';
+  document.getElementById('ged-list-zone').style.display='block';
+  const target=document.getElementById(view==='upload'?'ged-upload-zone':'ged-list-zone');
+  if(target)target.scrollIntoView({behavior:'smooth',block:'start'});
 }
 
 function handleGEDDrop(e){
