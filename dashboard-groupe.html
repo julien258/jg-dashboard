@@ -3508,6 +3508,10 @@ async function analyzeGEDFile(file){
       r.readAsDataURL(file);
     });
 
+    // Stocker pour saveGEDDocument
+    window._gedCurrentBase64=base64;
+    window._gedCurrentFile=file;
+
     const resp=await fetch('/.netlify/functions/ocr-pro',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
@@ -3543,7 +3547,7 @@ async function analyzeGEDFile(file){
     const amtStr=parsed.montant_ttc||parsed.montant||'';
     document.getElementById('ged-docname').value=[dateStr,'DOC',fromStr,amtStr?amtStr+'EUR':''].filter(Boolean).join('_')+'.pdf';
 
-    window._gedCurrentFile={base64,fileName:file.name,type:file.type,parsed};
+    // _gedCurrentBase64 et _gedCurrentFile déjà définis plus haut (File object)
     document.getElementById('ged-classify-panel').style.display='block';
   }catch(err){
     resultEl.innerHTML='<span style="color:var(--red)">Erreur OCR : '+err.message+'</span>';
