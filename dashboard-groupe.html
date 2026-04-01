@@ -1451,16 +1451,37 @@
             <input type="text" id="ged-docname" placeholder="2026-03-20_FACTURE_451F_1250EUR.pdf" style="width:100%;font-size:12px;padding:6px;font-family:monospace;font-size:11px">
           </div>
         </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
+          <div>
+            <div style="font-size:10px;color:var(--t2);text-transform:uppercase;margin-bottom:4px">Dossier / Affaire</div>
+            <input type="text" id="ged-dossier" placeholder="URSSAF-2025, KLESIA-retraite, CFE-Meulette..." style="width:100%;font-size:12px;padding:6px">
+          </div>
+          <div>
+            <div style="font-size:10px;color:var(--t2);text-transform:uppercase;margin-bottom:4px">Action requise</div>
+            <div style="display:flex;align-items:center;gap:8px;margin-top:8px">
+              <input type="checkbox" id="ged-action-required" onchange="toggleGEDAction(this.checked)" style="width:auto">
+              <label for="ged-action-required" style="font-size:12px">Nécessite une action</label>
+            </div>
+          </div>
+        </div>
+        <div id="ged-action-fields" style="display:none;display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
+          <div>
+            <div style="font-size:10px;color:var(--t2);text-transform:uppercase;margin-bottom:4px">Action à faire</div>
+            <input type="text" id="ged-action-notes" placeholder="Payer avant le..., Former opposition, Répondre à..." style="width:100%;font-size:12px;padding:6px">
+          </div>
+          <div>
+            <div style="font-size:10px;color:var(--t2);text-transform:uppercase;margin-bottom:4px">Date limite</div>
+            <input type="date" id="ged-deadline" style="width:100%;font-size:12px;padding:6px">
+          </div>
+        </div>
+        <div id="ged-drive-status" style="display:none;margin-bottom:12px;padding:8px 12px;background:var(--grd);border-radius:8px;font-size:12px;color:var(--grn)"></div>
         <div style="display:flex;gap:8px">
-          <button class="btn btn-p" onclick="saveGEDDocument()" style="flex:1">
-            ✅ Valider et archiver dans Supabase
+          <button class="btn btn-p" onclick="saveGEDDocument()" id="ged-save-btn" style="flex:1">
+            ✅ Analyser · Uploader Drive · Archiver
           </button>
-          <button class="btn btn-s" onclick="document.getElementById('ged-classify-panel').style.display='none'">
+          <button class="btn btn-g" onclick="document.getElementById('ged-classify-panel').style.display='none'">
             Annuler
           </button>
-        </div>
-        <div style="margin-top:8px;font-size:11px;color:var(--t2)">
-          💡 Pour archiver sur Google Drive, connectez Google Drive dans les paramètres Claude.ai
         </div>
       </div>
     </div>
@@ -2991,75 +3012,114 @@ async function analyzeGEDFile(file){
 }
 
 async function saveGEDDocument(){
-  const btn=event.target;
-  btn.textContent='Enregistrement...';btn.disabled=true;
+  const btn=document.getElementById('ged-save-btn');
+  if(btn){btn.disabled=true;btn.textContent='⏳ Traitement en cours...';}
 
-  const entity=document.getElementById('ged-entity').value;
-  const doctype=document.getElementById('ged-doctype').value;
-  const docdate=document.getElementById('ged-docdate').value;
-  const amount=parseFloat(document.getElementById('ged-docmount').value)||null;
-  const from=document.getElementById('ged-docfrom').value;
-  const docname=document.getElementById('ged-docname').value;
-  const parsed=window._gedCurrentFile?.parsed||{};
+  try {
+    const batch=window._gedBatch||[];
+    const actionRequired=document.getElementById('ged-action-required')?.checked||false;
+    const actionNotes=document.getElementById('ged-action-notes')?.value||null;
+    const deadlineDate=document.getElementById('ged-deadline')?.value||null;
+    const dossier=document.getElementById('ged-dossier')?.value||null;
 
-  // Upload base64 vers Supabase Storage
-  let fileUrl=null;
-  if(window._gedCurrentFile?.base64){
-    try{
-      const bytes=atob(window._gedCurrentFile.base64);
-      const arr=new Uint8Array(bytes.length);
-      for(let i=0;i<bytes.length;i++)arr[i]=bytes.charCodeAt(i);
-      const blob=new Blob([arr],{type:window._gedCurrentFile.type||'application/pdf'});
-      const path=entity+'/'+doctype+'/'+docname;
-      const{data:upData,error:upErr}=await sb.storage.from('documents').upload(path,blob,{upsert:true});
-      if(!upErr&&upData){
-        const{data:urlData}=sb.storage.from('documents').getPublicUrl(path);
-        fileUrl=urlData?.publicUrl;
+    for(const file of (batch.length?batch:[{base64:window._gedCurrentBase64,name:window._gedCurrentFile?.name||'document.pdf'}])){
+      if(!file.base64)continue;
+
+      const companyId=document.getElementById('ged-entity')?.value||'sas-living';
+      const docType=document.getElementById('ged-doctype')?.value||'autre';
+
+      // Appel fonction Netlify : OCR + Drive + renommage
+      const driveStatus=document.getElementById('ged-drive-status');
+      if(driveStatus){driveStatus.style.display='block';driveStatus.textContent='⏳ Analyse OCR + upload Drive en cours...';}
+
+      let result={};
+      try{
+        const res=await fetch('/api/ged-upload',{
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({
+            base64:file.base64,
+            fileName:file.name,
+            companyId,
+            docType,
+            dossier,
+            actionRequired,
+            actionNotes,
+            deadlineDate
+          })
+        });
+        result=await res.json();
+      }catch(e){console.error('ged-upload error:',e);}
+
+      // Insérer dans Supabase ged_documents
+      const docData={
+        company_id: result.company_id||companyId,
+        doc_type:   result.doc_type||docType,
+        doc_date:   result.doc_date||document.getElementById('ged-docdate')?.value||null,
+        amount:     result.amount||parseFloat(document.getElementById('ged-docmount')?.value)||null,
+        from_name:  result.from_name||document.getElementById('ged-docfrom')?.value||null,
+        file_name:  result.normalized_name||file.name,
+        file_url:   result.drive_url||null,
+        drive_url:  result.drive_url||null,
+        status:     actionRequired?'action_requise':'actif',
+        ocr_data:   result.ocr_raw||null,
+        dossier:    dossier||null,
+        action_required: actionRequired,
+        action_notes: actionNotes,
+        deadline_date: deadlineDate||null
+      };
+
+      const{error}=await sb.from('ged_documents').insert(docData);
+      if(error){
+        if(error.code==='42P01'){
+          toast('ℹ Table ged_documents à créer (voir console)');
+          console.log('%cSQL à exécuter dans Supabase :','color:orange;font-weight:bold',`
+ALTER TABLE ged_documents
+  ADD COLUMN IF NOT EXISTS dossier text,
+  ADD COLUMN IF NOT EXISTS action_required boolean DEFAULT false,
+  ADD COLUMN IF NOT EXISTS action_notes text,
+  ADD COLUMN IF NOT EXISTS deadline_date date;`);
+        }else{
+          toast('Erreur Supabase : '+error.message);
+        }
+        continue;
       }
-    }catch(e){console.warn('Storage upload failed:',e);}
-  }
 
-  // Enregistre les métadonnées dans Supabase
-  const{error}=await sb.from('ged_documents').insert({
-    company_id:entity,
-    doc_type:doctype,
-    doc_date:docdate||null,
-    amount:amount,
-    from_name:from,
-    file_name:docname,
-    file_url:fileUrl,
-    status:doctype==='recouvrement'||doctype==='recommande'?'urgent':'actif',
-    ocr_data:parsed,
-    created_at:new Date().toISOString()
-  });
+      // Si action requise → créer todo automatiquement
+      if(actionRequired && actionNotes){
+        await sb.from('todos').insert({
+          company_id: result.company_id||companyId,
+          title: (result.from_name||'Document')+' — '+actionNotes,
+          category: result.doc_type==='recouvrement'||result.doc_type==='juridique'?'juridique':'fiscal',
+          due_date: deadlineDate||null,
+          priority: deadlineDate&&new Date(deadlineDate)<new Date(Date.now()+7*86400000)?'high':'medium',
+          done: false
+        });
+      }
 
-  if(error){
-    // Table pas encore créée → afficher SQL
-    toast('ℹ Table ged_documents à créer (voir console)');
-    console.log('%cCréer la table Supabase :\n','color:orange;font-weight:bold',`
-CREATE TABLE IF NOT EXISTS ged_documents (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  company_id text,
-  doc_type text,
-  doc_date date,
-  amount numeric,
-  from_name text,
-  file_name text,
-  file_url text,
-  status text DEFAULT 'actif',
-  ocr_data jsonb,
-  drive_url text,
-  created_at timestamptz DEFAULT now()
-);`);
-  } else {
-    toast('✓ Document archivé');
+      if(driveStatus&&result.drive_url){
+        driveStatus.textContent='✅ Archivé sur Drive : '+result.normalized_name;
+      }else if(driveStatus){
+        driveStatus.textContent='✅ Archivé dans Supabase'+(result.drive_url?'':' (Drive: échec)');
+      }
+    }
+
+    toast('✓ '+(batch.length||1)+' document(s) archivé(s)');
+    window._gedBatch=[];window._gedCurrentFile=null;window._gedCurrentBase64=null;
     document.getElementById('ged-classify-panel').style.display='none';
-    document.getElementById('ged-ocr-content').textContent='Déposez un document pour lancer l\'analyse...';
-    window._gedCurrentFile=null;
+    document.getElementById('ged-action-required').checked=false;
+    document.getElementById('ged-action-fields').style.display='none';
+    document.getElementById('ged-dossier').value='';
     loadGEDList();
+  }finally{
+    if(btn){btn.disabled=false;btn.textContent='✅ Analyser · Uploader Drive · Archiver';}
   }
+}
 
-  btn.textContent='✅ Valider et archiver dans Supabase';btn.disabled=false;
+
+function toggleGEDAction(checked){
+  const f=document.getElementById('ged-action-fields');
+  if(f)f.style.display=checked?'grid':'none';
 }
 
 async function loadGEDList(){
@@ -3093,19 +3153,23 @@ async function loadGEDList(){
   }
 
   el.innerHTML='<table><thead><tr>'
-    +'<th>Document</th><th>Entité</th><th>Type</th><th>Date</th><th>Expéditeur</th><th style="text-align:right">Montant</th><th>Statut</th><th></th>'
+    +'<th>Document</th><th>Entité</th><th>Type / Dossier</th><th>Date</th><th>Expéditeur</th><th style="text-align:right">Montant</th><th>Statut</th><th>Drive</th><th></th>'
     +'</tr></thead><tbody>'
     +docs.map(d=>{
       const urgBadge=d.status==='urgent'?'<span style="font-size:9px;background:var(--red);color:#fff;padding:1px 5px;border-radius:3px">URGENT</span>':'';
-      return '<tr>'
-        +'<td style="font-size:11px;font-family:monospace;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(d.file_url?'<a href="'+d.file_url+'" target="_blank" style="color:var(--acc)">'+d.file_name+'</a>':d.file_name||'—')+'</td>'
+      const actionBadge=d.action_required?'<span style="font-size:9px;background:var(--amb);color:#fff;padding:1px 5px;border-radius:3px;display:block;margin-top:2px">'+(d.deadline_date?'⏰ '+d.deadline_date:'ACTION')+'</span>':'';
+      const driveLnk=d.drive_url?'<a href="'+d.drive_url+'" target="_blank" style="font-size:10px;color:var(--acc)" title="Voir sur Drive">📂</a>':'';
+      const dossierBadge=d.dossier?'<span style="font-size:9px;color:var(--t2);display:block">📁 '+d.dossier+'</span>':'';
+      return '<tr style="'+(d.action_required?'background:rgba(230,126,34,0.04)':'')+'">'
+        +'<td style="font-size:11px;font-family:monospace;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(d.file_url?'<a href="'+d.file_url+'" target="_blank" style="color:var(--acc)">'+d.file_name+'</a>':d.file_name||'—')+'</td>'
         +'<td style="font-size:11px">'+(entityLabels[d.company_id]||d.company_id||'—')+'</td>'
-        +'<td style="font-size:11px">'+(typeLabels[d.doc_type]||d.doc_type||'—')+'</td>'
+        +'<td style="font-size:11px">'+(typeLabels[d.doc_type]||d.doc_type||'—')+dossierBadge+'</td>'
         +'<td style="font-size:11px;font-family:monospace">'+(d.doc_date||'—')+'</td>'
         +'<td style="font-size:11px">'+(d.from_name||'—')+'</td>'
         +'<td style="text-align:right;font-family:monospace;font-size:11px;color:var(--red)">'+(d.amount?Math.round(d.amount).toLocaleString('fr-FR')+' €':'—')+'</td>'
-        +'<td style="font-size:11px">'+urgBadge+'</td>'
-        +'<td><button onclick="deleteGEDDoc(\''+d.id+'\')" style="border:none;background:none;cursor:pointer;color:var(--t2);font-size:12px">✕</button></td>'
+        +'<td style="font-size:11px">'+urgBadge+actionBadge+'</td>'
+        +'<td style="text-align:center">'+driveLnk+'</td>'
+        +'<td><button onclick="deleteGEDDoc(''+d.id+'')" style="border:none;background:none;cursor:pointer;color:var(--t2);font-size:12px">✕</button></td>'
         +'</tr>';
     }).join('')
     +'</tbody></table>';
