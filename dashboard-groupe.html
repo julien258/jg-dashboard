@@ -3312,8 +3312,19 @@ function renderCoPennylane(){
   const socData = data.societes.find(s => s.key === coKey);
   if(!socData || socData.error || !socData.comptes?.length){ encart.style.display='none'; return; }
 
+  // Whitelist de comptes par société (filtre les comptes partagés/anciens)
+  const compteWhitelist = {
+    'real-gains': ['bel','compte principal','qonto'],
+    'meulette': null, // tous
+    'sas-living': null, // tous
+    'sarl-guiraud': null // tous
+  };
+  const wl = compteWhitelist[curCo?.id];
+  let comptes = socData.comptes;
+  if(wl) comptes = comptes.filter(c => wl.some(k => (c.nom||'').toLowerCase().includes(k) || (c.banque||'').toLowerCase().includes(k)));
+
   encart.style.display='block';
-  grid.innerHTML = socData.comptes.map(c => {
+  grid.innerHTML = comptes.map(c => {
     const nom = c.nom || 'Compte';
     const banque = (c.banque && c.banque !== nom) ? c.banque : null;
     const iban = c.iban ? c.iban.substring(0,8)+'\u2026'+c.iban.slice(-4) : null;
