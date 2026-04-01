@@ -3169,7 +3169,7 @@ async function loadGEDList(){
         +'<td style="text-align:right;font-family:monospace;font-size:11px;color:var(--red)">'+(d.amount?Math.round(d.amount).toLocaleString('fr-FR')+' €':'—')+'</td>'
         +'<td style="font-size:11px">'+urgBadge+actionBadge+'</td>'
         +'<td style="text-align:center">'+driveLnk+'</td>'
-        +'<td><button onclick="deleteGEDDoc(''+d.id+'')" style="border:none;background:none;cursor:pointer;color:var(--t2);font-size:12px">✕</button></td>'
+        +'<td><button onclick="deleteGEDDoc(\''+d.id+'\')" style="border:none;background:none;cursor:pointer;color:var(--t2);font-size:12px">✕</button></td>'
         +'</tr>';
     }).join('')
     +'</tbody></table>';
