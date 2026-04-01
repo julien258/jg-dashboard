@@ -60,6 +60,7 @@ async function getAccessToken(societe) {
         client_secret: cred.secret,
         refresh_token: refreshToken,
         grant_type:    'refresh_token',
+        redirect_uri:  'https://developers.google.com/oauthplayground',
       }),
     });
     const data = await res.json();
