@@ -163,6 +163,7 @@
     <button class="gbtn" onclick="showOptim()"><span>⚖️</span> Optim. rémunération</button>
     <button class="gbtn" onclick="showApurement()"><span>🚨</span> Apurement dettes</button>
     <button class="gbtn" onclick="showGED()"><span>📂</span> GED Documents</button>
+    <button class="gbtn" onclick="showMail()" id="btn-mail"><span>📧</span> Mails</button>
     <button class="gbtn" id="btn-contentieux" onclick="showContentieux()"><span>⚖️</span> Contentieux</button>
   </div>
 </div>
@@ -1441,7 +1442,60 @@
 
 
   <!-- GED — GESTION ÉLECTRONIQUE DE DOCUMENTS -->
-  <div class="pv cnt" id="v-ged">
+  <!-- MAIL -->
+  <div class="pv cnt" id="v-mail" style="display:none">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem">
+      <div>
+        <div style="font-size:20px;font-weight:600">📧 Mails</div>
+        <div style="font-size:12px;color:var(--t2);margin-top:2px">Non lus · Classés par priorité · Archivage GED en un clic</div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <select id="mail-societe" onchange="loadMails()" style="font-size:12px;padding:6px 10px;border-radius:7px;border:1px solid var(--b1)">
+          <option value="sas-living">💼 SAS Living</option>
+          <option value="sarl-guiraud">🏛️ SARL Guiraud</option>
+          <option value="meulette">🏠 Meulette</option>
+        </select>
+        <button class="btn btn-g btn-sm" onclick="loadMails()" id="btn-refresh-mail">🔄 Actualiser</button>
+      </div>
+    </div>
+
+    <!-- Compte email actif -->
+    <div id="mail-account-info" style="font-size:11px;color:var(--t2);margin-bottom:1rem"></div>
+
+    <!-- Filtres -->
+    <div style="display:flex;gap:8px;margin-bottom:1rem;flex-wrap:wrap">
+      <button class="btn btn-sm" id="mail-filter-all" onclick="filterMails('all')" style="background:var(--acd);color:var(--acc);border:1px solid var(--acc)">📧 Tous</button>
+      <button class="btn btn-g btn-sm" onclick="filterMails('high')">🔴 Urgents</button>
+      <button class="btn btn-g btn-sm" onclick="filterMails('attachment')">📎 Avec PJ</button>
+      <span id="mail-count" style="font-size:11px;color:var(--t2);align-self:center"></span>
+    </div>
+
+    <!-- Thread panel -->
+    <div id="mail-thread-panel" style="display:none;background:var(--s1);border:1px solid var(--b1);border-radius:10px;padding:1.25rem;margin-bottom:1rem">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+        <div style="font-size:14px;font-weight:600" id="mail-thread-subject"></div>
+        <button class="btn btn-g btn-sm" onclick="closeMailThread()">✕ Fermer</button>
+      </div>
+      <div id="mail-thread-content" style="font-size:13px;line-height:1.6;max-height:400px;overflow-y:auto"></div>
+      <div style="display:flex;gap:8px;margin-top:1rem;flex-wrap:wrap">
+        <button class="btn btn-p btn-sm" onclick="replyMailAI()" id="btn-reply-ai">✨ Générer réponse IA</button>
+        <button class="btn btn-g btn-sm" onclick="archiveMailGED()">📂 Archiver en GED</button>
+        <button class="btn btn-g btn-sm" onclick="createTodoFromMail()">✅ Créer todo</button>
+      </div>
+      <div id="mail-reply-draft" style="display:none;margin-top:1rem">
+        <textarea id="mail-reply-text" style="width:100%;min-height:150px;padding:10px;border:1px solid var(--b1);border-radius:7px;font-size:13px;font-family:Inter,sans-serif;resize:vertical"></textarea>
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <button class="btn btn-p btn-sm" onclick="saveDraftGmail()">💾 Sauver comme brouillon Gmail</button>
+          <button class="btn btn-g btn-sm" onclick="document.getElementById('mail-reply-draft').style.display='none'">Annuler</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Liste mails -->
+    <div id="mail-list"><div style="text-align:center;padding:3rem;color:var(--t2)"><span class="spin"></span> Chargement...</div></div>
+  </div>
+
+    <div class="pv cnt" id="v-ged">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem">
       <div>
         <div style="font-size:20px;font-weight:600">📂 GED — Gestion de documents</div>
@@ -2817,6 +2871,219 @@ async function basculeContentieux(payableId){
   await sb.from('payables').update({status:'en_litige'}).eq('id',payableId);
   showContentieux();
   toast('Facture basculée en contentieux');
+}
+
+// ===== MAIL =====
+let _mailData=[];
+let _currentThread=null;
+let _currentMailSociete='sas-living';
+
+function showMail(){
+  setViews('v-mail');
+  document.getElementById('ptabs').style.display='none';
+  document.getElementById('tb-title').textContent='Mails';
+  document.getElementById('tb-sub').textContent='Non lus · Classés par priorité';
+  loadMails();
+}
+
+async function loadMails(){
+  const societe=document.getElementById('mail-societe')?.value||'sas-living';
+  _currentMailSociete=societe;
+  const listEl=document.getElementById('mail-list');
+  const infoEl=document.getElementById('mail-account-info');
+  const countEl=document.getElementById('mail-count');
+  if(listEl)listEl.innerHTML='<div style="text-align:center;padding:3rem;color:var(--t2)"><span class="spin"></span> Chargement...</div>';
+
+  try{
+    const res=await fetch('/api/gmail-sync?societe='+societe+'&action=list&max=30');
+    const data=await res.json();
+
+    if(!data.ok){
+      if(listEl)listEl.innerHTML='<div style="text-align:center;padding:2rem;color:var(--red)">⚠️ '+data.error+'</div>';
+      return;
+    }
+
+    if(infoEl)infoEl.textContent='📬 '+data.email+' · '+data.messages.length+' non lus';
+    _mailData=data.messages||[];
+    if(countEl)countEl.textContent=_mailData.length+' message'+(data.messages.length>1?'s':'');
+    renderMails(_mailData);
+  }catch(e){
+    if(listEl)listEl.innerHTML='<div style="text-align:center;padding:2rem;color:var(--red)">Erreur : '+e.message+'</div>';
+  }
+}
+
+function filterMails(filter){
+  document.querySelectorAll('#v-mail .btn').forEach(b=>b.classList.remove('btn-p'));
+  if(filter==='all') renderMails(_mailData);
+  else if(filter==='high') renderMails(_mailData.filter(m=>m.priority==='high'));
+  else if(filter==='attachment') renderMails(_mailData.filter(m=>m.hasAttachment));
+}
+
+function renderMails(msgs){
+  const el=document.getElementById('mail-list');
+  if(!el)return;
+  if(!msgs.length){el.innerHTML='<div style="text-align:center;padding:2rem;color:var(--t2)">✅ Aucun message non lu</div>';return;}
+  el.innerHTML=msgs.map(m=>{
+    const isHigh=m.priority==='high';
+    const border=isHigh?'var(--red)':'var(--b1)';
+    const bg=isHigh?'rgba(231,76,60,0.03)':'var(--s1)';
+    const date=m.date?new Date(m.date).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'';
+    const divId='mail-'+i; window['_mt_'+divId]={t:m.threadId,s:m.subject}; return '<div onclick="const d=window[\'_mt_mail-'+i+'\'];openMailThread(d.t,d.s)" style="background:'+bg+';border:1px solid '+border+';border-radius:10px;padding:12px 14px;margin-bottom:8px;cursor:pointer" onmouseover="this.style.background=\'var(--s2)\'" onmouseout="this.style.background=\''+bg+'\'">';
+      +'<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px">'
+        +'<div style="flex:1;min-width:0">'
+          +'<div style="font-size:13px;font-weight:600;color:var(--t1);margin-bottom:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+m.subject+'</div>'
+          +'<div style="font-size:11px;color:var(--t2);margin-bottom:4px">'+m.from+'</div>'
+          +'<div style="font-size:12px;color:var(--t2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+m.snippet+'</div>'
+        +'</div>'
+        +'<div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0">'
+          +'<span style="font-size:10px;color:var(--t2)">'+date+'</span>'
+          +'<span style="font-size:11px;background:'+(isHigh?'var(--rdd)':'var(--s2)')+';color:'+(isHigh?'var(--red)':'var(--t2)')+';padding:2px 7px;border-radius:10px">'+m.tag+'</span>'
+          +(m.hasAttachment?'<span style="font-size:10px;color:var(--acc)">📎</span>':'')
+        +'</div>'
+      +'</div>'
+    +'</div>';
+  }).join('');
+}
+
+async function openMailThread(threadId,subject){
+  const panel=document.getElementById('mail-thread-panel');
+  const subEl=document.getElementById('mail-thread-subject');
+  const contentEl=document.getElementById('mail-thread-content');
+  if(!panel)return;
+  panel.style.display='block';
+  if(subEl)subEl.textContent=subject;
+  if(contentEl)contentEl.innerHTML='<span class="spin"></span> Chargement...';
+  window._currentThreadId=threadId;
+  window._currentThreadSubject=subject;
+
+  const res=await fetch('/api/gmail-sync?societe='+_currentMailSociete+'&action=thread&threadId='+threadId);
+  const data=await res.json();
+  if(!data.ok){contentEl.textContent='Erreur : '+data.error;return;}
+
+  _currentThread=data.thread||[];
+  contentEl.innerHTML=_currentThread.map((msg,i)=>'<div style="border-bottom:1px solid var(--b1);padding:12px 0'+(i===0?'':';margin-top:8px')+'">'
+    +'<div style="font-size:11px;color:var(--t2);margin-bottom:6px"><strong>'+msg.from+'</strong> · '+msg.date+'</div>'
+    +'<div style="font-size:13px;color:var(--t1);white-space:pre-wrap;line-height:1.6">'+msg.body+'</div>'
+    +(msg.attachments.length?'<div style="margin-top:8px">'+msg.attachments.map((a,ai)=>{window['_att_'+msg.id+'_'+ai]={mid:msg.id,aid:a.id,fn:a.name}; return '<span style="font-size:11px;background:var(--acd);color:var(--acc);padding:3px 8px;border-radius:5px;margin-right:6px;cursor:pointer" onclick="const x=window[\'_att_'+msg.id+'_'+ai+'\'];archiveAttachment(x.mid,x.aid,x.fn)">📎 '+a.name+'</span>';}).join('')+'</div>':'')
+  +'</div>').join('');
+  panel.scrollIntoView({behavior:'smooth'});
+}
+
+function closeMailThread(){
+  const panel=document.getElementById('mail-thread-panel');
+  if(panel)panel.style.display='none';
+  document.getElementById('mail-reply-draft').style.display='none';
+  _currentThread=null;
+}
+
+async function replyMailAI(){
+  if(!_currentThread?.length)return;
+  const btn=document.getElementById('btn-reply-ai');
+  if(btn){btn.disabled=true;btn.textContent='⏳ Génération...';}
+
+  const threadSummary=_currentThread.map(m=>m.from+' : '+m.body.substring(0,500)).join('\n\n---\n\n');
+
+
+
+
+  const societe={'sas-living':'SAS Living (CIF/IOBSP, dette privée)','sarl-guiraud':'SARL Guiraud Julien (holding)','meulette':'SARL La Meulette (SCI)'}[_currentMailSociete]||'';
+
+  try{
+    const res=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        model:'claude-sonnet-4-20250514',
+        max_tokens:1000,
+        messages:[{role:'user',content:'Tu es Julien Guiraud, dirigeant de '+societe+'. Rédige une réponse professionnelle en français à ce fil. Commence par Bonjour.\n\n'+threadSummary}]
+
+
+
+
+      })
+    });
+    const data=await res.json();
+    const reply=data.content?.[0]?.text||'';
+    document.getElementById('mail-reply-text').value=reply;
+    document.getElementById('mail-reply-draft').style.display='block';
+  }catch(e){toast('Erreur IA : '+e.message);}
+  finally{if(btn){btn.disabled=false;btn.textContent='✨ Générer réponse IA';}}
+}
+
+async function saveDraftGmail(){
+  if(!_currentThread?.length)return;
+  const lastMsg=_currentThread[_currentThread.length-1];
+  const body=document.getElementById('mail-reply-text').value;
+  if(!body){toast('Réponse vide');return;}
+
+  const res=await fetch('/api/gmail-sync?societe='+_currentMailSociete,{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({
+      action:'draft',
+      to:lastMsg.from,
+      subject:'Re: '+window._currentThreadSubject,
+      body,
+      inReplyTo:lastMsg.messageId,
+      references:lastMsg.references
+    })
+  });
+  const data=await res.json();
+  if(data.ok){toast('✅ Brouillon sauvegardé dans Gmail');document.getElementById('mail-reply-draft').style.display='none';}
+  else toast('Erreur : '+data.error);
+}
+
+async function archiveAttachment(messageId,attachmentId,fileName){
+  toast('⏳ Récupération PJ...');
+  const res=await fetch('/api/gmail-sync?societe='+_currentMailSociete+'&action=attachment&messageId='+messageId+'&attachmentId='+attachmentId);
+  const data=await res.json();
+  if(!data.ok){toast('Erreur PJ : '+data.error);return;}
+
+  // Envoyer vers GED upload
+  const gedRes=await fetch('/api/ged-upload',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({base64:data.base64,fileName,companyId:_currentMailSociete})
+  });
+  const gedData=await gedRes.json();
+  if(gedData.ok){
+    await sb.from('ged_documents').insert({
+      company_id:gedData.company_id||_currentMailSociete,
+      doc_type:gedData.doc_type||'autre',
+      doc_date:gedData.doc_date||null,
+      amount:gedData.amount||null,
+      from_name:gedData.from_name||null,
+      file_name:gedData.normalized_name||fileName,
+      file_url:gedData.drive_url||null,
+      drive_url:gedData.drive_url||null,
+      status:'actif',
+      ocr_data:gedData.ocr_raw||null
+    });
+    toast('✅ PJ archivée dans GED : '+gedData.normalized_name);
+  }else toast('Erreur GED : '+gedData.error);
+}
+
+async function archiveMailGED(){
+  if(!_currentThread?.length)return;
+  const lastMsg=_currentThread[0];
+  if(!lastMsg.attachments.length){toast('Aucune PJ dans ce mail');return;}
+  for(const att of lastMsg.attachments){
+    await archiveAttachment(lastMsg.id,att.id,att.name);
+  }
+}
+
+async function createTodoFromMail(){
+  if(!window._currentThreadSubject)return;
+  const{error}=await sb.from('todos').insert({
+    company_id:_currentMailSociete,
+    title:'📧 '+window._currentThreadSubject,
+    category:'suivi',
+    status:'a_faire',
+    priority:'medium',
+    done:false
+  });
+  if(!error)toast('✅ Todo créée');
+  else toast('Erreur : '+error.message);
 }
 
 function showGED(){
