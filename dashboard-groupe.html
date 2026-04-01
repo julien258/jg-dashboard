@@ -3086,6 +3086,92 @@ async function createTodoFromMail(){
   else toast('Erreur : '+error.message);
 }
 
+
+// ===== OPENLEGI =====
+async function analyzeGEDOpenLegi(docId){
+  const {data,error}=await sb.from('ged_documents').select('*').eq('id',docId).single();
+  if(error||!data){toast('Document introuvable');return;}
+  let panel=document.getElementById('openlegi-panel');
+  if(!panel){
+    panel=document.createElement('div');
+    panel.id='openlegi-panel';
+    panel.style.cssText='position:fixed;right:20px;top:80px;width:420px;max-height:80vh;overflow-y:auto;background:var(--s1);border:1px solid var(--acc);border-radius:12px;padding:1.5rem;z-index:9999;box-shadow:0 8px 32px rgba(0,0,0,0.3)';
+    document.body.appendChild(panel);
+  }
+  panel.innerHTML='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">'
+    +'<div style="font-size:14px;font-weight:600">\u2696\uFE0F Analyse Legifrance</div>'
+    +'<button onclick="document.getElementById(\'openlegi-panel\').remove()" style="border:none;background:none;cursor:pointer;font-size:18px">\u2715</button>'
+    +'</div>'
+    +'<div style="font-size:12px;color:var(--t2);margin-bottom:1rem">\uD83D\uDCC4 '+data.file_name+'</div>'
+    +'<div id="openlegi-result" style="font-size:13px;color:var(--t2)"><span class="spin"></span> Analyse...</div>';
+  try{
+    const res=await fetch('/api/openlegi',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({action:'analyze_document',text:data.ocr_data||data.from_name+' '+data.file_name})
+    });
+    const d=await res.json();
+    if(!d.ok){document.getElementById('openlegi-result').innerHTML='<span style="color:var(--red)">Erreur : '+d.error+'</span>';return;}
+    window._openlegiDoc=d;window._openlegiDocData=data;
+    const refs=d.refs||{};
+    let html='';
+    if(refs.type_courrier){
+      html+='<div style="background:var(--acd);border-radius:8px;padding:10px;margin-bottom:12px">'
+        +'<div style="font-size:11px;color:var(--acc);font-weight:600">TYPE</div>'
+        +'<div style="font-size:13px;font-weight:500">'+refs.type_courrier+'</div>'
+        +(refs.delai_jours?'<div style="font-size:11px;color:var(--t2)">Delai : <strong>'+refs.delai_jours+' jours</strong></div>':'')
+        +'</div>';
+    }
+    if(refs.articles&&refs.articles.length){
+      html+='<div style="margin-bottom:12px"><div style="font-size:11px;color:var(--t2);font-weight:600;margin-bottom:6px">ARTICLES CITES</div>'
+        +refs.articles.map(function(a){return '<span style="font-size:11px;background:var(--s2);padding:3px 8px;border-radius:10px;margin-right:4px">'+a+'</span>';}).join('')+'</div>';
+    }
+    if(d.legifrance&&d.legifrance.content&&d.legifrance.content[0]){
+      html+='<div style="margin-bottom:12px"><div style="font-size:11px;color:var(--t2);font-weight:600;margin-bottom:6px">TEXTES LEGAUX</div>'
+        +'<div style="font-size:12px;line-height:1.5;background:var(--s2);padding:10px;border-radius:8px;max-height:150px;overflow-y:auto">'+d.legifrance.content[0].text.substring(0,600)+'</div></div>';
+    }
+    if(d.jurisprudence&&d.jurisprudence.content&&d.jurisprudence.content[0]){
+      html+='<div style="margin-bottom:12px"><div style="font-size:11px;color:var(--t2);font-weight:600;margin-bottom:6px">JURISPRUDENCE</div>'
+        +'<div style="font-size:12px;line-height:1.5;background:var(--s2);padding:10px;border-radius:8px;max-height:150px;overflow-y:auto">'+d.jurisprudence.content[0].text.substring(0,500)+'</div></div>';
+    }
+    if(!html)html='<div style="color:var(--t2)">Aucun resultat.</div>';
+    html+='<button onclick="generateOpenLegiResponse()" class="btn btn-p" style="width:100%;margin-top:8px">Generer projet de reponse</button>';
+    document.getElementById('openlegi-result').innerHTML=html;
+  }catch(err){
+    document.getElementById('openlegi-result').innerHTML='<span style="color:var(--red)">'+err.message+'</span>';
+  }
+}
+
+async function generateOpenLegiResponse(){
+  const btn=document.querySelector('#openlegi-panel .btn-p');
+  if(btn){btn.disabled=true;btn.textContent='Generation...';}
+  const d=window._openlegiDoc||{};
+  const doc=window._openlegiDocData||{};
+  const refs=d.refs||{};
+  const parts=[];
+  if(refs.type_courrier)parts.push('Type : '+refs.type_courrier);
+  if(refs.delai_jours)parts.push('Delai : '+refs.delai_jours+' jours');
+  if(d.legifrance&&d.legifrance.content&&d.legifrance.content[0])parts.push('Textes : '+d.legifrance.content[0].text.substring(0,400));
+  if(d.jurisprudence&&d.jurisprudence.content&&d.jurisprudence.content[0])parts.push('Jurisprudence : '+d.jurisprudence.content[0].text.substring(0,300));
+  const ctx=parts.join('. ');
+  const res=await fetch('https://api.anthropic.com/v1/messages',{
+    method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,
+      messages:[{role:'user',content:'Tu es Julien Guiraud de SAS Living. Redige un courrier de reponse professionnel en francais. Document : '+doc.file_name+'. De : '+(doc.from_name||'inconnu')+'. Contexte : '+ctx+'. Commence par Madame, Monsieur,'}]})
+  });
+  const data=await res.json();
+  const reply=data.content&&data.content[0]?data.content[0].text:'';
+  const panel=document.getElementById('openlegi-panel');
+  if(panel&&reply){
+    const div=document.createElement('div');
+    div.style.cssText='margin-top:12px';
+    div.innerHTML='<div style="font-size:11px;color:var(--t2);font-weight:600;margin-bottom:6px">PROJET DE REPONSE</div>'
+      +'<textarea style="width:100%;min-height:180px;padding:10px;border:1px solid var(--b1);border-radius:8px;font-size:12px;font-family:Inter,sans-serif;resize:vertical">'+reply+'</textarea>'
+      +'<button onclick="navigator.clipboard.writeText(this.previousElementSibling.value);toast(\'Copie!\')" class="btn btn-g" style="width:100%;margin-top:6px;font-size:12px">Copier</button>';
+    panel.appendChild(div);
+  }
+  if(btn){btn.disabled=false;btn.textContent='Generer projet de reponse';}
+}
+
 function showGED(){
   setViews('v-ged');
   document.getElementById('ptabs').style.display='none';
@@ -3611,7 +3697,7 @@ async function loadGEDList(){
         +'<td style="text-align:right;font-family:monospace;font-size:11px;color:var(--red)">'+(d.amount?Math.round(d.amount).toLocaleString('fr-FR')+' €':'—')+'</td>'
         +'<td><span style="font-size:11px;font-weight:500;color:'+actionColor+'">'+actionLabel+'</span>'+(d.deadline_date?'<span style="font-size:9px;color:var(--t2);display:block">⏰ '+d.deadline_date+'</span>':'')+'</td>'
         +'<td style="text-align:center">'+driveOk+'</td>'
-        +'<td><button onclick="deleteGEDDoc(\''+d.id+'\')" style="border:none;background:none;cursor:pointer;color:var(--t2);font-size:12px">✕</button></td>'
+        +'<td style="text-align:right"><button onclick="analyzeGEDOpenLegi(\\\''+d.id+'\\\')" style="border:none;background:none;cursor:pointer;font-size:14px" title="Analyser">⚖️</button>&nbsp;<button onclick="deleteGEDDoc(\\\''+d.id+'\\\')" style="border:none;background:none;cursor:pointer;color:var(--t2);font-size:12px">✕</button></td>\''
         +'</tr>';
     }).join('')
     +'</tbody></table>';
