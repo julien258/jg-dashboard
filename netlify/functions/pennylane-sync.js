@@ -6,7 +6,8 @@ export default async (req) => {
   const SOCIETIES = [
     { key: 'living',   label: 'SAS Living',   token: getToken('PENNYLANE_LIVING_TOKEN') },
     { key: 'sarl',     label: 'SARL Guiraud', token: getToken('PENNYLANE_SARL_TOKEN') },
-    { key: 'meulette', label: 'La Meulette',  token: getToken('PENNYLANE_MEULETTE_TOKEN') },
+    { key: 'meulette',     label: 'La Meulette',  token: getToken('PENNYLANE_MEULETTE_TOKEN') },
+    { key: 'real-gains',   label: 'Real Gains',   token: getToken('PENNYLANE_REALGAINS_TOKEN') },
   ];
 
   const url = new URL(req.url);

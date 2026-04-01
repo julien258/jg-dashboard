@@ -12,6 +12,7 @@ export default async (req) => {
     { key: 'sas-living',   token: process.env.PENNYLANE_LIVING_TOKEN },
     { key: 'sarl-guiraud', token: process.env.PENNYLANE_SARL_TOKEN },
     { key: 'meulette',     token: process.env.PENNYLANE_MEULETTE_TOKEN },
+    { key: 'real-gains',   token: process.env.PENNYLANE_REALGAINS_TOKEN },
   ];
 
   const url = new URL(req.url);
