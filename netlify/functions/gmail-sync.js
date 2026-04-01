@@ -44,26 +44,29 @@ async function getAccessToken(societe) {
   const refreshToken = process.env[account.token];
   if (!refreshToken) throw new Error(`Token manquant pour ${societe} (${account.token})`);
 
-  // Les tokens Gmail ont été générés via OAuth Playground
-  // Le Playground utilise toujours son propre client même quand on entre les nôtres
-  // On utilise donc GMAIL_CLIENT_ID/SECRET (le client Web qu'on a créé avec URI Playground)
-  const clientId = process.env.GMAIL_CLIENT_ID;
-  const clientSecret = process.env.GMAIL_CLIENT_SECRET;
+  // Essayer d'abord avec notre client Web (tokens générés avec nos credentials)
+  // Si ça échoue, essayer avec le client Desktop original (ancien GOOGLE_CLIENT_ID)
+  const candidates = [
+    { id: process.env.GMAIL_CLIENT_ID, secret: process.env.GMAIL_CLIENT_SECRET },
+    { id: process.env.GOOGLE_CLIENT_ID, secret: process.env.GOOGLE_CLIENT_SECRET },
+  ].filter(c => c.id && c.secret);
 
-  const res = await fetch(OAUTH_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({
-      client_id:     clientId,
-      client_secret: clientSecret,
-      refresh_token: refreshToken,
-      grant_type:    'refresh_token',
-      redirect_uri:  'urn:ietf:wg:oauth:2.0:oob',
-    }),
-  });
-  const data = await res.json();
-  if (!data.access_token) throw new Error('Token Google invalide: ' + (data.error_description || data.error));
-  return data.access_token;
+  for (const cred of candidates) {
+    const res = await fetch(OAUTH_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        client_id:     cred.id,
+        client_secret: cred.secret,
+        refresh_token: refreshToken,
+        grant_type:    'refresh_token',
+      }),
+    });
+    const data = await res.json();
+    if (data.access_token) return data.access_token;
+    console.log('Token attempt failed with client', cred.id?.substring(0,20), ':', data.error);
+  }
+  throw new Error('Token Google invalide : aucun client_id compatible');
 }
 
 async function gmailGet(accessToken, endpoint) {
