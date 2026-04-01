@@ -3314,16 +3314,7 @@ function renderCoPennylane(){
   if(!socData || socData.error || !socData.comptes?.length){ encart.style.display='none'; return; }
 
   encart.style.display='block';
-  // Dédoublonner par solde+nom, garder les comptes avec solde non nul en priorité
-  const comptesFiltres = socData.comptes.filter((c,i,arr) => {
-    if(c.solde === 0) {
-      // Garder quand même si c'est le seul compte ou si aucun autre avec même nom n'a un solde
-      const hasBetterVersion = arr.some((c2,j) => j!==i && c2.solde!==0);
-      return !hasBetterVersion;
-    }
-    return true;
-  });
-  grid.innerHTML = comptesFiltres.map(c => {
+  grid.innerHTML = socData.comptes.map(c => {
     const banque = c.banque && c.banque !== c.nom ? c.banque : null;
     const nom = c.nom || 'Compte';
     const iban = c.iban ? c.iban.substring(0,8)+'…'+c.iban.slice(-4) : null;
