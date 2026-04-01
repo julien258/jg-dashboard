@@ -3172,6 +3172,26 @@ async function generateOpenLegiResponse(){
   if(btn){btn.disabled=false;btn.textContent='Generer projet de reponse';}
 }
 
+
+async function syncDriveDoc(docId, fileName, companyId, docType, docDate){
+  // Récupérer le base64 depuis Supabase (ocr_data) ou demander à l'utilisateur
+  toast('⏳ Envoi sur Drive...');
+  const{data,error}=await sb.from('ged_documents').select('*').eq('id',docId).single();
+  if(error||!data){toast('Document introuvable');return;}
+  if(!data.base64_cache){
+    toast('⚠️ Fichier source non disponible — re-scannez le document');
+    return;
+  }
+  const res=await fetch('/api/ged-drive-sync',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({docId,base64:data.base64_cache,fileName:data.file_name,companyId:data.company_id,docType:data.doc_type,docDate:data.doc_date})
+  });
+  const d=await res.json();
+  if(d.ok){toast('✅ Document envoyé sur Drive');loadGEDList();}
+  else toast('Erreur Drive : '+d.error);
+}
+
 function showGED(){
   setViews('v-ged');
   document.getElementById('ptabs').style.display='none';
@@ -3697,7 +3717,7 @@ async function loadGEDList(){
         +'<td style="text-align:right;font-family:monospace;font-size:11px;color:var(--red)">'+(d.amount?Math.round(d.amount).toLocaleString('fr-FR')+' €':'—')+'</td>'
         +'<td><span style="font-size:11px;font-weight:500;color:'+actionColor+'">'+actionLabel+'</span>'+(d.deadline_date?'<span style="font-size:9px;color:var(--t2);display:block">⏰ '+d.deadline_date+'</span>':'')+'</td>'
         +'<td style="text-align:center">'+driveOk+'</td>'
-        +'<td style="text-align:right"><button onclick="analyzeGEDOpenLegi(\\\''+d.id+'\\\')" style="border:none;background:none;cursor:pointer;font-size:14px" title="Analyser">⚖️</button>&nbsp;<button onclick="deleteGEDDoc(\\\''+d.id+'\\\')" style="border:none;background:none;cursor:pointer;color:var(--t2);font-size:12px">✕</button></td>\''
+        +'<td style="text-align:right">'+(d.drive_url?'':'<button onclick="syncDriveDoc('+"'"+d.id+"','"+d.file_name+"','"+d.company_id+"','"+d.doc_type+"','"+d.doc_date+"'"+')\" style=\"border:none;background:none;cursor:pointer;font-size:14px\" title=\"Envoyer sur Drive\">☁️</button> ')+'<button onclick=\"analyzeGEDOpenLegi(\\\''+d.id+'\\\')" style="border:none;background:none;cursor:pointer;font-size:14px" title="Analyser">⚖️</button>&nbsp;<button onclick="deleteGEDDoc(\\\''+d.id+'\\\')" style="border:none;background:none;cursor:pointer;color:var(--t2);font-size:12px">✕</button></td>\''
         +'</tr>';
     }).join('')
     +'</tbody></table>';

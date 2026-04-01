@@ -188,9 +188,11 @@ export default async (req) => {
     const finalCompany = ocr?.company_id || companyId;
     const finalType    = ocr?.doc_type    || docType || 'autre';
 
-    // 4. Upload Drive
+    // 4. Upload Drive (tentative — non bloquant)
+    // Le document est d'abord inséré en Supabase, Drive est optionnel
     let driveUrl = null;
     let driveFileId = null;
+    let driveError = null;
     const rootId = DRIVE_ROOTS[finalCompany];
 
     if (rootId) {
@@ -198,21 +200,19 @@ export default async (req) => {
         const accessToken = await getGoogleToken();
         const subFolderName = TYPE_FOLDER[finalType] || 'Comptabilité';
         const year = (ocr?.doc_date || new Date().toISOString()).substring(0, 4);
-
-        // Créer/trouver : RACINE → Sous-dossier → Année
         const subFolderId  = await findOrCreateFolder(accessToken, rootId, subFolderName);
         const yearFolderId = await findOrCreateFolder(accessToken, subFolderId, year);
-
         const uploaded = await uploadToDrive(accessToken, yearFolderId, normalizedName, base64);
         driveUrl    = uploaded.webViewLink || null;
         driveFileId = uploaded.id || null;
       } catch (driveErr) {
-        console.error('Drive upload error:', driveErr.message);
-        // On continue même si Drive échoue — les métadonnées Supabase sont sauvegardées
+        driveError = driveErr.message;
+        console.error('Drive upload error (non-bloquant):', driveErr.message);
       }
     }
 
     // 5. Retourner tout pour que le dashboard insère dans Supabase
+    // drive_pending=true si Drive a échoué — le dashboard peut réessayer via /api/ged-drive-sync
     return new Response(JSON.stringify({
       ok: true,
       normalized_name: normalizedName,
@@ -228,6 +228,8 @@ export default async (req) => {
       action_notes:    ocr?.action_notes    || null,
       deadline_date:   ocr?.deadline_date   || null,
       ocr_raw:     ocr,
+      drive_pending: !driveUrl,
+      drive_error:   driveError,
     }), { headers: H });
 
   } catch (e) {
