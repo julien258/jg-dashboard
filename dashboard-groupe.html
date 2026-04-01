@@ -2160,7 +2160,7 @@ const companies=[
    kpis:[
      {l:'Mgmt fees reçus',v:'21 000 €/m',c:'p',s:'De SAS Living'},
      {l:'Net perso cible',v:'10 000 €/m',c:'p',s:'Après charges'},
-     {l:'URSSAF à solder',v:'90 913 €',c:'n',s:'Provision 9 078€/m'},
+     {l:'URSSAF à solder',v:'162 689 €',c:'n',s:'Plan 18m · 9 038€/m'},
      {l:'Dettes fiscales',v:'183 281 €',c:'n',s:'IR + IS à régler'},
      {l:'Dividendes prévus',v:'300 000 €',c:'p',s:'Flat tax 30%'}
    ]},
@@ -5278,15 +5278,18 @@ async function loadTresoChart(){
 
   // KPIs — vision groupe consolidée (pas de retraitement intra-groupe)
   // Revenus = CRM toutes sociétés + placements + cessions patrimoine (actifs en_vente)
-  // Total forecasts (coupons CGW + FCR) filtrés sur les 12 mois affichés
+  // Total forecasts filtrés sur les 12 mois affichés
+  // IMPORTANT : exclure type 'trailing' et 'coupon' — déjà comptés dans revenusTrailing→revenusParSoc
   const totalForecasts12=(window._tresoForecasts||[]).filter(f=>{
     if(!f.month_label||!Number(f.amount))return false;
+    if(f.type==='trailing'||f.type==='coupon')return false; // déjà dans revenusTrailing
     return months.some(m=>{
       const mKey=m.getFullYear()+'-'+(m.getMonth()<9?'0':'')+(m.getMonth()+1);
       return f.month_label===mKey;
     });
   }).reduce((s,f)=>s+Math.round(Number(f.amount)*Number(f.probability||100)/100),0);
-  const totalRevenus12=Object.values(revenusParSoc).flat().reduce((s,v)=>s+v,0)+revenusPlac.reduce((s,v)=>s+v,0)+encaissements.reduce((s,v)=>s+v,0)+totalForecasts12;
+  // encaissements déjà ajoutés dans revenusParSoc['sas-living'] ligne ci-dessus — ne pas re-sommer
+  const totalRevenus12=Object.values(revenusParSoc).flat().reduce((s,v)=>s+v,0)+revenusPlac.reduce((s,v)=>s+v,0)+totalForecasts12;
 
   // Charges = dettes PRO + dettes PERSO + payables + charges fixes + TVA
   // (depenses contient déjà tout ça sauf les dettes perso)
