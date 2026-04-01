@@ -69,7 +69,11 @@ export default async (req) => {
 
   try {
     const url    = new URL(req.url);
-    const action = url.searchParams.get('action') || (req.method === 'POST' ? (await req.json()).action : null);
+    let body = {};
+    if (req.method === 'POST') {
+      try { body = await req.json(); } catch {}
+    }
+    const action = url.searchParams.get('action') || body.action;
 
     let service  = 'legifrance';
     let toolName = '';
@@ -112,8 +116,6 @@ export default async (req) => {
       };
     } else if (action === 'analyze_document') {
       // Analyse d'un texte OCR — on extrait les références légales et on recherche
-      let body;
-      if (req.method === 'POST') body = await req.json();
       const text = body?.text || url.searchParams.get('text') || '';
 
       // Extraction des références via Claude

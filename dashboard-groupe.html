@@ -3178,15 +3178,10 @@ async function syncDriveDoc(docId, fileName, companyId, docType, docDate){
   toast('⏳ Envoi sur Drive...');
   const{data,error}=await sb.from('ged_documents').select('*').eq('id',docId).single();
   if(error||!data){toast('Document introuvable');return;}
-  if(!data.base64_cache){
-    toast('⚠️ Fichier source non disponible — re-scannez le document');
-    return;
-  }
-  const res=await fetch('/api/ged-drive-sync',{
-    method:'POST',
-    headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({docId,base64:data.base64_cache,fileName:data.file_name,companyId:data.company_id,docType:data.doc_type,docDate:data.doc_date})
-  });
+  // Le base64 n'est pas stocké en Supabase (trop lourd)
+  // Pour envoyer sur Drive, il faut re-uploader le fichier
+  toast('⚠️ Pour envoyer sur Drive, re-déposez le document dans la GED');
+  return;
   const d=await res.json();
   if(d.ok){toast('✅ Document envoyé sur Drive');loadGEDList();}
   else toast('Erreur Drive : '+d.error);
