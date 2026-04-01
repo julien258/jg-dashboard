@@ -5278,18 +5278,8 @@ async function loadTresoChart(){
 
   // KPIs — vision groupe consolidée (pas de retraitement intra-groupe)
   // Revenus = CRM toutes sociétés + placements + cessions patrimoine (actifs en_vente)
-  // Total forecasts filtrés sur les 12 mois affichés
-  // IMPORTANT : exclure type 'trailing' et 'coupon' — déjà comptés dans revenusTrailing→revenusParSoc
-  const totalForecasts12=(window._tresoForecasts||[]).filter(f=>{
-    if(!f.month_label||!Number(f.amount))return false;
-    if(f.type==='trailing'||f.type==='coupon')return false; // déjà dans revenusTrailing
-    return months.some(m=>{
-      const mKey=m.getFullYear()+'-'+(m.getMonth()<9?'0':'')+(m.getMonth()+1);
-      return f.month_label===mKey;
-    });
-  }).reduce((s,f)=>s+Math.round(Number(f.amount)*Number(f.probability||100)/100),0);
-  // encaissements déjà ajoutés dans revenusParSoc['sas-living'] ligne ci-dessus — ne pas re-sommer
-  const totalRevenus12=Object.values(revenusParSoc).flat().reduce((s,v)=>s+v,0)+revenusPlac.reduce((s,v)=>s+v,0)+totalForecasts12;
+  // Les coupons CGW sont déjà dans revenusParSoc via revenusTrailing — ne pas re-sommer les forecasts
+  const totalRevenus12=Object.values(revenusParSoc).flat().reduce((s,v)=>s+v,0)+revenusPlac.reduce((s,v)=>s+v,0);
 
   // Charges = dettes PRO + dettes PERSO + payables + charges fixes + TVA
   // (depenses contient déjà tout ça sauf les dettes perso)
