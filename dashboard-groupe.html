@@ -3127,11 +3127,11 @@ async function analyzeGEDOpenLegi(docId){
     }
     if(d.legifrance&&d.legifrance.content&&d.legifrance.content[0]){
       html+='<div style="margin-bottom:12px"><div style="font-size:11px;color:var(--t2);font-weight:600;margin-bottom:6px">TEXTES LEGAUX</div>'
-        +'<div style="font-size:12px;line-height:1.5;background:var(--s2);padding:10px;border-radius:8px;max-height:150px;overflow-y:auto">'+d.legifrance.content[0].text.substring(0,600)+'</div></div>';
+        +'<div style="font-size:12px;line-height:1.5;background:var(--s2);padding:10px;border-radius:8px;max-height:150px;overflow-y:auto">'+(d.legifrance.content[0].text||'').toString().substring(0,600)+'</div></div>';
     }
     if(d.jurisprudence&&d.jurisprudence.content&&d.jurisprudence.content[0]){
       html+='<div style="margin-bottom:12px"><div style="font-size:11px;color:var(--t2);font-weight:600;margin-bottom:6px">JURISPRUDENCE</div>'
-        +'<div style="font-size:12px;line-height:1.5;background:var(--s2);padding:10px;border-radius:8px;max-height:150px;overflow-y:auto">'+d.jurisprudence.content[0].text.substring(0,500)+'</div></div>';
+        +'<div style="font-size:12px;line-height:1.5;background:var(--s2);padding:10px;border-radius:8px;max-height:150px;overflow-y:auto">'+(d.jurisprudence.content[0].text||'').toString().substring(0,500)+'</div></div>';
     }
     if(!html)html='<div style="color:var(--t2)">Aucun resultat.</div>';
     html+='<button onclick="generateOpenLegiResponse()" class="btn btn-p" style="width:100%;margin-top:8px">Generer projet de reponse</button>';
@@ -3150,8 +3150,8 @@ async function generateOpenLegiResponse(){
   const parts=[];
   if(refs.type_courrier)parts.push('Type : '+refs.type_courrier);
   if(refs.delai_jours)parts.push('Delai : '+refs.delai_jours+' jours');
-  if(d.legifrance&&d.legifrance.content&&d.legifrance.content[0])parts.push('Textes : '+d.legifrance.content[0].text.substring(0,400));
-  if(d.jurisprudence&&d.jurisprudence.content&&d.jurisprudence.content[0])parts.push('Jurisprudence : '+d.jurisprudence.content[0].text.substring(0,300));
+  if(d.legifrance&&d.legifrance.content&&d.legifrance.content[0])parts.push('Textes : '+(d.legifrance.content[0].text||'').toString().substring(0,400));
+  if(d.jurisprudence&&d.jurisprudence.content&&d.jurisprudence.content[0])parts.push('Jurisprudence : '+(d.jurisprudence.content[0].text||'').toString().substring(0,300));
   const ctx=parts.join('. ');
   const res=await fetch('https://api.anthropic.com/v1/messages',{
     method:'POST',headers:{'Content-Type':'application/json'},
@@ -3729,7 +3729,7 @@ async function loadGEDList(){
         +'<td style="text-align:right;font-family:monospace;font-size:11px;color:var(--red)">'+(d.amount?Math.round(d.amount).toLocaleString('fr-FR')+' €':'—')+'</td>'
         +'<td><span style="font-size:11px;font-weight:500;color:'+actionColor+'">'+actionLabel+'</span>'+(d.deadline_date?'<span style="font-size:9px;color:var(--t2);display:block">⏰ '+d.deadline_date+'</span>':'')+'</td>'
         +'<td style="text-align:center">'+driveOk+'</td>'
-        +'<td style="text-align:right">'+(d.drive_url?'':'<button onclick="syncDriveDoc('+"'"+d.id+"','"+d.file_name+"','"+d.company_id+"','"+d.doc_type+"','"+d.doc_date+"'"+')\" style=\"border:none;background:none;cursor:pointer;font-size:14px\" title=\"Envoyer sur Drive\">☁️</button> ')+'<button onclick=\"analyzeGEDOpenLegi(\\\''+d.id+'\\\')" style="border:none;background:none;cursor:pointer;font-size:14px" title="Analyser">⚖️</button>&nbsp;<button onclick="deleteGEDDoc(\\\''+d.id+'\\\')" style="border:none;background:none;cursor:pointer;color:var(--t2);font-size:12px">✕</button></td>\''
+        +'<td style="text-align:right">'+(d.drive_url?'':("<button onclick=\"syncDriveDoc('"+(d.id)+"','"+(d.file_name)+"','"+(d.company_id)+"','"+(d.doc_type)+"','"+(d.doc_date)+"')\" style=\"border:none;background:none;cursor:pointer;font-size:14px\" title=\"Drive\">☁️</button> "))+("<button onclick=\"analyzeGEDOpenLegi('"+(d.id)+"')\" style=\"border:none;background:none;cursor:pointer;font-size:14px\" title=\"Legifrance\">⚖️</button> ")+("<button onclick=\"deleteGEDDoc('"+(d.id)+"')\" style=\"border:none;background:none;cursor:pointer;color:var(--t2);font-size:12px\">✕</button>")+'</td>'
         +'</tr>';
     }).join('')
     +'</tbody></table>';

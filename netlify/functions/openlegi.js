@@ -172,7 +172,10 @@ Courrier : ${text.substring(0, 2000)}`
     // Appel MCP standard
     const { sessionId, endpoint } = await initSession(service, token);
     const result = await callTool(endpoint, sessionId, token, toolName, args);
-    const text = result?.content?.[0]?.text || JSON.stringify(result);
+    // Le contenu MCP peut être string ou objet {type, text}
+  const rawContent = result?.content?.[0];
+  const text = (typeof rawContent === 'string' ? rawContent 
+    : rawContent?.text || JSON.stringify(result));
 
     return Response.json({ ok: true, text, raw: result });
 
