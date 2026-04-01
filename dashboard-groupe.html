@@ -3100,7 +3100,7 @@ async function analyzeGEDOpenLegi(docId){
   }
   panel.innerHTML='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">'
     +'<div style="font-size:14px;font-weight:600">\u2696\uFE0F Analyse Legifrance</div>'
-    +'<button onclick="document.getElementById(\'openlegi-panel\').remove()" style="border:none;background:none;cursor:pointer;font-size:18px">\u2715</button>'
+    +'<button onclick="document.getElementById(\'openlegi-panel\').remove()" style="border:none;background:none;cursor:pointer;font-size:18px">✕</button>'
     +'</div>'
     +'<div style="font-size:12px;color:var(--t2);margin-bottom:1rem">\uD83D\uDCC4 '+data.file_name+'</div>'
     +'<div id="openlegi-result" style="font-size:13px;color:var(--t2)"><span class="spin"></span> Analyse...</div>';
@@ -3602,7 +3602,7 @@ async function saveGEDDocument(){
         amount:     result.amount||parseFloat(document.getElementById('ged-docmount')?.value)||null,
         from_name:  result.from_name||document.getElementById('ged-docfrom')?.value||null,
         file_name:  result.normalized_name||file.name,
-        file_url:   result.drive_url||null,
+        file_url:   result.file_url||result.drive_url||null,
         drive_url:  result.drive_url||null,
         status:     actionRequired?'action_requise':'actif',
         ocr_data:   result.ocr_raw||null,
