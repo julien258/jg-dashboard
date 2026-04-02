@@ -1079,14 +1079,21 @@ async function renderApurPerso(){
   // Calcul du total mensuel dû ce mois
   let totalMois=0;
   const rows=dettes.map(d=>{
-    // Vérifier si la dette est active ce mois
-    const freq={monthly:1,quarterly:3,annual:12}[d.frequency]||1;
-    const montant=Number(d.monthly_amount||0);
-    const startM=d.start_date?new Date(d.start_date).getUTCMonth():0;
+    // Vérifier si la dette est active ce mois — même logique que dettesMois12
+    const tY=target.getFullYear(), tM=target.getMonth();
     let dueCeMois=false;
-    if(d.frequency==='monthly')dueCeMois=true;
-    else if(d.frequency==='quarterly')dueCeMois=(target.getMonth()-startM+12)%3===0;
-    else if(d.frequency==='annual')dueCeMois=target.getMonth()===startM;
+    if(d.frequency==='monthly'){
+      let ok=true;
+      if(d.start_date){const s=new Date(d.start_date);if(tY<s.getUTCFullYear()||(tY===s.getUTCFullYear()&&tM<s.getUTCMonth()))ok=false;}
+      if(d.end_date){const e=new Date(d.end_date);if(tY>e.getUTCFullYear()||(tY===e.getUTCFullYear()&&tM>e.getUTCMonth()))ok=false;}
+      dueCeMois=ok;
+    } else if(d.frequency==='quarterly'){
+      const startM=d.start_date?new Date(d.start_date).getUTCMonth():0;
+      dueCeMois=(tM-startM+12)%3===0;
+    } else if(d.frequency==='annual'){
+      const startM=d.start_date?new Date(d.start_date).getUTCMonth():0;
+      dueCeMois=tM===startM;
+    }
     if(!dueCeMois)return null;
 
     totalMois+=montant;
