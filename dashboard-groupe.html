@@ -1485,27 +1485,23 @@
       <!-- Colonne droite : contenu thread -->
       <div id="mail-thread-panel" style="flex:1;background:var(--s1);border:1px solid var(--b1);border-radius:10px;overflow:hidden;display:flex;flex-direction:column">
 
-        <!-- Placeholder (aucun mail sélectionné) -->
+        <!-- Placeholder -->
         <div id="mail-thread-placeholder" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--t2);gap:8px">
           <div style="font-size:32px">📧</div>
           <div style="font-size:13px">Sélectionnez un mail pour lire son contenu</div>
         </div>
 
-        <!-- Contenu thread (caché jusqu'à sélection) -->
+        <!-- Contenu thread -->
         <div id="mail-thread-inner" style="display:none;flex:1;flex-direction:column;overflow:hidden">
-          <!-- Header -->
           <div style="padding:1rem 1.25rem;border-bottom:1px solid var(--b1);display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-shrink:0">
             <div style="font-size:14px;font-weight:600;flex:1;line-height:1.4" id="mail-thread-subject"></div>
           </div>
-          <!-- Body scrollable -->
           <div id="mail-thread-content" style="flex:1;overflow-y:auto;padding:1rem 1.25rem;font-size:13px;line-height:1.6"></div>
-          <!-- Actions -->
           <div style="padding:0.75rem 1.25rem;border-top:1px solid var(--b1);display:flex;gap:8px;flex-wrap:wrap;flex-shrink:0;background:var(--s1)">
             <button class="btn btn-p btn-sm" onclick="replyMailAI()" id="btn-reply-ai">✨ Générer réponse IA</button>
             <button class="btn btn-g btn-sm" onclick="archiveMailGED()">📂 Archiver en GED</button>
             <button class="btn btn-g btn-sm" onclick="createTodoFromMail()">✅ Créer todo</button>
           </div>
-          <!-- Zone réponse -->
           <div id="mail-reply-draft" style="display:none;padding:0 1.25rem 1rem">
             <textarea id="mail-reply-text" style="width:100%;min-height:120px;padding:10px;border:1px solid var(--b1);border-radius:7px;font-size:13px;font-family:Inter,sans-serif;resize:vertical;box-sizing:border-box"></textarea>
             <div style="display:flex;gap:8px;margin-top:8px">
@@ -3039,41 +3035,32 @@ function renderMails(msgs){
           '<button onclick="setMailStatut(\''+m.id+'\',\''+m.threadId+'\',\''+_currentMailSociete+'\',this.closest(\'[id^=mail-card]\').querySelector(\'div>div>div\').textContent,\''+fromEmail+'\',\''+fromName+'\',\''+k+'\',event)" style="font-size:10px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;padding:2px 8px;cursor:pointer;color:var(--t2)">'+v.label+'</button>'
         ).join('')
         +'<button onclick="blacklistSender(\''+m.from.replace(/'/g,"\\'").replace(/"/g,'&quot;')+'\',event)" style="font-size:10px;background:var(--rdd);border:1px solid var(--red);border-radius:8px;padding:2px 8px;cursor:pointer;color:var(--red)">🚫 Bloquer</button>'
-        +(m.hasAttachment?'<button onclick="const d=window[\'_mt_mail-'+i+'\'];openMailThread(d.t,d.s,d.soc)" style="font-size:10px;background:var(--acd);border:1px solid var(--acc);border-radius:8px;padding:2px 8px;cursor:pointer;color:var(--acc)">📎 → Drive</button>':'')
+        +(m.hasAttachment?'<button onclick="const d=window[\'_mt_mail-'+i+'\'];openMailThread(d.t,d.s)" style="font-size:10px;background:var(--acd);border:1px solid var(--acc);border-radius:8px;padding:2px 8px;cursor:pointer;color:var(--acc)">📎 → Drive</button>':'')
       +'</div>'
     +'</div>';
   }).join('');
 }
 
 async function openMailThread(threadId,subject,societe){
-  // Bug fix: si societe='all' ou absent, utiliser la société stockée dans le message
   const effectiveSociete=(societe&&societe!=='all')?societe:(_currentMailSociete!=='all'?_currentMailSociete:'sas-living');
   _currentMailSociete=effectiveSociete;
-
   const inner=document.getElementById('mail-thread-inner');
   const placeholder=document.getElementById('mail-thread-placeholder');
   const subEl=document.getElementById('mail-thread-subject');
   const contentEl=document.getElementById('mail-thread-content');
   if(!inner)return;
-
-  // Afficher le panneau inner, cacher le placeholder
   if(placeholder)placeholder.style.display='none';
   inner.style.display='flex';
-
   if(subEl)subEl.textContent=subject;
   if(contentEl)contentEl.innerHTML='<div style="text-align:center;padding:2rem;color:var(--t2)"><span class="spin"></span> Chargement...</div>';
   window._currentThreadId=threadId;
   window._currentThreadSubject=subject;
-
-  // Surligner le mail sélectionné dans la liste
   document.querySelectorAll('[id^=mail-card-]').forEach(el=>el.style.outline='');
   const found=_mailData.find(m=>m.threadId===threadId);
   if(found){const card=document.getElementById('mail-card-'+found.id);if(card)card.style.outline='2px solid var(--acc)';}
-
   const res=await fetch('/api/gmail-sync?societe='+effectiveSociete+'&action=thread&threadId='+threadId);
   const data=await res.json();
   if(!data.ok){if(contentEl)contentEl.innerHTML='<div style="color:var(--red);padding:1rem">⚠️ Erreur : '+data.error+'</div>';return;}
-
   _currentThread=data.thread||[];
   if(contentEl)contentEl.innerHTML=_currentThread.map((msg,i)=>{
     const isHTML=/<[a-z][\s\S]*>/i.test(msg.body||'');
@@ -3084,14 +3071,14 @@ async function openMailThread(threadId,subject,societe){
           return '<span style="font-size:11px;background:var(--acd);color:var(--acc);padding:3px 8px;border-radius:5px;margin-right:6px;cursor:pointer" onclick="const x=window[\'_att_'+msg.id+'_'+ai+'\'];archiveAttachment(x.mid,x.aid,x.fn)">📎 '+a.name+'</span>';
         }).join('')+'</div>'
       :'';
-    return '<div style="'+(i>0?'border-top:1px solid var(--b1);padding-top:14px;margin-top:14px':'')+'">'+
-      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">'+
-        '<div style="font-size:12px;color:var(--t2)"><strong style="color:var(--t1)">'+msg.from+'</strong></div>'+
-        '<div style="font-size:11px;color:var(--t2)">'+msg.date+'</div>'+
-      '</div>'+
-      '<div style="font-size:13px;color:var(--t1);line-height:1.6">'+bodyHtml+'</div>'+
-      attachHtml+
-    '</div>';
+    return '<div style="'+(i>0?'border-top:1px solid var(--b1);padding-top:14px;margin-top:14px':'')+'">'
+      +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">'
+        +'<div style="font-size:12px;color:var(--t2)"><strong style="color:var(--t1)">'+msg.from+'</strong></div>'
+        +'<div style="font-size:11px;color:var(--t2)">'+msg.date+'</div>'
+      +'</div>'
+      +'<div style="font-size:13px;color:var(--t1);line-height:1.6">'+bodyHtml+'</div>'
+      +attachHtml
+    +'</div>';
   }).join('');
   document.getElementById('mail-reply-draft').style.display='none';
   const replyBtn=document.getElementById('btn-reply-ai');
@@ -3220,6 +3207,97 @@ async function createTodoFromMail(){
 
 
 // ===== OPENLEGI =====
+async function analyzeRisks(docId){
+  const {data,error}=await sb.from('ged_documents').select('*').eq('id',docId).single();
+  if(error||!data){toast('Document introuvable');return;}
+  let panel=document.getElementById('openlegi-panel');
+  if(!panel){
+    panel=document.createElement('div');
+    panel.id='openlegi-panel';
+    panel.style.cssText='position:fixed;right:20px;top:80px;width:460px;max-height:82vh;overflow-y:auto;background:var(--s1);border:1px solid var(--grn);border-radius:12px;padding:1.5rem;z-index:9999;box-shadow:0 8px 32px rgba(0,0,0,0.3)';
+    document.body.appendChild(panel);
+  }
+  panel.innerHTML='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">'
+    +'<div style="font-size:14px;font-weight:600">🔍 Analyse risques & alertes</div>'
+    +'<button onclick="document.getElementById(\'openlegi-panel\').remove()" style="border:none;background:none;cursor:pointer;font-size:18px">✕</button>'
+    +'</div>'
+    +'<div style="font-size:12px;color:var(--t2);margin-bottom:1rem">📄 '+data.file_name+'</div>'
+    +'<div id="openlegi-result" style="font-size:13px;color:var(--t2)"><span class="spin"></span> Analyse en cours...</div>';
+
+  const docText=String(data.ocr_data||data.from_name+' '+data.file_name).substring(0,3000);
+  const context='Contexte Julien Guiraud :\n- Président SAS LIVING (Toulouse) : CIF/IOBSP, courtage LLD, distribution dette privée CGW/Manhattan PCM\n- SARL GUIRAUD JULIEN : holding personnelle\n- SCI La Meulette : patrimoine immobilier (maison Fronsac, Gironde)\n- Projets : FCR Autos (fonds véhicules prestige 25%), PFC Group/clinique luxe (≥45%), Monikaza (obligations cross-border)\n- Vigilances : clauses de solidarité, garanties personnelles, clauses résolutoires, délais rétractation, conditions suspensives';
+
+  try{
+    const res=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        model:'claude-sonnet-4-20250514',max_tokens:1500,
+        messages:[{role:'user',content:'Tu es l\'assistant juridique de Julien Guiraud. Analyse ce document et réponds UNIQUEMENT en JSON strict sans markdown :\n{"type_document":"...","resume":"2 phrases max","risques":[{"niveau":"CRITIQUE|ATTENTION|INFO","titre":"...","detail":"..."}],"points_negociation":["..."],"actions_urgentes":["..."],"score_risque":0}\nscore_risque de 0 (aucun risque) à 100 (très risqué).\n\n'+context+'\n\nDocument :\n'+docText}]
+      })
+    });
+    const apiData=await res.json();
+    const raw=apiData.content&&apiData.content[0]?apiData.content[0].text:'{}';
+    let r={};
+    try{r=JSON.parse(raw.replace(/```json|```/g,'').trim());}catch(e){
+      document.getElementById('openlegi-result').innerHTML='<div style="color:var(--red)">Erreur parsing : '+e.message+'</div>';return;
+    }
+    const scoreColor=r.score_risque>70?'var(--red)':r.score_risque>40?'var(--amb)':'var(--grn)';
+    const niveauColor={'CRITIQUE':'var(--red)','ATTENTION':'var(--amb)','INFO':'var(--acc)'};
+    let html='<div style="display:flex;align-items:center;gap:12px;background:var(--s2);border-radius:8px;padding:10px;margin-bottom:14px">'
+      +'<div style="flex:1;font-size:11px;color:var(--t2)"><strong style="color:var(--t1);font-size:13px">'+(r.type_document||'Document')+'</strong><br>'+(r.resume||'')+'</div>'
+      +'<div style="flex-shrink:0;text-align:center"><div style="font-size:22px;font-weight:700;color:'+scoreColor+'">'+(r.score_risque||0)+'</div><div style="font-size:9px;color:var(--t2)">/ 100</div></div>'
+      +'</div>';
+    if(r.risques&&r.risques.length){
+      html+='<div style="margin-bottom:12px"><div style="font-size:11px;color:var(--t2);font-weight:600;margin-bottom:8px">RISQUES IDENTIFIÉS</div>'
+        +r.risques.map(function(rv){
+          const c=niveauColor[rv.niveau]||'var(--acc)';
+          return '<div style="border-left:3px solid '+c+';padding:8px 10px;margin-bottom:6px;background:var(--s2);border-radius:0 6px 6px 0">'
+            +'<div style="font-size:11px;font-weight:600;color:'+c+'">'+rv.niveau+' — '+rv.titre+'</div>'
+            +'<div style="font-size:12px;color:var(--t1);margin-top:3px">'+rv.detail+'</div></div>';
+        }).join('')+'</div>';
+    }
+    if(r.points_negociation&&r.points_negociation.length){
+      html+='<div style="margin-bottom:12px"><div style="font-size:11px;color:var(--t2);font-weight:600;margin-bottom:6px">POINTS À NÉGOCIER</div>'
+        +r.points_negociation.map(function(p){return '<div style="font-size:12px;padding:4px 0;border-bottom:1px solid var(--b1)">• '+p+'</div>';}).join('')+'</div>';
+    }
+    if(r.actions_urgentes&&r.actions_urgentes.length){
+      html+='<div style="margin-bottom:12px"><div style="font-size:11px;color:var(--red);font-weight:600;margin-bottom:6px">ACTIONS URGENTES</div>'
+        +r.actions_urgentes.map(function(a){return '<div style="font-size:12px;padding:4px 0">🔴 '+a+'</div>';}).join('')+'</div>';
+    }
+    if(!r.risques||!r.risques.length)html+='<div style="color:var(--grn)">✅ Aucun risque majeur identifié.</div>';
+    html+='<button onclick="generateRisksResponse()" class="btn btn-p" style="width:100%;margin-top:10px">✍️ Générer courrier/réponse</button>';
+    window._risksDoc=r;window._risksDocData=data;
+    document.getElementById('openlegi-result').innerHTML=html;
+  }catch(err){
+    document.getElementById('openlegi-result').innerHTML='<span style="color:var(--red)">'+err.message+'</span>';
+  }
+}
+
+async function generateRisksResponse(){
+  const btn=document.querySelector('#openlegi-panel .btn-p');
+  if(btn){btn.disabled=true;btn.textContent='Génération...';}
+  const r=window._risksDoc||{};
+  const doc=window._risksDocData||{};
+  const ctx='Type : '+(r.type_document||'')+'. Risques : '+(r.risques||[]).map(function(x){return x.titre;}).join(', ')+'. Points à négocier : '+(r.points_negociation||[]).join(', ');
+  const res=await fetch('https://api.anthropic.com/v1/messages',{
+    method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1200,
+      messages:[{role:'user',content:'Tu es Julien Guiraud, président de SAS LIVING et SARL GUIRAUD JULIEN, Toulouse. Rédige un courrier professionnel en français tenant compte des risques. Document : '+doc.file_name+'. Contexte : '+ctx+'. Commence directement par Madame, Monsieur,'}]})
+  });
+  const apiData=await res.json();
+  const reply=apiData.content&&apiData.content[0]?apiData.content[0].text:'';
+  const panel=document.getElementById('openlegi-panel');
+  if(panel&&reply){
+    const div=document.createElement('div');
+    div.style.cssText='margin-top:12px';
+    div.innerHTML='<div style="font-size:11px;color:var(--t2);font-weight:600;margin-bottom:6px">PROJET DE COURRIER</div>'
+      +'<textarea style="width:100%;min-height:180px;padding:10px;border:1px solid var(--b1);border-radius:8px;font-size:12px;font-family:Inter,sans-serif;resize:vertical">'+reply+'</textarea>'
+      +'<button onclick="navigator.clipboard.writeText(this.previousElementSibling.value);toast(\'Copié !\')" class="btn btn-g" style="width:100%;margin-top:6px;font-size:12px">Copier</button>';
+    panel.appendChild(div);
+  }
+  if(btn){btn.disabled=false;btn.textContent='✍️ Générer courrier/réponse';}
+}
+
 async function analyzeGEDOpenLegi(docId){
   const {data,error}=await sb.from('ged_documents').select('*').eq('id',docId).single();
   if(error||!data){toast('Document introuvable');return;}
@@ -3861,7 +3939,7 @@ async function loadGEDList(){
         +'<td style="text-align:right;font-family:monospace;font-size:11px;color:var(--red)">'+(d.amount?Math.round(d.amount).toLocaleString('fr-FR')+' €':'—')+'</td>'
         +'<td><span style="font-size:11px;font-weight:500;color:'+actionColor+'">'+actionLabel+'</span>'+(d.deadline_date?'<span style="font-size:9px;color:var(--t2);display:block">⏰ '+d.deadline_date+'</span>':'')+'</td>'
         +'<td style="text-align:center">'+driveOk+'</td>'
-        +'<td style="text-align:right">'+(d.drive_url?'':("<button onclick=\"syncDriveDoc('"+(d.id)+"','"+(d.file_name)+"','"+(d.company_id)+"','"+(d.doc_type)+"','"+(d.doc_date)+"')\" style=\"border:none;background:none;cursor:pointer;font-size:14px\" title=\"Drive\">☁️</button> "))+("<button onclick=\"analyzeGEDOpenLegi('"+(d.id)+"')\" style=\"border:none;background:none;cursor:pointer;font-size:14px\" title=\"Legifrance\">⚖️</button> ")+("<button onclick=\"deleteGEDDoc('"+(d.id)+"')\" style=\"border:none;background:none;cursor:pointer;color:var(--t2);font-size:12px\">✕</button>")+'</td>'
+        +'<td style="text-align:right">'+(d.drive_url?'':("<button onclick=\"syncDriveDoc('"+(d.id)+"','"+(d.file_name)+"','"+(d.company_id)+"','"+(d.doc_type)+"','"+(d.doc_date)+"')\" style=\"border:none;background:none;cursor:pointer;font-size:14px\" title=\"Drive\">☁️</button> "))+("<button onclick=\"analyzeRisks('"+(d.id)+"')\" style=\"border:none;background:none;cursor:pointer;font-size:14px\" title=\"Analyse risques\">🔍</button> ")+("<button onclick=\"analyzeGEDOpenLegi('"+(d.id)+"')\" style=\"border:none;background:none;cursor:pointer;font-size:14px\" title=\"Analyse juridique\">⚖️</button> ")+("<button onclick=\"deleteGEDDoc('"+(d.id)+"')\" style=\"border:none;background:none;cursor:pointer;color:var(--t2);font-size:12px\">✕</button>")+'</td>'
         +'</tr>';
     }).join('')
     +'</tbody></table>';
