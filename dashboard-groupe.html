@@ -1474,29 +1474,49 @@
       <span id="mail-count" style="font-size:11px;color:var(--t2);align-self:center"></span>
     </div>
 
-    <!-- Thread panel -->
-    <div id="mail-thread-panel" style="display:none;background:var(--s1);border:1px solid var(--b1);border-radius:10px;padding:1.25rem;margin-bottom:1rem">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
-        <div style="font-size:14px;font-weight:600" id="mail-thread-subject"></div>
-        <button class="btn btn-g btn-sm" onclick="closeMailThread()">✕ Fermer</button>
+    <!-- Layout 2 colonnes : liste | thread -->
+    <div style="display:flex;gap:1rem;height:620px">
+
+      <!-- Colonne gauche : liste -->
+      <div style="flex:0 0 400px;overflow-y:auto;padding-right:2px" id="mail-list">
+        <div style="text-align:center;padding:3rem;color:var(--t2)"><span class="spin"></span> Chargement...</div>
       </div>
-      <div id="mail-thread-content" style="font-size:13px;line-height:1.6;max-height:400px;overflow-y:auto"></div>
-      <div style="display:flex;gap:8px;margin-top:1rem;flex-wrap:wrap">
-        <button class="btn btn-p btn-sm" onclick="replyMailAI()" id="btn-reply-ai">✨ Générer réponse IA</button>
-        <button class="btn btn-g btn-sm" onclick="archiveMailGED()">📂 Archiver en GED</button>
-        <button class="btn btn-g btn-sm" onclick="createTodoFromMail()">✅ Créer todo</button>
-      </div>
-      <div id="mail-reply-draft" style="display:none;margin-top:1rem">
-        <textarea id="mail-reply-text" style="width:100%;min-height:150px;padding:10px;border:1px solid var(--b1);border-radius:7px;font-size:13px;font-family:Inter,sans-serif;resize:vertical"></textarea>
-        <div style="display:flex;gap:8px;margin-top:8px">
-          <button class="btn btn-p btn-sm" onclick="saveDraftGmail()">💾 Sauver comme brouillon Gmail</button>
-          <button class="btn btn-g btn-sm" onclick="document.getElementById('mail-reply-draft').style.display='none'">Annuler</button>
+
+      <!-- Colonne droite : contenu thread -->
+      <div id="mail-thread-panel" style="flex:1;background:var(--s1);border:1px solid var(--b1);border-radius:10px;overflow:hidden;display:flex;flex-direction:column">
+
+        <!-- Placeholder (aucun mail sélectionné) -->
+        <div id="mail-thread-placeholder" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--t2);gap:8px">
+          <div style="font-size:32px">📧</div>
+          <div style="font-size:13px">Sélectionnez un mail pour lire son contenu</div>
         </div>
+
+        <!-- Contenu thread (caché jusqu'à sélection) -->
+        <div id="mail-thread-inner" style="display:none;flex:1;flex-direction:column;overflow:hidden">
+          <!-- Header -->
+          <div style="padding:1rem 1.25rem;border-bottom:1px solid var(--b1);display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-shrink:0">
+            <div style="font-size:14px;font-weight:600;flex:1;line-height:1.4" id="mail-thread-subject"></div>
+          </div>
+          <!-- Body scrollable -->
+          <div id="mail-thread-content" style="flex:1;overflow-y:auto;padding:1rem 1.25rem;font-size:13px;line-height:1.6"></div>
+          <!-- Actions -->
+          <div style="padding:0.75rem 1.25rem;border-top:1px solid var(--b1);display:flex;gap:8px;flex-wrap:wrap;flex-shrink:0;background:var(--s1)">
+            <button class="btn btn-p btn-sm" onclick="replyMailAI()" id="btn-reply-ai">✨ Générer réponse IA</button>
+            <button class="btn btn-g btn-sm" onclick="archiveMailGED()">📂 Archiver en GED</button>
+            <button class="btn btn-g btn-sm" onclick="createTodoFromMail()">✅ Créer todo</button>
+          </div>
+          <!-- Zone réponse -->
+          <div id="mail-reply-draft" style="display:none;padding:0 1.25rem 1rem">
+            <textarea id="mail-reply-text" style="width:100%;min-height:120px;padding:10px;border:1px solid var(--b1);border-radius:7px;font-size:13px;font-family:Inter,sans-serif;resize:vertical;box-sizing:border-box"></textarea>
+            <div style="display:flex;gap:8px;margin-top:8px">
+              <button class="btn btn-p btn-sm" onclick="saveDraftGmail()">💾 Sauver brouillon Gmail</button>
+              <button class="btn btn-g btn-sm" onclick="document.getElementById('mail-reply-draft').style.display='none'">Annuler</button>
+            </div>
+          </div>
+        </div>
+
       </div>
     </div>
-
-    <!-- Liste mails -->
-    <div id="mail-list"><div style="text-align:center;padding:3rem;color:var(--t2)"><span class="spin"></span> Chargement...</div></div>
   </div>
 
     <div class="pv cnt" id="v-ged">
@@ -2997,7 +3017,7 @@ function renderMails(msgs){
     window['_mt_mail-'+i]={t:m.threadId,s:m.subject,id:m.id,soc:m.societe||_currentMailSociete,fe:fromEmail,fn:fromName};
     return '<div id="mail-card-'+m.id+'" style="background:'+bg+';border:1px solid '+border+';border-radius:10px;padding:12px 14px;margin-bottom:8px">'
       // Ligne 1 : sujet + date + tag
-      +'<div onclick="const d=window[\'_mt_mail-'+i+'\'];openMailThread(d.t,d.s)" style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;cursor:pointer;margin-bottom:8px">'
+      +'<div onclick="const d=window[\'_mt_mail-'+i+'\'];openMailThread(d.t,d.s,d.soc)" style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;cursor:pointer;margin-bottom:8px">'
         +'<div style="flex:1;min-width:0">'
           +'<div style="font-size:13px;font-weight:600;color:var(--t1);margin-bottom:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+m.subject+'</div>'
           +'<div style="font-size:11px;color:var(--t2);margin-bottom:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+m.from+'</div>'
@@ -3011,7 +3031,7 @@ function renderMails(msgs){
         +'</div>'
       +'</div>'
       // Ligne 2 : snippet
-      +'<div style="font-size:12px;color:var(--t2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-bottom:8px;cursor:pointer" onclick="const d=window[\'_mt_mail-'+i+'\'];openMailThread(d.t,d.s)">'+m.snippet+'</div>'
+      +'<div style="font-size:12px;color:var(--t2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-bottom:8px;cursor:pointer" onclick="const d=window[\'_mt_mail-'+i+'\'];openMailThread(d.t,d.s,d.soc)">'+m.snippet+'</div>'
       // Ligne 3 : actions statuts + blacklist
       +'<div style="display:flex;gap:6px;flex-wrap:wrap" onclick="event.stopPropagation()">'
         +'<span style="font-size:10px;background:'+sc.bg+';color:'+sc.color+';padding:2px 8px;border-radius:8px;font-weight:500">'+sc.label+'</span>'
@@ -3019,40 +3039,72 @@ function renderMails(msgs){
           '<button onclick="setMailStatut(\''+m.id+'\',\''+m.threadId+'\',\''+_currentMailSociete+'\',this.closest(\'[id^=mail-card]\').querySelector(\'div>div>div\').textContent,\''+fromEmail+'\',\''+fromName+'\',\''+k+'\',event)" style="font-size:10px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;padding:2px 8px;cursor:pointer;color:var(--t2)">'+v.label+'</button>'
         ).join('')
         +'<button onclick="blacklistSender(\''+m.from.replace(/'/g,"\\'").replace(/"/g,'&quot;')+'\',event)" style="font-size:10px;background:var(--rdd);border:1px solid var(--red);border-radius:8px;padding:2px 8px;cursor:pointer;color:var(--red)">🚫 Bloquer</button>'
-        +(m.hasAttachment?'<button onclick="const d=window[\'_mt_mail-'+i+'\'];openMailThread(d.t,d.s)" style="font-size:10px;background:var(--acd);border:1px solid var(--acc);border-radius:8px;padding:2px 8px;cursor:pointer;color:var(--acc)">📎 → Drive</button>':'')
+        +(m.hasAttachment?'<button onclick="const d=window[\'_mt_mail-'+i+'\'];openMailThread(d.t,d.s,d.soc)" style="font-size:10px;background:var(--acd);border:1px solid var(--acc);border-radius:8px;padding:2px 8px;cursor:pointer;color:var(--acc)">📎 → Drive</button>':'')
       +'</div>'
     +'</div>';
   }).join('');
 }
 
-async function openMailThread(threadId,subject){
-  const panel=document.getElementById('mail-thread-panel');
+async function openMailThread(threadId,subject,societe){
+  // Bug fix: si societe='all' ou absent, utiliser la société stockée dans le message
+  const effectiveSociete=(societe&&societe!=='all')?societe:(_currentMailSociete!=='all'?_currentMailSociete:'sas-living');
+  _currentMailSociete=effectiveSociete;
+
+  const inner=document.getElementById('mail-thread-inner');
+  const placeholder=document.getElementById('mail-thread-placeholder');
   const subEl=document.getElementById('mail-thread-subject');
   const contentEl=document.getElementById('mail-thread-content');
-  if(!panel)return;
-  panel.style.display='block';
+  if(!inner)return;
+
+  // Afficher le panneau inner, cacher le placeholder
+  if(placeholder)placeholder.style.display='none';
+  inner.style.display='flex';
+
   if(subEl)subEl.textContent=subject;
-  if(contentEl)contentEl.innerHTML='<span class="spin"></span> Chargement...';
+  if(contentEl)contentEl.innerHTML='<div style="text-align:center;padding:2rem;color:var(--t2)"><span class="spin"></span> Chargement...</div>';
   window._currentThreadId=threadId;
   window._currentThreadSubject=subject;
 
-  const res=await fetch('/api/gmail-sync?societe='+_currentMailSociete+'&action=thread&threadId='+threadId);
+  // Surligner le mail sélectionné dans la liste
+  document.querySelectorAll('[id^=mail-card-]').forEach(el=>el.style.outline='');
+  const found=_mailData.find(m=>m.threadId===threadId);
+  if(found){const card=document.getElementById('mail-card-'+found.id);if(card)card.style.outline='2px solid var(--acc)';}
+
+  const res=await fetch('/api/gmail-sync?societe='+effectiveSociete+'&action=thread&threadId='+threadId);
   const data=await res.json();
-  if(!data.ok){contentEl.textContent='Erreur : '+data.error;return;}
+  if(!data.ok){if(contentEl)contentEl.innerHTML='<div style="color:var(--red);padding:1rem">⚠️ Erreur : '+data.error+'</div>';return;}
 
   _currentThread=data.thread||[];
-  contentEl.innerHTML=_currentThread.map((msg,i)=>'<div style="border-bottom:1px solid var(--b1);padding:12px 0'+(i===0?'':';margin-top:8px')+'">'
-    +'<div style="font-size:11px;color:var(--t2);margin-bottom:6px"><strong>'+msg.from+'</strong> · '+msg.date+'</div>'
-    +'<div style="font-size:13px;color:var(--t1);white-space:pre-wrap;line-height:1.6">'+msg.body+'</div>'
-    +(msg.attachments.length?'<div style="margin-top:8px">'+msg.attachments.map((a,ai)=>{window['_att_'+msg.id+'_'+ai]={mid:msg.id,aid:a.id,fn:a.name}; return '<span style="font-size:11px;background:var(--acd);color:var(--acc);padding:3px 8px;border-radius:5px;margin-right:6px;cursor:pointer" onclick="const x=window[\'_att_'+msg.id+'_'+ai+'\'];archiveAttachment(x.mid,x.aid,x.fn)">📎 '+a.name+'</span>';}).join('')+'</div>':'')
-  +'</div>').join('');
-  panel.scrollIntoView({behavior:'smooth'});
+  if(contentEl)contentEl.innerHTML=_currentThread.map((msg,i)=>{
+    const isHTML=/<[a-z][\s\S]*>/i.test(msg.body||'');
+    const bodyHtml=isHTML?msg.body:(msg.body||'').replace(/\n/g,'<br>');
+    const attachHtml=msg.attachments&&msg.attachments.length
+      ?'<div style="margin-top:10px;padding-top:8px;border-top:1px dashed var(--b1)">'+msg.attachments.map((a,ai)=>{
+          window['_att_'+msg.id+'_'+ai]={mid:msg.id,aid:a.id,fn:a.name};
+          return '<span style="font-size:11px;background:var(--acd);color:var(--acc);padding:3px 8px;border-radius:5px;margin-right:6px;cursor:pointer" onclick="const x=window[\'_att_'+msg.id+'_'+ai+'\'];archiveAttachment(x.mid,x.aid,x.fn)">📎 '+a.name+'</span>';
+        }).join('')+'</div>'
+      :'';
+    return '<div style="'+(i>0?'border-top:1px solid var(--b1);padding-top:14px;margin-top:14px':'')+'">'+
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">'+
+        '<div style="font-size:12px;color:var(--t2)"><strong style="color:var(--t1)">'+msg.from+'</strong></div>'+
+        '<div style="font-size:11px;color:var(--t2)">'+msg.date+'</div>'+
+      '</div>'+
+      '<div style="font-size:13px;color:var(--t1);line-height:1.6">'+bodyHtml+'</div>'+
+      attachHtml+
+    '</div>';
+  }).join('');
+  document.getElementById('mail-reply-draft').style.display='none';
+  const replyBtn=document.getElementById('btn-reply-ai');
+  if(replyBtn){replyBtn.disabled=false;replyBtn.textContent='✨ Générer réponse IA';}
 }
 
 function closeMailThread(){
-  const panel=document.getElementById('mail-thread-panel');
-  if(panel)panel.style.display='none';
+  const inner=document.getElementById('mail-thread-inner');
+  const placeholder=document.getElementById('mail-thread-placeholder');
+  if(inner)inner.style.display='none';
+  if(placeholder)placeholder.style.display='flex';
   document.getElementById('mail-reply-draft').style.display='none';
+  document.querySelectorAll('[id^=mail-card-]').forEach(el=>el.style.outline='');
   _currentThread=null;
 }
 
