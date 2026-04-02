@@ -1105,7 +1105,7 @@ async function renderApurPerso(){
     const likedDocs=gedDocs.filter(g=>g.dossier==='DETTE:'+d.id);
 
     return '<div style="display:flex;align-items:center;gap:10px;padding:10px;border:1px solid '+(isPaid?'var(--grn)':'var(--b1)')+';border-radius:8px;margin-bottom:6px;background:'+(isPaid?'var(--grd)':'var(--s1)')+'">'+
-      '<input type="checkbox" '+(isPaid?'checked':'')+' onchange="toggleApurPerso(\''+d.id+'\',\''+mKey+'\',this.checked)" style="width:18px;height:18px;cursor:pointer;flex-shrink:0">'+
+      '<input type="checkbox" '+(isPaid?'checked':'')+' onchange="toggleApurPerso(\''+d.id+'\',\''+mKey+'\',this.checked,'+montant+')" style="width:18px;height:18px;cursor:pointer;flex-shrink:0">'+
       '<div style="flex:1;min-width:0">'+
         '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:4px">'+
           '<div style="font-size:13px;font-weight:600;color:'+(isPaid?'var(--grn)':'var(--t1)')+'">'+d.debiteur+'</div>'+
@@ -1127,16 +1127,40 @@ async function renderApurPerso(){
   if(totalEl)totalEl.textContent=totalMois.toLocaleString('fr-FR')+' €';
 }
 
-async function toggleApurPerso(debtId,mKey,checked){
+async function toggleApurPerso(debtId,mKey,checked,montant){
+  // 1. Sauvegarder l'état coché en settings
   let paid={};
   try{
     const {data}=await sb.from('settings').select('value').eq('key','apur_perso_'+mKey).single();
     if(data?.value)paid=JSON.parse(data.value);
   }catch(e){}
-  if(checked)paid[debtId]=true;
-  else delete paid[debtId];
+
+  if(checked){
+    if(paid[debtId])return; // déjà enregistré, évite double-déduction
+    paid[debtId]=montant;
+    // Décrémenter amount_remaining dans debts
+    const {data:d}=await sb.from('debts').select('amount_remaining').eq('id',debtId).single();
+    if(d){
+      const newRemaining=Math.max(0,Number(d.amount_remaining||0)-montant);
+      await sb.from('debts').update({amount_remaining:newRemaining}).eq('id',debtId);
+    }
+  } else {
+    const paidAmount=paid[debtId]||montant;
+    delete paid[debtId];
+    // Remettre le montant dans amount_remaining
+    const {data:d}=await sb.from('debts').select('amount_remaining,amount_total').eq('id',debtId).single();
+    if(d){
+      const newRemaining=Math.min(Number(d.amount_total||0),Number(d.amount_remaining||0)+paidAmount);
+      await sb.from('debts').update({amount_remaining:newRemaining}).eq('id',debtId);
+    }
+  }
+
   await sb.from('settings').upsert({key:'apur_perso_'+mKey,value:JSON.stringify(paid)},{onConflict:'key'});
+  // Recharger les dettes pour mise à jour du % restant
+  const {data:newDettes}=await sb.from('debts').select('*').eq('company_id','perso').not('status','eq','solde');
+  if(newDettes)D.dettes=newDettes;
   renderApurPerso();
+  renderDettes();
 }
 
 // ════════════════════════════════
