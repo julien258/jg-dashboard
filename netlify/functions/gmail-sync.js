@@ -191,7 +191,7 @@ async function listMessages(accessToken,maxResults=30,query=''){
 
   const details=await Promise.all(messages.slice(0,maxResults).map(async m=>{
     try{
-      const msg=await gmailGet(accessToken,`/messages/${m.id}?format=metadata&metadataHeaders=From,To,Subject,Date`);
+      const msg=await gmailGet(accessToken,`/messages/${m.id}?format=metadata&metadataHeaders=From&metadataHeaders=To&metadataHeaders=Subject&metadataHeaders=Date`);
       const h={};(msg.payload?.headers||[]).forEach(hh=>{h[hh.name.toLowerCase()]=hh.value;});
       if(isBlacklisted(h.from||'',blacklist))return null;
       const cls=classifySender(h.from||'');
