@@ -741,7 +741,8 @@
           <div class="fg"><label>Tâche</label><input type="text" id="mt-ti" placeholder="Titre de la tâche..."></div>
           <div class="fg"><label>Société</label><select id="mt-co">
             <option value="group">🏢 Groupe</option>
-            <option value="sas-living">💼 SAS Living</option>
+            <option value="all">📬 Toutes les boîtes</option>
+          <option value="sas-living">💼 SAS Living</option>
             <option value="sarl-guiraud">🏛️ SARL Guiraud</option>
             <option value="meulette">🏠 Meulette</option>
             <option value="real-gains">🌐 Real Gains</option>
@@ -1451,6 +1452,7 @@
       </div>
       <div style="display:flex;gap:8px;align-items:center">
         <select id="mail-societe" onchange="loadMails()" style="font-size:12px;padding:6px 10px;border-radius:7px;border:1px solid var(--b1)">
+          <option value="all">📬 Toutes les boîtes</option>
           <option value="sas-living">💼 SAS Living</option>
           <option value="sarl-guiraud">🏛️ SARL Guiraud</option>
           <option value="meulette">🏠 Meulette</option>
@@ -1466,7 +1468,9 @@
     <div style="display:flex;gap:8px;margin-bottom:1rem;flex-wrap:wrap">
       <button class="btn btn-sm" id="mail-filter-all" onclick="filterMails('all')" style="background:var(--acd);color:var(--acc);border:1px solid var(--acc)">📧 Tous</button>
       <button class="btn btn-g btn-sm" onclick="filterMails('high')">🔴 Urgents</button>
+      <button class="btn btn-g btn-sm" onclick="filterMails('suivi')">📂 Dossiers suivis</button>
       <button class="btn btn-g btn-sm" onclick="filterMails('attachment')">📎 Avec PJ</button>
+      <button class="btn btn-g btn-sm" onclick="filterMails('archive')" style="opacity:.6">✅ Archivés</button>
       <span id="mail-count" style="font-size:11px;color:var(--t2);align-self:center"></span>
     </div>
 
@@ -1554,7 +1558,8 @@
             <div style="font-size:10px;color:var(--t2);text-transform:uppercase;margin-bottom:4px">Entité</div>
             <select id="ged-entity" style="width:100%;font-size:12px;padding:6px">
               <option value="perso">👤 Julien (perso)</option>
-              <option value="sas-living">💼 SAS Living</option>
+              <option value="all">📬 Toutes les boîtes</option>
+          <option value="sas-living">💼 SAS Living</option>
               <option value="sarl-guiraud">🏛️ SARL Guiraud</option>
               <option value="meulette">🏠 La Meulette</option>
               <option value="real-gains">🌐 Real Gains (Monikaza)</option>
@@ -2895,17 +2900,23 @@ async function loadMails(){
   if(listEl)listEl.innerHTML='<div style="text-align:center;padding:3rem;color:var(--t2)"><span class="spin"></span> Chargement...</div>';
 
   try{
-    const res=await fetch('/api/gmail-sync?societe='+societe+'&action=list&max=30');
-    const data=await res.json();
-
-    if(!data.ok){
-      if(listEl)listEl.innerHTML='<div style="text-align:center;padding:2rem;color:var(--red)">⚠️ '+data.error+'</div>';
-      return;
+    let allMessages=[];
+    if(societe==='all'){
+      // Fetch 3 boîtes en parallèle
+      const societes=['sas-living','sarl-guiraud','meulette'];
+      const results=await Promise.allSettled(societes.map(s=>fetch('/api/gmail-sync?societe='+s+'&action=list&max=20').then(r=>r.json())));
+      results.forEach(r=>{if(r.status==='fulfilled'&&r.value.ok)allMessages.push(...(r.value.messages||[]));});
+      allMessages.sort((a,b)=>{if(a.priority==='high'&&b.priority!=='high')return-1;if(b.priority==='high'&&a.priority!=='high')return 1;return 0;});
+      if(infoEl)infoEl.textContent='📬 Toutes les boîtes · '+allMessages.length+' non lus';
+    }else{
+      const res=await fetch('/api/gmail-sync?societe='+societe+'&action=list&max=30');
+      const data=await res.json();
+      if(!data.ok){if(listEl)listEl.innerHTML='<div style="text-align:center;padding:2rem;color:var(--red)">⚠️ '+data.error+'</div>';return;}
+      allMessages=data.messages||[];
+      if(infoEl)infoEl.textContent='📬 '+data.email+' · '+allMessages.length+' non lus';
     }
-
-    if(infoEl)infoEl.textContent='📬 '+data.email+' · '+data.messages.length+' non lus';
-    _mailData=data.messages||[];
-    if(countEl)countEl.textContent=_mailData.length+' message'+(data.messages.length>1?'s':'');
+    _mailData=allMessages;
+    if(countEl)countEl.textContent=_mailData.length+' message'+(_mailData.length>1?'s':'');
     renderMails(_mailData);
   }catch(e){
     if(listEl)listEl.innerHTML='<div style="text-align:center;padding:2rem;color:var(--red)">Erreur : '+e.message+'</div>';
@@ -2913,34 +2924,82 @@ async function loadMails(){
 }
 
 function filterMails(filter){
-  document.querySelectorAll('#v-mail .btn').forEach(b=>b.classList.remove('btn-p'));
   if(filter==='all') renderMails(_mailData);
   else if(filter==='high') renderMails(_mailData.filter(m=>m.priority==='high'));
   else if(filter==='attachment') renderMails(_mailData.filter(m=>m.hasAttachment));
+  else if(filter==='suivi') renderMails(_mailData.filter(m=>m.statut==='dossier_suivi'));
+  else if(filter==='archive') renderMails(_mailData.filter(m=>m.statut==='archive'));
+}
+
+const STATUT_CONFIG={
+  'a_traiter':    {label:'📌 À traiter',   bg:'var(--amd)',   color:'var(--amb)'},
+  'dossier_suivi':{label:'📂 Dossier suivi',bg:'var(--acd)',   color:'var(--acc)'},
+  'archive':      {label:'✅ Archivé',      bg:'var(--grd)',   color:'var(--grn)'},
+};
+
+async function setMailStatut(msgId,threadId,societe,subject,fromEmail,fromName,statut,event){
+  event.stopPropagation();
+  await fetch('/api/gmail-sync',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({action:'set_statut',messageId:msgId,threadId,societe,subject,fromEmail,fromName,statut})});
+  const m=_mailData.find(x=>x.id===msgId);
+  if(m){m.statut=statut;}
+  renderMails(_mailData);
+  toast(STATUT_CONFIG[statut]?.label+' appliqué');
+}
+
+async function blacklistSender(from,event){
+  event.stopPropagation();
+  const emailMatch=(from||'').match(/<([^>]+)>/);
+  const email=emailMatch?emailMatch[1]:from;
+  const domain=email.includes('@')?email.split('@')[1]:'';
+  const pattern=domain||email;
+  const type=domain?'domain':'email';
+  await fetch('/api/gmail-sync',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({action:'blacklist',pattern,type_pattern:type,raison:'Bloqué manuellement'})});
+  _mailData=_mailData.filter(m=>!(m.from||'').includes(pattern));
+  renderMails(_mailData);
+  toast('🚫 '+pattern+' bloqué');
 }
 
 function renderMails(msgs){
   const el=document.getElementById('mail-list');
   if(!el)return;
-  if(!msgs.length){el.innerHTML='<div style="text-align:center;padding:2rem;color:var(--t2)">✅ Aucun message non lu</div>';return;}
+  if(!msgs.length){el.innerHTML='<div style="text-align:center;padding:2rem;color:var(--t2)">✅ Aucun message</div>';return;}
   el.innerHTML=msgs.map((m,i)=>{
     const isHigh=m.priority==='high';
     const border=isHigh?'var(--red)':'var(--b1)';
     const bg=isHigh?'rgba(231,76,60,0.03)':'var(--s1)';
     const date=m.date?new Date(m.date).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'';
-    window['_mt_mail-'+i]={t:m.threadId,s:m.subject};
-    return '<div onclick="const d=window[\'_mt_mail-'+i+'\'];openMailThread(d.t,d.s)" style="background:'+bg+';border:1px solid '+border+';border-radius:10px;padding:12px 14px;margin-bottom:8px;cursor:pointer" onmouseover="this.style.background=\'var(--s2)\'" onmouseout="this.style.background=\''+bg+'\'">'
-      +'<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px">'
+    const sc=STATUT_CONFIG[m.statut||'a_traiter']||STATUT_CONFIG['a_traiter'];
+    const emailMatch=(m.from||'').match(/<([^>]+)>/);
+    const fromEmail=emailMatch?emailMatch[1]:m.from;
+    const fromName=(m.from||'').replace(/<[^>]+>/,'').replace(/"/g,'').trim()||fromEmail;
+    window['_mt_mail-'+i]={t:m.threadId,s:m.subject,id:m.id,soc:m.societe||_currentMailSociete,fe:fromEmail,fn:fromName};
+    return '<div id="mail-card-'+m.id+'" style="background:'+bg+';border:1px solid '+border+';border-radius:10px;padding:12px 14px;margin-bottom:8px">'
+      // Ligne 1 : sujet + date + tag
+      +'<div onclick="const d=window[\'_mt_mail-'+i+'\'];openMailThread(d.t,d.s)" style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;cursor:pointer;margin-bottom:8px">'
         +'<div style="flex:1;min-width:0">'
-          +'<div style="font-size:13px;font-weight:600;color:var(--t1);margin-bottom:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+m.subject+'</div>'
-          +'<div style="font-size:11px;color:var(--t2);margin-bottom:4px">'+m.from+'</div>'
-          +'<div style="font-size:12px;color:var(--t2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+m.snippet+'</div>'
+          +'<div style="font-size:13px;font-weight:600;color:var(--t1);margin-bottom:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+m.subject+'</div>'
+          +'<div style="font-size:11px;color:var(--t2);margin-bottom:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+m.from+'</div>'
+          +(m.contact_dossier?'<span style="font-size:10px;background:var(--pud);color:var(--pur);padding:1px 6px;border-radius:8px;margin-right:4px">📁 '+m.contact_dossier+'</span>':'')
+          +(m.contact_societe?'<span style="font-size:10px;background:var(--s3);color:var(--t2);padding:1px 6px;border-radius:8px">'+m.contact_societe+'</span>':'')
         +'</div>'
         +'<div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0">'
           +'<span style="font-size:10px;color:var(--t2)">'+date+'</span>'
-          +'<span style="font-size:11px;background:'+(isHigh?'var(--rdd)':'var(--s2)')+';color:'+(isHigh?'var(--red)':'var(--t2)')+';padding:2px 7px;border-radius:10px">'+m.tag+'</span>'
+          +'<span style="font-size:10px;background:'+(isHigh?'var(--rdd)':'var(--s2)')+';color:'+(isHigh?'var(--red)':'var(--t2)')+';padding:2px 6px;border-radius:8px">'+m.tag+'</span>'
           +(m.hasAttachment?'<span style="font-size:10px;color:var(--acc)">📎</span>':'')
         +'</div>'
+      +'</div>'
+      // Ligne 2 : snippet
+      +'<div style="font-size:12px;color:var(--t2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-bottom:8px;cursor:pointer" onclick="const d=window[\'_mt_mail-'+i+'\'];openMailThread(d.t,d.s)">'+m.snippet+'</div>'
+      // Ligne 3 : actions statuts + blacklist
+      +'<div style="display:flex;gap:6px;flex-wrap:wrap" onclick="event.stopPropagation()">'
+        +'<span style="font-size:10px;background:'+sc.bg+';color:'+sc.color+';padding:2px 8px;border-radius:8px;font-weight:500">'+sc.label+'</span>'
+        +Object.entries(STATUT_CONFIG).filter(([k])=>k!==m.statut).map(([k,v])=>
+          '<button onclick="setMailStatut(\''+m.id+'\',\''+m.threadId+'\',\''+_currentMailSociete+'\',this.closest(\'[id^=mail-card]\').querySelector(\'div>div>div\').textContent,\''+fromEmail+'\',\''+fromName+'\',\''+k+'\',event)" style="font-size:10px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;padding:2px 8px;cursor:pointer;color:var(--t2)">'+v.label+'</button>'
+        ).join('')
+        +'<button onclick="blacklistSender(\''+m.from.replace(/'/g,"\\'").replace(/"/g,'&quot;')+'\',event)" style="font-size:10px;background:var(--rdd);border:1px solid var(--red);border-radius:8px;padding:2px 8px;cursor:pointer;color:var(--red)">🚫 Bloquer</button>'
+        +(m.hasAttachment?'<button onclick="const d=window[\'_mt_mail-'+i+'\'];openMailThread(d.t,d.s)" style="font-size:10px;background:var(--acd);border:1px solid var(--acc);border-radius:8px;padding:2px 8px;cursor:pointer;color:var(--acc)">📎 → Drive</button>':'')
       +'</div>'
     +'</div>';
   }).join('');
