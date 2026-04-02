@@ -3108,7 +3108,7 @@ async function replyMailAI(){
   const societe={'sas-living':'SAS Living (CIF/IOBSP, dette privée)','sarl-guiraud':'SARL Guiraud Julien (holding)','meulette':'SARL La Meulette (SCI)'}[_currentMailSociete]||'';
 
   try{
-    const res=await fetch('https://api.anthropic.com/v1/messages',{
+    const res=await fetch('/api/claude-proxy',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({
@@ -3228,7 +3228,7 @@ async function analyzeRisks(docId){
   const context='Contexte Julien Guiraud :\n- Président SAS LIVING (Toulouse) : CIF/IOBSP, courtage LLD, distribution dette privée CGW/Manhattan PCM\n- SARL GUIRAUD JULIEN : holding personnelle\n- SCI La Meulette : patrimoine immobilier (maison Fronsac, Gironde)\n- Projets : FCR Autos (fonds véhicules prestige 25%), PFC Group/clinique luxe (≥45%), Monikaza (obligations cross-border)\n- Vigilances : clauses de solidarité, garanties personnelles, clauses résolutoires, délais rétractation, conditions suspensives';
 
   try{
-    const res=await fetch('https://api.anthropic.com/v1/messages',{
+    const res=await fetch('/api/claude-proxy',{
       method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({
         model:'claude-sonnet-4-20250514',max_tokens:1500,
@@ -3279,7 +3279,7 @@ async function generateRisksResponse(){
   const r=window._risksDoc||{};
   const doc=window._risksDocData||{};
   const ctx='Type : '+(r.type_document||'')+'. Risques : '+(r.risques||[]).map(function(x){return x.titre;}).join(', ')+'. Points à négocier : '+(r.points_negociation||[]).join(', ');
-  const res=await fetch('https://api.anthropic.com/v1/messages',{
+  const res=await fetch('/api/claude-proxy',{
     method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1200,
       messages:[{role:'user',content:'Tu es Julien Guiraud, président de SAS LIVING et SARL GUIRAUD JULIEN, Toulouse. Rédige un courrier professionnel en français tenant compte des risques. Document : '+doc.file_name+'. Contexte : '+ctx+'. Commence directement par Madame, Monsieur,'}]})
@@ -3363,7 +3363,7 @@ async function generateOpenLegiResponse(){
   if(d.legifrance&&d.legifrance.content&&d.legifrance.content[0])parts.push('Textes : '+(d.legifrance.content[0].text||'').toString().substring(0,400));
   if(d.jurisprudence&&d.jurisprudence.content&&d.jurisprudence.content[0])parts.push('Jurisprudence : '+(d.jurisprudence.content[0].text||'').toString().substring(0,300));
   const ctx=parts.join('. ');
-  const res=await fetch('https://api.anthropic.com/v1/messages',{
+  const res=await fetch('/api/claude-proxy',{
     method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,
       messages:[{role:'user',content:'Tu es Julien Guiraud de SAS Living. Redige un courrier de reponse professionnel en francais. Document : '+doc.file_name+'. De : '+(doc.from_name||'inconnu')+'. Contexte : '+ctx+'. Commence par Madame, Monsieur,'}]})
