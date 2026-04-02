@@ -163,7 +163,7 @@ function buildMimeMessage({ from, to, subject, body, inReplyTo, references }) {
 
 async function listMessages(accessToken, maxResults = 20, query = '') {
   // Non lus en priorité + tous les messages récents
-  const q = encodeURIComponent(`is:unread ${query}`.trim());
+  const q = encodeURIComponent(`is:unread -in:spam -in:promotions -in:trash ${query}`.trim());
   const data = await gmailGet(accessToken, `/messages?maxResults=${maxResults}&q=${q}`);
   const messages = data.messages || [];
 
