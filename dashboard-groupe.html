@@ -3224,7 +3224,13 @@ async function analyzeRisks(docId){
     +'<div style="font-size:12px;color:var(--t2);margin-bottom:1rem">📄 '+data.file_name+'</div>'
     +'<div id="openlegi-result" style="font-size:13px;color:var(--t2)"><span class="spin"></span> Analyse en cours...</div>';
 
-  const docText=String(data.ocr_data||data.from_name+' '+data.file_name).substring(0,3000);
+  // ocr_data peut être une string (nouveau flux) ou un objet JSON (ancien flux batch)
+  let docText='';
+  if(typeof data.ocr_data==='string')docText=data.ocr_data;
+  else if(data.ocr_data&&typeof data.ocr_data==='object')
+    docText=Object.entries(data.ocr_data).map(function([k,v]){return k+': '+(typeof v==='string'?v:JSON.stringify(v));}).join('\n');
+  if(!docText)docText=(data.from_name||'')+(data.from_name?' ':'')+(data.file_name||'');
+  docText=docText.substring(0,3000);
   const context='Contexte Julien Guiraud :\n- Président SAS LIVING (Toulouse) : CIF/IOBSP, courtage LLD, distribution dette privée CGW/Manhattan PCM\n- SARL GUIRAUD JULIEN : holding personnelle\n- SCI La Meulette : patrimoine immobilier (maison Fronsac, Gironde)\n- Projets : FCR Autos (fonds véhicules prestige 25%), PFC Group/clinique luxe (≥45%), Monikaza (obligations cross-border)\n- Vigilances : clauses de solidarité, garanties personnelles, clauses résolutoires, délais rétractation, conditions suspensives';
 
   try{
@@ -3317,7 +3323,7 @@ async function analyzeGEDOpenLegi(docId){
   try{
     const res=await fetch('/api/openlegi',{
       method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({action:'analyze_document',text:data.ocr_data||data.from_name+' '+data.file_name})
+      body:JSON.stringify({action:'analyze_document',text:(typeof data.ocr_data==='string'?data.ocr_data:data.ocr_data&&typeof data.ocr_data==='object'?Object.values(data.ocr_data).filter(function(v){return typeof v==='string';}).join(' '):'')||(data.from_name+' '+data.file_name)})
     });
     const d=await res.json();
     if(!d.ok){document.getElementById('openlegi-result').innerHTML='<span style="color:var(--red)">Erreur : '+d.error+'</span>';return;}
