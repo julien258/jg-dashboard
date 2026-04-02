@@ -3945,10 +3945,43 @@ async function loadGEDList(){
         +'<td style="text-align:right;font-family:monospace;font-size:11px;color:var(--red)">'+(d.amount?Math.round(d.amount).toLocaleString('fr-FR')+' €':'—')+'</td>'
         +'<td><span style="font-size:11px;font-weight:500;color:'+actionColor+'">'+actionLabel+'</span>'+(d.deadline_date?'<span style="font-size:9px;color:var(--t2);display:block">⏰ '+d.deadline_date+'</span>':'')+'</td>'
         +'<td style="text-align:center">'+driveOk+'</td>'
-        +'<td style="text-align:right">'+(d.drive_url?'':("<button onclick=\"syncDriveDoc('"+(d.id)+"','"+(d.file_name)+"','"+(d.company_id)+"','"+(d.doc_type)+"','"+(d.doc_date)+"')\" style=\"border:none;background:none;cursor:pointer;font-size:14px\" title=\"Drive\">☁️</button> "))+("<button onclick=\"analyzeRisks('"+(d.id)+"')\" style=\"border:none;background:none;cursor:pointer;font-size:14px\" title=\"Analyse risques\">🔍</button> ")+("<button onclick=\"analyzeGEDOpenLegi('"+(d.id)+"')\" style=\"border:none;background:none;cursor:pointer;font-size:14px\" title=\"Analyse juridique\">⚖️</button> ")+("<button onclick=\"deleteGEDDoc('"+(d.id)+"')\" style=\"border:none;background:none;cursor:pointer;color:var(--t2);font-size:12px\">✕</button>")+'</td>'
+        +'<td style="text-align:right">'+(d.drive_url?'':("<button onclick=\"syncDriveDoc('"+(d.id)+"','"+(d.file_name)+"','"+(d.company_id)+"','"+(d.doc_type)+"','"+(d.doc_date)+"')\" style=\"border:none;background:none;cursor:pointer;font-size:14px\" title=\"Drive\">☁️</button> "))+("<button onclick=\"analyzeRisks('"+(d.id)+"')\" style=\"border:none;background:none;cursor:pointer;font-size:14px\" title=\"Analyse risques\">🔍</button> ")+("<button onclick=\"analyzeGEDOpenLegi('"+(d.id)+"')\" style=\"border:none;background:none;cursor:pointer;font-size:14px\" title=\"Analyse juridique\">⚖️</button> ")+("<button onclick=\"linkGEDToDette('"+(d.id)+"')\" style=\"border:none;background:none;cursor:pointer;font-size:14px\">🔗</button>")+("<button onclick=\"deleteGEDDoc('"+(d.id)+"')\" style=\"border:none;background:none;cursor:pointer;color:var(--t2);font-size:12px\">✕</button>")+'</td>'
         +'</tr>';
     }).join('')
     +'</tbody></table>';
+}
+
+async function linkGEDToDette(docId){
+  // Charger les dettes actives
+  const {data:dettes}=await sb.from('debts').select('id,debiteur,company_id,amount_remaining,status').in('status',['en_cours','en_negociation']).order('debiteur');
+  if(!dettes||!dettes.length){toast('Aucune dette active trouvée');return;}
+
+  // Charger le doc actuel pour voir si déjà lié
+  const {data:doc}=await sb.from('ged_documents').select('file_name,dossier').eq('id',docId).single();
+  const currentLink=doc?.dossier?.startsWith('DETTE:')?doc.dossier.replace('DETTE:',''):'';
+
+  const opts=dettes.map(d=>'<option value="'+d.id+'"'+(currentLink===d.id?' selected':'')+'>'+d.debiteur+' ('+Math.round(d.amount_remaining||0).toLocaleString('fr-FR')+'€ restant)</option>').join('');
+  const panel=document.createElement('div');
+  panel.style.cssText='position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);background:var(--s1);border:1px solid var(--b1);border-radius:12px;padding:1.5rem;z-index:9999;width:380px;box-shadow:0 8px 32px rgba(0,0,0,0.3)';
+  panel.innerHTML='<div style="font-size:14px;font-weight:600;margin-bottom:1rem">🔗 Lier à une dette</div>'
+    +'<div style="font-size:12px;color:var(--t2);margin-bottom:0.75rem">📄 '+( doc?.file_name||docId)+'</div>'
+    +'<select id="link-dette-sel" style="width:100%;font-size:13px;padding:8px;border:1px solid var(--b1);border-radius:7px;margin-bottom:1rem"><option value="">— Aucune dette —</option>'+opts+'</select>'
+    +'<div style="display:flex;gap:8px">'
+    +'<button class="btn btn-p" style="flex:1" onclick="confirmLinkDette(\''+docId+'\')">🔗 Lier</button>'
+    +'<button class="btn btn-g" style="flex:1" onclick="this.closest(\'div[style*=fixed]\').remove()">Annuler</button>'
+    +'</div>';
+  document.body.appendChild(panel);
+}
+
+async function confirmLinkDette(docId){
+  const sel=document.getElementById('link-dette-sel');
+  const detteId=sel?.value||'';
+  const dossierVal=detteId?'DETTE:'+detteId:null;
+  const {error}=await sb.from('ged_documents').update({dossier:dossierVal}).eq('id',docId);
+  if(error){toast('Erreur : '+error.message);return;}
+  document.querySelectorAll('div[style*="position:fixed"][style*="transform"]').forEach(el=>el.remove());
+  toast(detteId?'🔗 Document lié à la dette':'🔓 Lien supprimé');
+  loadGEDList();
 }
 
 async function deleteGEDDoc(id){
