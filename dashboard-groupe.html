@@ -1466,11 +1466,11 @@
 
     <!-- Filtres -->
     <div style="display:flex;gap:8px;margin-bottom:1rem;flex-wrap:wrap">
-      <button class="btn btn-sm" id="mail-filter-all" onclick="filterMails('all')" style="background:var(--acd);color:var(--acc);border:1px solid var(--acc)">📧 Tous</button>
-      <button class="btn btn-g btn-sm" onclick="filterMails('high')">🔴 Urgents</button>
-      <button class="btn btn-g btn-sm" onclick="filterMails('suivi')">📂 Dossiers suivis</button>
-      <button class="btn btn-g btn-sm" onclick="filterMails('attachment')">📎 Avec PJ</button>
-      <button class="btn btn-g btn-sm" onclick="filterMails('archive')" style="opacity:.6">✅ Archivés</button>
+      <button class="btn btn-sm" id="mail-filter-unread" onclick="setMailFilter('unread')" style="background:var(--acd);color:var(--acc);border:1px solid var(--acc)">📬 Non lus</button>
+      <button class="btn btn-g btn-sm" id="mail-filter-all" onclick="setMailFilter('all')">📧 Tous</button>
+      <button class="btn btn-g btn-sm" id="mail-filter-high" onclick="setMailFilter('high')">🔴 Urgents</button>
+      <button class="btn btn-g btn-sm" id="mail-filter-suivi" onclick="setMailFilter('suivi')">📂 Dossiers suivis</button>
+      <button class="btn btn-g btn-sm" id="mail-filter-attachment" onclick="setMailFilter('attachment')">📎 Avec PJ</button>
       <span id="mail-count" style="font-size:11px;color:var(--t2);align-self:center"></span>
     </div>
 
@@ -2888,6 +2888,7 @@ function showMail(){
   document.getElementById('ptabs').style.display='none';
   document.getElementById('tb-title').textContent='Mails';
   document.getElementById('tb-sub').textContent='Non lus · Classés par priorité';
+  _mailFilter='unread';
   loadMails();
 }
 
@@ -2916,20 +2917,35 @@ async function loadMails(){
       if(infoEl)infoEl.textContent='📬 '+data.email+' · '+allMessages.length+' non lus';
     }
     _mailData=allMessages;
-    if(countEl)countEl.textContent=_mailData.length+' message'+(_mailData.length>1?'s':'');
-    renderMails(_mailData);
+    if(countEl)countEl.textContent=_mailData.filter(m=>m.statut==='a_traiter').length+' non lus';
+    filterMails(_mailFilter);
   }catch(e){
     if(listEl)listEl.innerHTML='<div style="text-align:center;padding:2rem;color:var(--red)">Erreur : '+e.message+'</div>';
   }
 }
 
-function filterMails(filter){
-  if(filter==='all') renderMails(_mailData);
-  else if(filter==='high') renderMails(_mailData.filter(m=>m.priority==='high'));
-  else if(filter==='attachment') renderMails(_mailData.filter(m=>m.hasAttachment));
-  else if(filter==='suivi') renderMails(_mailData.filter(m=>m.statut==='dossier_suivi'));
-  else if(filter==='archive') renderMails(_mailData.filter(m=>m.statut==='archive'));
+let _mailFilter='unread';
+
+function setMailFilter(filter){
+  _mailFilter=filter;
+  ['unread','all','high','suivi','attachment'].forEach(f=>{
+    const btn=document.getElementById('mail-filter-'+f);
+    if(btn){btn.style.background='';btn.style.color='var(--t2)';btn.style.border='1px solid var(--b1)';}
+  });
+  const active=document.getElementById('mail-filter-'+filter);
+  if(active){active.style.background='var(--acd)';active.style.color='var(--acc)';active.style.border='1px solid var(--acc)';}
+  filterMails(filter);
 }
+
+function filterMails(filter){
+  const f=filter||_mailFilter;
+  if(f==='unread')     renderMails(_mailData.filter(m=>m.statut==='a_traiter'));
+  else if(f==='all')   renderMails(_mailData);
+  else if(f==='high')  renderMails(_mailData.filter(m=>m.priority==='high'&&m.statut==='a_traiter'));
+  else if(f==='suivi') renderMails(_mailData.filter(m=>m.statut==='dossier_suivi'));
+  else if(f==='attachment') renderMails(_mailData.filter(m=>m.hasAttachment&&m.statut==='a_traiter'));
+}
+
 
 const STATUT_CONFIG={
   'a_traiter':    {label:'📌 À traiter',   bg:'var(--amd)',   color:'var(--amb)'},
@@ -2943,7 +2959,11 @@ async function setMailStatut(msgId,threadId,societe,subject,fromEmail,fromName,s
     body:JSON.stringify({action:'set_statut',messageId:msgId,threadId,societe,subject,fromEmail,fromName,statut})});
   const m=_mailData.find(x=>x.id===msgId);
   if(m){m.statut=statut;}
-  renderMails(_mailData);
+  // Mettre à jour le compteur
+  const countEl=document.getElementById('mail-count');
+  if(countEl)countEl.textContent=_mailData.filter(m=>m.statut==='a_traiter').length+' non lus';
+  // Re-appliquer le filtre actif → le mail disparaît si plus dans la vue
+  filterMails(_mailFilter);
   toast(STATUT_CONFIG[statut]?.label+' appliqué');
 }
 

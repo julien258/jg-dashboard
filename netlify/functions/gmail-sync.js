@@ -185,7 +185,7 @@ function extractAttachments(payload){
 // ── listMessages enrichi ──────────────────────────────────────────────────────
 async function listMessages(accessToken,maxResults=30,query=''){
   const blacklist=await loadBlacklist();
-  const q=encodeURIComponent(`is:unread -in:spam -in:promotions -in:trash ${query}`.trim());
+  const q=encodeURIComponent(`is:unread -in:spam -in:promotions -in:trash after:2026/03/01 ${query}`.trim());
   const data=await gmailGet(accessToken,`/messages?maxResults=${maxResults}&q=${q}`);
   const messages=data.messages||[];
 
