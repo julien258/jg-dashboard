@@ -2923,12 +2923,13 @@ function renderMails(msgs){
   const el=document.getElementById('mail-list');
   if(!el)return;
   if(!msgs.length){el.innerHTML='<div style="text-align:center;padding:2rem;color:var(--t2)">✅ Aucun message non lu</div>';return;}
-  el.innerHTML=msgs.map((m, i)=>{
+  el.innerHTML=msgs.map((m,i)=>{
     const isHigh=m.priority==='high';
     const border=isHigh?'var(--red)':'var(--b1)';
     const bg=isHigh?'rgba(231,76,60,0.03)':'var(--s1)';
     const date=m.date?new Date(m.date).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'';
-    const divId='mail-'+i; window['_mt_'+divId]={t:m.threadId,s:m.subject}; return '<div onclick="const d=window[\'_mt_mail-'+i+'\'];openMailThread(d.t,d.s)" style="background:'+bg+';border:1px solid '+border+';border-radius:10px;padding:12px 14px;margin-bottom:8px;cursor:pointer" onmouseover="this.style.background=\'var(--s2)\'" onmouseout="this.style.background=\''+bg+'\'">';
+    window['_mt_mail-'+i]={t:m.threadId,s:m.subject};
+    return '<div onclick="const d=window[\'_mt_mail-'+i+'\'];openMailThread(d.t,d.s)" style="background:'+bg+';border:1px solid '+border+';border-radius:10px;padding:12px 14px;margin-bottom:8px;cursor:pointer" onmouseover="this.style.background=\'var(--s2)\'" onmouseout="this.style.background=\''+bg+'\'">'
       +'<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px">'
         +'<div style="flex:1;min-width:0">'
           +'<div style="font-size:13px;font-weight:600;color:var(--t1);margin-bottom:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+m.subject+'</div>'
