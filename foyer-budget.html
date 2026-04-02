@@ -170,9 +170,11 @@
       </div>
       <div style="display:flex;gap:8px"><button class="btn btn-p btn-sm" onclick="saveFixe()">Enregistrer</button><button class="btn btn-g btn-sm" onclick="toggleForm('fixe-form')">Annuler</button></div>
     </div></div>
-    <div class="card"><table><thead><tr><th>Libellé</th><th>Catégorie</th><th style="text-align:right">Montant/mois</th><th></th></tr></thead>
-    <tbody id="fixes-tbody"><tr><td colspan="4" style="text-align:center;padding:1.5rem"><span class="spin"></span></td></tr></tbody>
-    <tfoot><tr style="background:var(--s3)"><td colspan="2" style="font-weight:600;padding:9px 10px">Total</td><td style="text-align:right;font-family:monospace;font-weight:600;padding:9px 10px" id="fixes-total"></td><td></td></tr></tfoot>
+    <!-- Alertes retards -->
+    <div id="fixes-retard-alert" style="display:none;margin-bottom:1rem"></div>
+    <div class="card"><table><thead><tr><th>Libellé</th><th>Catégorie</th><th style="text-align:right">Montant/mois</th><th style="text-align:center">Mois en retard</th><th style="text-align:right">Rattrapage dû</th><th></th></tr></thead>
+    <tbody id="fixes-tbody"><tr><td colspan="6" style="text-align:center;padding:1.5rem"><span class="spin"></span></td></tr></tbody>
+    <tfoot><tr style="background:var(--s3)"><td colspan="2" style="font-weight:600;padding:9px 10px">Total mensuel</td><td style="text-align:right;font-family:monospace;font-weight:600;padding:9px 10px" id="fixes-total"></td><td></td><td style="text-align:right;font-family:monospace;font-weight:600;padding:9px 10px;color:var(--red)" id="fixes-retard-total"></td><td></td></tr></tfoot>
     </table></div>
   </div>
 
@@ -585,7 +587,9 @@ async function loadAll(){
 }
 
 // ── Calculs par mois ──
-function fixesTotal(){return D.fixes.reduce((s,f)=>s+Number(f.amount||0),0);}
+function getFixesRetard(){try{return JSON.parse(D.settings['fixes_retard']||'{}');}catch(e){return {};}}
+function fixesRetardTotal(){const r=getFixesRetard();return D.fixes.reduce((s,f)=>s+Number(f.amount||0)*(Number(r[f.id]||0)),0);}
+function fixesTotal(){return D.fixes.reduce((s,f)=>s+Number(f.amount||0),0)+fixesRetardTotal();}
 
 function dettesMois(i){
   const m=months[i];
@@ -710,13 +714,57 @@ function renderChart(){
 }
 
 function renderFixes(){
-  const tot=fixesTotal();
+  const tot=D.fixes.reduce((s,f)=>s+Number(f.amount||0),0);
+  const retardMap=getFixesRetard();
+  const totRetard=fixesRetardTotal();
   document.getElementById('fixes-total').textContent=fmt(tot);
-  document.getElementById('fixes-tbody').innerHTML=D.fixes.map(f=>`
-    <tr><td>${f.name}</td><td><span class="badge bb">${f.category||'—'}</span></td>
-    <td class="mono" style="text-align:right">${fmt(f.amount)}</td>
-    <td><button class="btn btn-r btn-sm" onclick="delFixe('${f.id}')">✕</button></td></tr>
-  `).join('')||'<tr><td colspan="4" style="text-align:center;color:var(--t2);padding:1rem">Aucune charge</td></tr>';
+  const retEl=document.getElementById('fixes-retard-total');
+  if(retEl)retEl.textContent=totRetard>0?'+ '+fmt(totRetard)+' rattrapage':'—';
+
+  // Alerte retards
+  const alertEl=document.getElementById('fixes-retard-alert');
+  const enRetard=D.fixes.filter(f=>Number(retardMap[f.id]||0)>0);
+  if(alertEl){
+    if(enRetard.length){
+      alertEl.style.display='block';
+      alertEl.innerHTML='<div style="background:var(--rdd);border:1px solid var(--red);border-radius:8px;padding:12px 14px">'
+        +'<div style="font-size:13px;font-weight:600;color:var(--red);margin-bottom:6px">⚠️ Charges en retard ce mois</div>'
+        +enRetard.map(f=>{
+          const nb=Number(retardMap[f.id]);
+          const mt=Number(f.amount||0)*nb;
+          return '<div style="font-size:12px;color:var(--t1);display:flex;justify-content:space-between;padding:3px 0">'
+            +'<span>'+f.name+' <span style="color:var(--red);font-weight:600">×'+nb+' mois</span></span>'
+            +'<span style="font-family:monospace;font-weight:600;color:var(--red)">'+fmt(mt)+'</span>'
+            +'</div>';
+        }).join('')
+        +'<div style="border-top:1px solid var(--red);margin-top:8px;padding-top:8px;display:flex;justify-content:space-between;font-size:13px;font-weight:600">'
+          +'<span style="color:var(--red)">Total à rattraper</span>'
+          +'<span style="color:var(--red);font-family:monospace">'+fmt(totRetard)+'</span>'
+        +'</div>'
+        +'</div>';
+    } else {
+      alertEl.style.display='none';
+    }
+  }
+
+  document.getElementById('fixes-tbody').innerHTML=D.fixes.map(f=>{
+    const nbRetard=Number(retardMap[f.id]||0);
+    const rattrapageDu=nbRetard*Number(f.amount||0);
+    return `<tr>
+      <td>${f.name}</td>
+      <td><span class="badge bb">${f.category||'—'}</span></td>
+      <td class="mono" style="text-align:right">${fmt(f.amount)}</td>
+      <td style="text-align:center">
+        <div style="display:flex;align-items:center;justify-content:center;gap:6px">
+          <button onclick="setFixeRetard('${f.id}',-1)" style="width:22px;height:22px;border:1px solid var(--b1);border-radius:4px;background:var(--s2);cursor:pointer;font-size:13px;line-height:1">−</button>
+          <span style="font-weight:600;color:${nbRetard>0?'var(--red)':'var(--t2)'};min-width:20px;text-align:center">${nbRetard}</span>
+          <button onclick="setFixeRetard('${f.id}',1)" style="width:22px;height:22px;border:1px solid var(--b1);border-radius:4px;background:var(--s2);cursor:pointer;font-size:13px;line-height:1">+</button>
+        </div>
+      </td>
+      <td class="mono" style="text-align:right;color:var(--red);font-weight:${rattrapageDu>0?'600':'400'}">${rattrapageDu>0?fmt(rattrapageDu):'—'}</td>
+      <td><button class="btn btn-r btn-sm" onclick="delFixe('${f.id}')">✕</button></td>
+    </tr>`;
+  }).join('')||'<tr><td colspan="6" style="text-align:center;color:var(--t2);padding:1rem">Aucune charge</td></tr>';
 }
 
 function renderVars(){
@@ -884,6 +932,18 @@ async function delFixe(id){
   if(!confirm('Supprimer ?'))return;
   await sb.from('fixed_expenses').delete().eq('id',id);
   D.fixes=D.fixes.filter(f=>f.id!==id);renderFixes();renderKPIs();renderDetail();renderChart();
+}
+
+async function setFixeRetard(id,delta){
+  const retard=getFixesRetard();
+  const current=Number(retard[id]||0);
+  const next=Math.max(0,current+delta);
+  if(next===0)delete retard[id];
+  else retard[id]=next;
+  const val=JSON.stringify(retard);
+  await sb.from('settings').upsert({key:'fixes_retard',value:val},{onConflict:'key'});
+  D.settings['fixes_retard']=val;
+  renderFixes();renderKPIs();renderDetail();renderChart();
 }
 
 // Variables
