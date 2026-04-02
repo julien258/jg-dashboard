@@ -2923,7 +2923,7 @@ function renderMails(msgs){
   const el=document.getElementById('mail-list');
   if(!el)return;
   if(!msgs.length){el.innerHTML='<div style="text-align:center;padding:2rem;color:var(--t2)">✅ Aucun message non lu</div>';return;}
-  el.innerHTML=msgs.map(m=>{
+  el.innerHTML=msgs.map((m, i)=>{
     const isHigh=m.priority==='high';
     const border=isHigh?'var(--red)':'var(--b1)';
     const bg=isHigh?'rgba(231,76,60,0.03)':'var(--s1)';
