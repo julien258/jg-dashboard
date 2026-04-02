@@ -2,20 +2,29 @@
 // GET /api/wise-sync?action=balances
 // GET /api/wise-sync?action=transactions&profileId=xxx&currency=EUR&limit=10
 
-const WISE_BASE = 'https://api.wise.com';
+const WISE_URLS = ['https://api.wise.com', 'https://api.transferwise.com'];
 
 async function wiseGet(token, path) {
-  const res = await fetch(`${WISE_BASE}${path}`, {
-    headers: {
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json',
+  let lastErr;
+  for (const base of WISE_URLS) {
+    const res = await fetch(`${base}${path}`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      }
+    });
+    if (res.status === 401) {
+      const err = await res.json().catch(() => ({}));
+      lastErr = new Error(`Wise API 401: ${JSON.stringify(err)}`);
+      continue; // essayer l'autre URL
     }
-  });
-  if (!res.ok) {
-    const err = await res.text();
-    throw new Error(`Wise API ${res.status}: ${err.substring(0, 200)}`);
+    if (!res.ok) {
+      const err = await res.text();
+      throw new Error(`Wise API ${res.status}: ${err.substring(0, 200)}`);
+    }
+    return res.json();
   }
-  return res.json();
+  throw lastErr || new Error('Wise API inaccessible');
 }
 
 export default async (req) => {
