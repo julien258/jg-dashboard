@@ -1,109 +1,71 @@
-// wise-sync.js — Proxy Wise API pour soldes et transactions
+// wise-sync.js — Proxy Wise API
 // GET /api/wise-sync?action=balances
-// GET /api/wise-sync?action=transactions&profileId=xxx&currency=EUR&limit=10
+// GET /api/wise-sync?action=debug  (pour diagnostiquer)
 
-const WISE_URLS = ['https://api.wise.com', 'https://api.transferwise.com'];
+const WISE_BASE = 'https://api.wise.com';
 
 async function wiseGet(token, path) {
-  let lastErr;
-  for (const base of WISE_URLS) {
-    const res = await fetch(`${base}${path}`, {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      }
-    });
-    if (res.status === 401) {
-      const err = await res.json().catch(() => ({}));
-      lastErr = new Error(`Wise API 401: ${JSON.stringify(err)}`);
-      continue; // essayer l'autre URL
-    }
-    if (!res.ok) {
-      const err = await res.text();
-      throw new Error(`Wise API ${res.status}: ${err.substring(0, 200)}`);
-    }
-    return res.json();
-  }
-  throw lastErr || new Error('Wise API inaccessible');
+  const res = await fetch(`${WISE_BASE}${path}`, {
+    headers: { 'Authorization': `Bearer ${token}` }
+  });
+  const text = await res.text();
+  if (!res.ok) throw new Error(`${res.status}: ${text.substring(0, 300)}`);
+  try { return JSON.parse(text); } catch(e) { throw new Error(`JSON invalide: ${text.substring(0,200)}`); }
 }
 
 export default async (req) => {
   const token = Netlify.env.get('WISE_API_TOKEN');
-  if (!token) return Response.json({ ok: false, error: 'WISE_API_TOKEN manquant dans Netlify env' }, { status: 500 });
+  if (!token) return Response.json({ ok: false, error: 'WISE_API_TOKEN manquant' }, { status: 500 });
 
   try {
     const url = new URL(req.url);
     const action = url.searchParams.get('action') || 'balances';
 
-    if (action === 'balances') {
-      // 1. Récupérer les profils (perso + business si existant)
-      const profiles = await wiseGet(token, '/v1/profiles');
-      const personal = profiles.find(p => p.type === 'personal');
-      const business = profiles.find(p => p.type === 'business');
+    // Étape 1 : profils
+    const profiles = await wiseGet(token, '/v1/profiles');
 
-      const results = [];
-
-      for (const profile of [personal, business].filter(Boolean)) {
+    if (action === 'debug') {
+      // Retourner toutes les données brutes pour diagnostic
+      const debug = { profiles_raw: profiles, balances_raw: {} };
+      for (const p of profiles) {
         try {
-          // 2. Soldes multi-devises
-          const balances = await wiseGet(token, `/v4/profiles/${profile.id}/balances?types=STANDARD`);
-          results.push({
-            profileId: profile.id,
-            profileType: profile.type,
-            name: profile.type === 'personal'
-              ? `${profile.details?.firstName || ''} ${profile.details?.lastName || ''}`.trim()
-              : profile.details?.name || 'Business',
-            balances: (balances || [])
-              .filter(b => b.amount?.value > 0)
-              .map(b => ({
-                currency: b.amount?.currency,
-                value: b.amount?.value,
-                balanceType: b.balanceType,
-              }))
-              .sort((a, b) => b.value - a.value),
-          });
-        } catch (e) {
-          results.push({ profileId: profile.id, profileType: profile.type, error: e.message });
+          debug.balances_raw[p.id] = await wiseGet(token, `/v4/profiles/${p.id}/balances?types=STANDARD`);
+        } catch(e) {
+          debug.balances_raw[p.id] = { error: e.message };
         }
       }
-
-      return Response.json({ ok: true, profiles: results });
-
-    } else if (action === 'transactions') {
-      const profileId = url.searchParams.get('profileId');
-      const currency = url.searchParams.get('currency') || 'EUR';
-      const limit = parseInt(url.searchParams.get('limit') || '10');
-
-      if (!profileId) return Response.json({ ok: false, error: 'profileId requis' }, { status: 400 });
-
-      // Récupérer les dernières transactions
-      const now = new Date();
-      const monthAgo = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
-      const intervalStart = monthAgo.toISOString();
-
-      const transfers = await wiseGet(token,
-        `/v1/transfers?profile=${profileId}&sourceCurrency=${currency}&limit=${limit}&createdDateStart=${intervalStart}`
-      );
-
-      const txList = (Array.isArray(transfers) ? transfers : []).map(t => ({
-        id: t.id,
-        amount: t.sourceValue,
-        currency: t.sourceCurrency,
-        targetAmount: t.targetValue,
-        targetCurrency: t.targetCurrency,
-        status: t.status,
-        reference: t.details?.reference || '',
-        created: t.created,
-      }));
-
-      return Response.json({ ok: true, transactions: txList });
-
-    } else {
-      return Response.json({ ok: false, error: `Action inconnue : ${action}` }, { status: 400 });
+      return Response.json({ ok: true, debug });
     }
 
+    // Action balances standard
+    const results = [];
+    for (const profile of profiles) {
+      try {
+        const balances = await wiseGet(token, `/v4/profiles/${profile.id}/balances?types=STANDARD`);
+        const name = profile.type === 'personal'
+          ? `${profile.details?.firstName||''} ${profile.details?.lastName||''}`.trim() || 'Personnel'
+          : profile.details?.name || 'Business';
+
+        results.push({
+          profileId: profile.id,
+          profileType: profile.type,
+          name,
+          balances: (Array.isArray(balances) ? balances : [])
+            .filter(b => (b.amount?.value ?? b.value ?? 0) !== 0)
+            .map(b => ({
+              currency: b.currency || b.amount?.currency,
+              value: b.amount?.value ?? b.value ?? 0,
+            }))
+            .sort((a, b) => Math.abs(b.value) - Math.abs(a.value)),
+        });
+      } catch(e) {
+        results.push({ profileId: profile.id, profileType: profile.type, name: profile.type, error: e.message, balances: [] });
+      }
+    }
+
+    return Response.json({ ok: true, profiles: results });
+
   } catch (err) {
-    console.error('Wise sync error:', err.message);
     return Response.json({ ok: false, error: err.message }, { status: 500 });
   }
 };

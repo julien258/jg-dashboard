@@ -594,34 +594,33 @@ async function loadWise(){
   const spinner=document.getElementById('wise-spinner');
   const balEl=document.getElementById('wise-balances');
   if(spinner)spinner.style.display='inline';
-  if(balEl)balEl.textContent='';
+  if(balEl)balEl.textContent='chargement...';
   try{
     const res=await fetch('/api/wise-sync?action=balances');
     const data=await res.json();
     if(!data.ok){
-      if(balEl)balEl.innerHTML='<span style="color:var(--red);font-size:11px">'+data.error+'</span>';
+      if(balEl)balEl.innerHTML='<span style="color:var(--red);font-size:11px">⚠️ '+data.error+'</span>';
       return;
     }
-    // Afficher les soldes EUR + autres devises significatives
     const allBalances=[];
     (data.profiles||[]).forEach(p=>{
-      (p.balances||[]).forEach(b=>{
-        allBalances.push({...b,profileType:p.profileType,name:p.name});
-      });
+      if(p.error)console.warn('Wise profile error:',p.error);
+      (p.balances||[]).forEach(b=>allBalances.push({...b,profileType:p.profileType}));
     });
-    if(!allBalances.length){if(balEl)balEl.textContent='Aucun solde';return;}
-    // Grouper par devise, EUR en premier
-    const fmt2=(v,c)=>Number(v).toLocaleString('fr-FR',{maximumFractionDigits:0})+' '+c;
+    if(!allBalances.length){
+      if(balEl)balEl.innerHTML='<span style="font-size:11px;color:var(--t2)">Solde 0 · <a href="/api/wise-sync?action=debug" target="_blank" style="color:var(--acc)">debug</a></span>';
+      return;
+    }
+    const fmt2=(v,c)=>Number(v).toLocaleString('fr-FR',{maximumFractionDigits:0})+'\u202f'+c;
     const html=allBalances
-      .sort((a,b)=>a.currency==='EUR'?-1:b.currency==='EUR'?1:b.value-a.value)
+      .sort((a,b)=>a.currency==='EUR'?-1:b.currency==='EUR'?1:Math.abs(b.value)-Math.abs(a.value))
       .slice(0,4)
       .map(b=>'<span style="font-weight:600;color:var(--t1)">'+fmt2(b.value,b.currency)+'</span>')
-      .join(' · ');
+      .join(' <span style="color:var(--b1)">·</span> ');
     if(balEl)balEl.innerHTML=html;
-    // Stocker pour le widget détaillé
     window._wiseData=data;
   }catch(e){
-    if(balEl)balEl.innerHTML='<span style="color:var(--red);font-size:11px">'+e.message+'</span>';
+    if(balEl)balEl.innerHTML='<span style="color:var(--red);font-size:11px">⚠️ '+e.message+'</span>';
   }finally{
     if(spinner)spinner.style.display='none';
   }
