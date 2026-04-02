@@ -1080,6 +1080,7 @@ async function renderApurPerso(){
   let totalMois=0;
   const rows=dettes.map(d=>{
     // Vérifier si la dette est active ce mois — même logique que dettesMois12
+    const montant=Number(d.monthly_amount||0);
     const tY=target.getFullYear(), tM=target.getMonth();
     let dueCeMois=false;
     if(d.frequency==='monthly'){
