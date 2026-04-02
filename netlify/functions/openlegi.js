@@ -116,7 +116,8 @@ export default async (req) => {
       };
     } else if (action === 'analyze_document') {
       // Analyse d'un texte OCR — on extrait les références légales et on recherche
-      const text = body?.text || url.searchParams.get('text') || '';
+      // Note: variable nommée docText (pas text) pour éviter collision avec le const text du chemin MCP standard
+      const docText = String(body?.text || url.searchParams.get('text') || '');
 
       // Extraction des références via Claude
       const claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
@@ -135,7 +136,7 @@ export default async (req) => {
   "delai_jours": 30,                     // délai légal mentionné (null si absent)
   "type_courrier": "mise en demeure"     // type de document
 }
-Courrier : ${text.substring(0, 2000)}`
+Courrier : ${docText.substring(0, 2000)}`
           }]
         })
       });
@@ -173,11 +174,13 @@ Courrier : ${text.substring(0, 2000)}`
     const { sessionId, endpoint } = await initSession(service, token);
     const result = await callTool(endpoint, sessionId, token, toolName, args);
     // Le contenu MCP peut être string ou objet {type, text}
-  const rawContent = result?.content?.[0];
-  const text = (typeof rawContent === 'string' ? rawContent 
-    : rawContent?.text || JSON.stringify(result));
+    const rawContent = result?.content?.[0];
+    const mcpText = String(
+      typeof rawContent === 'string' ? rawContent
+      : rawContent?.text ?? JSON.stringify(result)
+    );
 
-    return Response.json({ ok: true, text, raw: result });
+    return Response.json({ ok: true, text: mcpText, raw: result });
 
   } catch (err) {
     console.error('OpenLegi error:', err.message);
