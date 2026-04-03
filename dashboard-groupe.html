@@ -836,16 +836,16 @@
 
   <!-- JURIDIQUE standalone -->
   <div class="pv cnt" id="v-jur">
-  <div id="main-jur"></div>
-  <!-- Onglets Structure actuelle / Structure cible -->
-  <div style="display:flex;gap:8px;margin-bottom:1rem;border-bottom:1px solid var(--b1);padding-bottom:0">
+  <!-- Onglets Structure actuelle / Structure cible — EN HAUT -->
+  <div style="display:flex;gap:8px;margin-bottom:1.2rem;border-bottom:2px solid var(--b1);padding-bottom:0">
     <button id="jur-tab-actuel" onclick="showJurTab('actuel')" 
-      style="padding:8px 16px;border:none;border-bottom:2px solid var(--acc);background:none;color:var(--acc);font-size:13px;font-weight:600;cursor:pointer">
-      Structure actuelle</button>
+      style="padding:10px 20px;border:none;border-bottom:3px solid var(--acc);margin-bottom:-2px;background:none;color:var(--acc);font-size:13px;font-weight:700;cursor:pointer">
+      📊 Structure actuelle</button>
     <button id="jur-tab-cible" onclick="showJurTab('cible')" 
-      style="padding:8px 16px;border:none;border-bottom:2px solid transparent;background:none;color:var(--t2);font-size:13px;cursor:pointer">
+      style="padding:10px 20px;border:none;border-bottom:3px solid transparent;margin-bottom:-2px;background:none;color:var(--t2);font-size:13px;font-weight:400;cursor:pointer">
       🎯 Structure cible 2026-2028</button>
   </div>
+  <div id="main-jur"></div>
   <!-- Vue structure cible avec slider -->
   <div id="jur-cible-view" style="display:none">
     <div class="card" style="margin-bottom:1rem">
@@ -10577,7 +10577,7 @@ async function renderJur(containerId){
 
     <!-- ORG CHART SVG -->
     <div style="overflow-x:auto;padding-bottom:1rem">
-      <svg viewBox="0 0 1200 720" xmlns="http://www.w3.org/2000/svg" style="width:100%;min-width:1000px;font-family:Inter,sans-serif">
+      <svg viewBox="0 0 980 580" xmlns="http://www.w3.org/2000/svg" style="width:100%;min-width:1000px;font-family:Inter,sans-serif">
         <defs>
           <marker id="arrow-amb" markerWidth="6" markerHeight="6" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#F39C12"/></marker>
           <marker id="arrow-acc" markerWidth="6" markerHeight="6" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#3D8EF0"/></marker>
@@ -10593,7 +10593,7 @@ async function renderJur(containerId){
 
         <!-- Ligne principale niveau 0→1 -->
         <line x1="600" y1="80" x2="600" y2="106" stroke="#374057" stroke-width="1"/>
-        <line x1="120" y1="106" x2="1080" y2="106" stroke="#374057" stroke-width="1"/>
+        <line x1="120" y1="106" x2="850" y2="106" stroke="#374057" stroke-width="1"/>
 
         <!-- Branches vers niveau 1 -->
         <line x1="120" y1="106" x2="120" y2="132" stroke="#374057" stroke-width="1"/>
@@ -10634,13 +10634,7 @@ async function renderJur(containerId){
         <text x="850" y="198" text-anchor="middle" fill="#4A5268" font-size="9">Post-levée : 15k€/m HT</text>
         <text x="850" y="210" text-anchor="middle" fill="#4A5268" font-size="9">Placement 2M€ CGW</text>
 
-        <!-- SOCIÉTÉ DUBAI -->
-        <rect x="980" y="132" width="200" height="80" rx="8" fill="#0F1117" stroke="#F39C12" stroke-width="1.5" stroke-dasharray="6,3"/>
-        <text x="1080" y="154" text-anchor="middle" fill="#F39C12" font-size="11" font-weight="600">HOLDING DUBAI (UAE)</text>
-        <text x="1080" y="170" text-anchor="middle" fill="#7A849E" font-size="10">Freezone/Mainland — En cours</text>
-        <text x="1080" y="184" text-anchor="middle" fill="#F39C12" font-size="10">100% Julien (perso direct)</text>
-        <text x="1080" y="198" text-anchor="middle" fill="#4A5268" font-size="9">Future holding mondiale</text>
-        <text x="1080" y="210" text-anchor="middle" fill="#4A5268" font-size="9">Déménagement 2027 · Inversion rôles</text>
+
 
         <!-- Lien SAS LIVING → FCR (participation 25%) -->
         <line x1="700" y1="172" x2="750" y2="172" stroke="#2ECC71" stroke-width="1.5" stroke-dasharray="4,2" marker-end="url(#arrow-grn)"/>
@@ -10666,21 +10660,7 @@ async function renderJur(containerId){
         <text x="600" y="490" text-anchor="middle" fill="#7A849E" font-size="10">100% Real Gains</text>
         <text x="600" y="504" text-anchor="middle" fill="#4A5268" font-size="9">⚠ Fermeture envisagée</text>
 
-        <!-- SPV Dubai futurs -->
-        <line x1="1080" y1="212" x2="1080" y2="300" stroke="#374057" stroke-width="1" stroke-dasharray="4,3"/>
-        <line x1="1010" y1="300" x2="1150" y2="300" stroke="#374057" stroke-width="1" stroke-dasharray="4,3"/>
-        <line x1="1010" y1="300" x2="1010" y2="316" stroke="#374057" stroke-width="1" stroke-dasharray="4,3"/>
-        <line x1="1150" y1="300" x2="1150" y2="316" stroke="#374057" stroke-width="1" stroke-dasharray="4,3"/>
 
-        <rect x="950" y="316" width="120" height="52" rx="6" fill="#0F1117" stroke="#374057" stroke-width="1" stroke-dasharray="4,3"/>
-        <text x="1010" y="336" text-anchor="middle" fill="#4A5268" font-size="10">SPV Immo Intl.</text>
-        <text x="1010" y="350" text-anchor="middle" fill="#4A5268" font-size="9">ex: LA MEULETTE</text>
-        <text x="1010" y="362" text-anchor="middle" fill="#F39C12" font-size="9">(piste rachat)</text>
-
-        <rect x="1090" y="316" width="120" height="52" rx="6" fill="#0F1117" stroke="#374057" stroke-width="1" stroke-dasharray="4,3"/>
-        <text x="1150" y="336" text-anchor="middle" fill="#4A5268" font-size="10">SPV Invest.</text>
-        <text x="1150" y="350" text-anchor="middle" fill="#4A5268" font-size="9">International 1</text>
-        <text x="1150" y="362" text-anchor="middle" fill="#4A5268" font-size="9">(futur)</text>
 
         <!-- FLUX FINANCIERS -->
         <!-- CC LA MEULETTE → SARL GUIRAUD (rouge = dette) -->
@@ -10695,13 +10675,7 @@ async function renderJur(containerId){
         <path d="M 350 132 Q 390 90 480 60" stroke="#3D8EF0" stroke-width="1.5" fill="none" marker-end="url(#arrow-acc)" stroke-dasharray="4,2"/>
         <text x="400" y="88" fill="#3D8EF0" font-size="9">TNS</text>
 
-        <!-- Dubai → Julien PP (futur holding mondiale) -->
-        <path d="M 1080 132 Q 1080 80 720 50" stroke="#F39C12" stroke-width="1" fill="none" marker-end="url(#arrow-amb)" stroke-dasharray="4,2"/>
-        <text x="920" y="70" fill="#4A5268" font-size="9">Future holding (2027)</text>
 
-        <!-- Piste rachat Dubai → Meulette -->
-        <path d="M 980 172 Q 700 240 220 190" stroke="#F39C12" stroke-width="1" fill="none" marker-end="url(#arrow-amb)" stroke-dasharray="3,3"/>
-        <text x="580" y="246" fill="#F39C12" font-size="9" font-weight="500">Piste : rachat LA MEULETTE par Dubai SPV</text>
 
       </svg>
     </div>
@@ -10740,8 +10714,8 @@ async function renderJur(containerId){
         <tr><td><strong>Dividendes mère-fille</strong></td><td>SARL GUIRAUD JULIEN</td><td>LA MEULETTE</td><td><span class="badge bg">Dividendes</span></td><td class="mo">—</td><td>Régime mère-fille — quasi exonération IS si &gt;5%</td></tr>
         <tr><td><strong>Collecte obligations</strong></td><td>Investisseurs</td><td>REAL GAINS / MONIKAZA</td><td><span class="badge bp">Obligations</span></td><td class="mo">—</td><td>Encadrement AMF à vérifier</td></tr>
         <tr><td><strong>Prêts participatifs</strong></td><td>SPV MONIKAZA</td><td>Emprunteurs</td><td><span class="badge bp">Prêts</span></td><td class="mo">—</td><td>Filiale Real Gains · Cross-border</td></tr>
-        <tr><td><strong>Facturation internationale</strong></td><td>Société Dubai</td><td>Clients / SAS LIVING</td><td><span class="badge ba">Fact. intl.</span></td><td class="mo">—</td><td>TVA hors UE · À structurer avec fiscaliste</td></tr>
-        <tr><td><strong>Rachat LA MEULETTE</strong></td><td>Dubai SPV</td><td>LA MEULETTE</td><td><span class="badge ba">Piste strat.</span></td><td class="mo">À chiffrer</td><td>Renfloue CC · Optimise fiscalité internationale</td></tr>
+        
+        
         <tr><td><strong>Dettes fiscales</strong></td><td>Groupe</td><td>DGFiP / Huissiers</td><td><span class="badge br">Urgence</span></td><td class="nn mo">530 307 €</td><td>⚠ IR + URSSAF + IS — Saisies possibles</td></tr>
       </tbody>
     </table>
