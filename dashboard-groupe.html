@@ -10378,7 +10378,7 @@ function renderStructureCible(step) {
   if (!el) return;
 
   // Entités visibles selon le step
-  const showSCPCP    = step <= 1;  // existe jusqu'à clôture
+  const showSCPCP    = step <= 1;  // existe jusqu'a cloture
   const showNewHold  = step >= 1;
   const showDubai    = step >= 1;
   const showMeulette = true;
@@ -10416,21 +10416,21 @@ function renderStructureCible(step) {
   const node = (x, y, w, h, label, sub, style, badge='') => {
     const s = colors_map[style] || colors_map.arret;
     const dashed = style === 'arret' ? 'stroke-dasharray="6,3"' : '';
-    return \`
-      <rect x="\${x}" y="\${y}" width="\${w}" height="\${h}" rx="8" fill="\${s.fill}" stroke="\${s.stroke}" stroke-width="2" \${dashed}/>
-      \${badge ? \`<rect x="\${x+w-50}" y="\${y-8}" width="52" height="16" rx="4" fill="\${s.stroke}"/><text x="\${x+w-24}" y="\${y+3}" text-anchor="middle" fill="#fff" font-size="9" font-weight="700">\${badge}</text>\` : ''}
-      <text x="\${x+w/2}" y="\${y+h/2-6}" text-anchor="middle" fill="\${s.text}" font-size="11" font-weight="600">\${label}</text>
-      <text x="\${x+w/2}" y="\${y+h/2+9}" text-anchor="middle" fill="\${s.sub}" font-size="9">\${sub}</text>
-    \`;
+    return `
+      <rect x="${x}" y="${y}" width="${w}" height="${h}" rx="8" fill="${s.fill}" stroke="${s.stroke}" stroke-width="2" ${dashed}/>
+      ${badge ? `<rect x="${x+w-50}" y="${y-8}" width="52" height="16" rx="4" fill="${s.stroke}"/><text x="${x+w-24}" y="${y+3}" text-anchor="middle" fill="#fff" font-size="9" font-weight="700">${badge}</text>` : ''}
+      <text x="${x+w/2}" y="${y+h/2-6}" text-anchor="middle" fill="${s.text}" font-size="11" font-weight="600">${label}</text>
+      <text x="${x+w/2}" y="${y+h/2+9}" text-anchor="middle" fill="${s.sub}" font-size="9">${sub}</text>
+    `;
   };
 
   const line = (x1,y1,x2,y2,color='#374057',dash=false) =>
-    \`<line x1="\${x1}" y1="\${y1}" x2="\${x2}" y2="\${y2}" stroke="\${color}" stroke-width="1.5" \${dash?'stroke-dasharray="5,3"':''}/>\`;
+    `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${color}" stroke-width="1.5" ${dash?'stroke-dasharray="5,3"':''}/>`;
 
   const pct = (x,y,txt2,col='#F39C12') =>
-    \`<text x="\${x}" y="\${y}" text-anchor="middle" fill="\${col}" font-size="9" font-weight="700">\${txt2}</text>\`;
+    `<text x="${x}" y="${y}" text-anchor="middle" fill="${col}" font-size="9" font-weight="700">${txt2}</text>`;
 
-  let svg = \`<svg viewBox="0 0 1100 620" xmlns="http://www.w3.org/2000/svg" style="width:100%;min-width:900px;font-family:Inter,sans-serif;background:\${bg};border-radius:8px;padding:8px">\`;
+  let svg = `<svg viewBox="0 0 1100 620" xmlns="http://www.w3.org/2000/svg" style="width:100%;min-width:900px;font-family:Inter,sans-serif;background:${bg};border-radius:8px;padding:8px">`;
 
   // JULIEN PP — toujours présent
   svg += node(430, 20, 240, 55, 'GUIRAUD Julien', 'Personne Physique', 'pp');
@@ -10442,14 +10442,14 @@ function renderStructureCible(step) {
     svg += line(120, 105, 120, 130); svg += line(300, 105, 300, 130);
     svg += line(550, 105, 550, 130); svg += line(780, 105, 780, 130);
     svg += line(980, 105, 980, 130);
-    svg += node(20,  130, 200, 60, 'SCPCP Luxembourg', 'A régulariser · clôturer', 'lux', 'URGENT');
-    svg += node(200, 130, 200, 60, 'SARL GUIRAUD', 'Sans revenus · dettes 443k€', 'hold');
-    svg += node(430, 130, 240, 60, 'SAS LIVING', 'CIF/LLD · ~2M€/an', 'actif');
-    svg += node(680, 130, 200, 60, 'LA MEULETTE', 'Immobilier · CC 1,2M€', 'hold');
-    svg += node(880, 130, 200, 60, 'REAL GAINS', 'Monikaza · à l'arrêt', 'arret');
+    svg += node(20,  130, 200, 60, 'SCPCP Luxembourg', 'A regulariser - cloturer', 'lux', 'URGENT');
+    svg += node(200, 130, 200, 60, 'SARL GUIRAUD', 'Sans revenus - dettes 443k EUR', 'hold');
+    svg += node(430, 130, 240, 60, 'SAS LIVING', 'CIF/LLD - 2M EUR/an', 'actif');
+    svg += node(680, 130, 200, 60, 'LA MEULETTE', 'Immobilier - CC 1.2M EUR', 'hold');
+    svg += node(880, 130, 200, 60, 'REAL GAINS', 'Monikaza - a l\'arret', 'arret');
     // CC
     svg += line(300, 160, 680, 160, '#E74C3C', true);
-    svg += \`<text x="490" y="157" text-anchor="middle" fill="#E74C3C" font-size="9" font-weight="600">CC 1,2M€</text>\`;
+    svg += `<text x="490" y="157" text-anchor="middle" fill="#E74C3C" font-size="9" font-weight="600">CC 1,2M€</text>`;
     svg += pct(120, 122, '100%', '#3D8EF0'); svg += pct(300, 122, '51%+49%');
     svg += pct(550, 122, '100%', '#3D8EF0'); svg += pct(780, 122, '100%', '#3D8EF0');
     svg += pct(980, 122, '100% LIVING', '#3D8EF0');
@@ -10460,97 +10460,93 @@ function renderStructureCible(step) {
     svg += line(700, 105, 700, 130); svg += line(980, 105, 980, 130);
     svg += node(20,  130, 200, 60, 'SCPCP Luxembourg', 'En cours de clôture', 'lux');
     svg += node(300, 130, 220, 60, 'SARL GUIRAUD', 'Convention LIVING active', 'hold');
-    svg += node(580, 130, 240, 60, 'NEW HOLD LUX', 'Sàrl propre · en création', 'hold_new', 'NEW');
-    svg += node(880, 130, 200, 60, 'SAS LIVING', 'CIF/LLD · ~2M€/an', 'actif');
+    svg += node(580, 130, 240, 60, 'NEW HOLD LUX', 'Sarl propre - en creation', 'hold_new', 'NEW');
+    svg += node(880, 130, 200, 60, 'SAS LIVING', 'CIF/LLD - 2M EUR/an', 'actif');
     // NewHoldLux branches vers Dubai
     svg += line(700, 190, 700, 230);
     svg += line(550, 230, 850, 230);
     svg += line(550, 230, 550, 255); svg += line(850, 230, 850, 255);
     svg += node(450, 255, 200, 60, 'DUBAI HOLDCO', '100% NewHoldLux', 'opco', 'NEW');
-    svg += node(750, 255, 200, 60, 'LA MEULETTE', 'Immobilier · Fronsac', 'hold');
+    svg += node(750, 255, 200, 60, 'LA MEULETTE', 'Immobilier - Fronsac', 'hold');
     svg += line(550, 285, 750, 285);
     svg += node(450, 340, 200, 60, 'DUBAI OPCO', 'Manhattan · dettes privées', 'opco', 'NEW');
     svg += line(550, 315, 550, 340);
     svg += pct(700, 247, '100%', '#2ECC71'); svg += pct(400, 122, '51%+49%');
-    svg += \`<text x="640" y="282" fill="#9B59B6" font-size="9" font-weight="700">50%</text>\`;
+    svg += `<text x="640" y="282" fill="#9B59B6" font-size="9" font-weight="700">50%</text>`;
   } else if (step === 2) {
     // Vente Fronsac, NewHoldLux entre dans Meulette
     svg += line(550, 75, 550, 105); svg += line(250, 105, 850, 105);
     svg += line(250, 105, 250, 130); svg += line(550, 105, 550, 130); svg += line(850, 105, 850, 130);
     svg += node(150, 130, 200, 60, 'SARL GUIRAUD', 'Dettes en apurement', 'hold');
-    svg += node(430, 130, 240, 60, 'NEW HOLD LUX', 'Holding animation · active', 'hold_new');
-    svg += node(750, 130, 200, 60, 'SAS LIVING', 'CIF/LLD · France', 'actif');
+    svg += node(430, 130, 240, 60, 'NEW HOLD LUX', 'Holding animation - active', 'hold_new');
+    svg += node(750, 130, 200, 60, 'SAS LIVING', 'CIF/LLD - France', 'actif');
     // NewHoldLux → 3 branches
     svg += line(550, 190, 550, 220); svg += line(300, 220, 800, 220);
     svg += line(300, 220, 300, 245); svg += line(550, 220, 550, 245); svg += line(800, 220, 800, 245);
     svg += node(200, 245, 200, 65, 'DUBAI HOLDCO', '100%', 'opco');
-    svg += node(430, 245, 240, 65, 'LA MEULETTE', 'NewHoldLux entree
-Vente Fronsac → 300k€', 'hold', '⬅ NEW');
+    svg += node(430, 245, 240, 65, 'LA MEULETTE', 'NewHoldLux entree / Vente Fronsac 300k EUR', 'hold', '⬅ NEW');
     svg += node(700, 245, 200, 65, 'RAIF LUX', 'En preparation', 'raif');
     // Dubai Opco
     svg += line(300, 310, 300, 340);
-    svg += node(200, 340, 200, 60, 'DUBAI OPCO', 'Manhattan · 15-30M€/an', 'opco');
+    svg += node(200, 340, 200, 60, 'DUBAI OPCO', 'Manhattan 15-30M EUR/an', 'opco');
     // CC flux
     svg += line(430, 277, 200, 277, '#E74C3C', true);
-    svg += \`<text x="300" y="272" text-anchor="middle" fill="#2ECC71" font-size="9" font-weight="700">→ CC injection</text>\`;
+    svg += `<text x="300" y="272" text-anchor="middle" fill="#2ECC71" font-size="9" font-weight="700">→ CC injection</text>`;
     svg += line(430, 277, 200, 277);
     // Labels pct
     svg += pct(250, 122, '51%+49%'); svg += pct(550, 122, '100%', '#2ECC71'); svg += pct(850, 122, '100%', '#3D8EF0');
-    svg += \`<text x="430" y="430" text-anchor="middle" fill="#2ECC71" font-size="11" font-weight="700">✓ Fronsac vendu · 300k€ → GUIRAUD · Dettes partiellement apurées</text>\`;
+    svg += `<text x="430" y="430" text-anchor="middle" fill="#2ECC71" font-size="11" font-weight="700">✓ Fronsac vendu · 300k€ → GUIRAUD · Dettes partiellement apurées</text>`;
   } else if (step === 3) {
     // RAIF créé
     svg += line(550, 75, 550, 105); svg += line(250, 105, 850, 105);
     svg += line(250, 105, 250, 130); svg += line(550, 105, 550, 130); svg += line(850, 105, 850, 130);
     svg += node(150, 130, 200, 60, 'SARL GUIRAUD', 'Apurement en cours', 'hold');
     svg += node(430, 130, 240, 60, 'NEW HOLD LUX', 'Holding animation', 'hold_new');
-    svg += node(750, 130, 200, 60, 'SAS LIVING', 'CIF/LLD · France', 'actif');
+    svg += node(750, 130, 200, 60, 'SAS LIVING', 'CIF/LLD - France', 'actif');
     svg += line(550, 190, 550, 220); svg += line(250, 220, 900, 220);
     svg += line(250, 220, 250, 245); svg += line(550, 220, 550, 245); svg += line(900, 220, 900, 245);
     svg += node(150, 245, 200, 65, 'DUBAI HOLDCO', '100%', 'opco');
-    svg += node(430, 245, 240, 65, 'LA MEULETTE', 'CC apurement progressif
-Candice salariée', 'hold');
-    svg += node(800, 245, 200, 65, 'RAIF LUX', '50% NewHoldLux
-50% Benjamin', 'raif', 'NEW');
+    svg += node(430, 245, 240, 65, 'LA MEULETTE', 'CC apurement progressif - Candice salariee', 'hold');
+    svg += node(800, 245, 200, 65, 'RAIF LUX', '50% NewHoldLux / 50% Benjamin', 'raif', 'NEW');
     svg += line(250, 310, 250, 340);
-    svg += node(150, 340, 200, 60, 'DUBAI OPCO', 'Manhattan · 15-30M€/an', 'opco');
+    svg += node(150, 340, 200, 60, 'DUBAI OPCO', 'Manhattan 15-30M EUR/an', 'opco');
     // BENJAMIN
     svg += node(870, 130, 160, 55, 'BENJAMIN', 'Associé RAIF · 50%', 'pp');
     svg += line(950, 185, 900, 245, '#3D8EF0', true);
     svg += pct(550, 122, '100%', '#2ECC71'); svg += pct(250, 122, '51%+49%');
-    svg += \`<text x="550" y="430" text-anchor="middle" fill="#2ECC71" font-size="11" font-weight="700">RAIF constitué · Objectif 20M€ AuM · Actifs : dettes privées + véhicules + art</text>\`;
+    svg += `<text x="550" y="430" text-anchor="middle" fill="#2ECC71" font-size="11" font-weight="700">RAIF constitué · Objectif 20M€ AuM · Actifs : dettes privées + véhicules + art</text>`;
   } else {
     // Structure complète
     svg += line(550, 75, 550, 105); svg += line(250, 105, 900, 105);
     svg += line(250, 105, 250, 130); svg += line(550, 105, 550, 130); svg += line(900, 105, 900, 130);
-    svg += node(150, 130, 200, 60, 'SARL GUIRAUD', 'Dettes apurées · Stabilisé', 'actif');
+    svg += node(150, 130, 200, 60, 'SARL GUIRAUD', 'Dettes apurees - Stabilise', 'actif');
     svg += node(430, 130, 240, 60, 'NEW HOLD LUX', 'Holding animation · 100% Julien', 'hold_new');
-    svg += node(800, 130, 200, 60, 'SAS LIVING', 'CIF/LLD · ~3M€/an', 'actif');
+    svg += node(800, 130, 200, 60, 'SAS LIVING', 'CIF/LLD - 3M EUR/an', 'actif');
     svg += line(550, 190, 550, 220); svg += line(200, 220, 950, 220);
     svg += line(200, 220, 200, 245); svg += line(550, 220, 550, 245); svg += line(950, 220, 950, 245);
     svg += node(100, 245, 200, 65, 'DUBAI HOLDCO', '100%', 'opco');
-    svg += node(430, 245, 240, 65, 'LA MEULETTE', 'Revenu prestations
-CC apuré', 'actif');
-    svg += node(850, 245, 200, 65, 'RAIF LUX', '50/50 · 50-100M€ AuM', 'raif');
+    svg += node(430, 245, 240, 65, 'LA MEULETTE', 'Revenu prestations / CC apure', 'actif');
+    svg += node(850, 245, 200, 65, 'RAIF LUX', '50/50 - 50-100M EUR AuM', 'raif');
     svg += line(200, 310, 200, 340);
-    svg += node(100, 340, 200, 60, 'DUBAI OPCO', 'Manhattan · 20-30M€/an', 'opco');
+    svg += node(100, 340, 200, 60, 'DUBAI OPCO', 'Manhattan 20-30M EUR/an', 'opco');
     svg += node(830, 130, 0, 0, '', '', 'pp'); // Benjamin
     svg += node(920, 130, 160, 55, 'BENJAMIN', 'Associé RAIF · 50%', 'pp');
     svg += line(1000, 185, 950, 245, '#3D8EF0', true);
     // Flux
     svg += line(200, 370, 430, 277, '#9B59B6', true);
-    svg += \`<text x="300" y="340" fill="#9B59B6" font-size="9" font-weight="700">Dubai → LUX → Meulette</text>\`;
-    svg += \`<text x="310" y="352" fill="#9B59B6" font-size="9">IS effectif : 9%</text>\`;
-    svg += \`<text x="550" y="530" text-anchor="middle" fill="#2ECC71" font-size="12" font-weight="700">✅ Structure cible pleinement deployée · IS effectif global ~9% · Apurement GUIRAUD complété</text>\`;
+    svg += `<text x="300" y="340" fill="#9B59B6" font-size="9" font-weight="700">Dubai → LUX → Meulette</text>`;
+    svg += `<text x="310" y="352" fill="#9B59B6" font-size="9">IS effectif : 9%</text>`;
+    svg += `<text x="550" y="530" text-anchor="middle" fill="#2ECC71" font-size="12" font-weight="700">✅ Structure cible pleinement deployée · IS effectif global ~9% · Apurement GUIRAUD complété</text>`;
   }
 
   svg += '</svg>';
 
   // Bloc description
-  el.innerHTML = svg + \`
+  el.innerHTML = svg + `
     <div style="margin-top:1rem;padding:12px 16px;background:var(--s2);border-radius:8px;border-left:3px solid var(--acc);font-size:12px">
-      \${stepDescs[step]}
+      ${stepDescs[step]}
     </div>
-  \`;
+  `;
 }
 
 async function renderJur(containerId){
@@ -10558,7 +10554,7 @@ async function renderJur(containerId){
 
   // Lit depuis interco_balances (saisie manuelle fiable)
   const{data:balances}=await sb.from('interco_balances').select('*').order('balance_date',{ascending:false});
-  let ccMeulette='À saisir';
+  let ccMeulette='A saisir';
   if(balances?.length){
     const cc=balances.filter(b=>b.company_id==='meulette'&&b.counterpart==='sarl-guiraud');
     if(cc.length){
