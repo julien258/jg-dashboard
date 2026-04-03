@@ -133,6 +133,7 @@
         <div class="det-row"><span><span class="dot" style="background:#73726c"></span>Variables</span><span class="mono" id="d-vars"></span></div>
         <div class="det-row"><span><span class="dot" style="background:#2C2C2A"></span>Impôts PAS</span><span class="mono" id="d-impots"></span></div>
         <div class="det-row"><span><span class="dot" style="background:#185FA5"></span>Projets</span><span class="mono" style="color:#0C447C" id="d-projets"></span></div>
+        <div class="det-row" id="d-ir2025-row" style="display:none"><span><span class="dot" style="background:#8E44AD"></span>IR 2025 (DGFiP)</span><span class="mono" style="color:#6C3483" id="d-ir2025"></span></div>
         <div class="det-row tot"><span>Total besoins</span><span class="mono" id="d-total"></span></div>
         <div class="det-row" style="padding-top:8px"><span style="color:#378ADD"><span class="dot" style="background:#378ADD"></span>+ Reste à vivre</span><span class="mono" style="color:#378ADD" id="d-rav"></span></div>
         <div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--b1)">
@@ -629,19 +630,41 @@ async function loadWise(){
 // ── Calculs par mois ──
 function getFixesRetard(){try{return JSON.parse(D.settings['fixes_retard']||'{}');}catch(e){return {};}}
 function fixesRetardTotal(){const r=getFixesRetard();return D.fixes.reduce((s,f)=>s+Number(f.amount||0)*(Number(r[f.id]||0)),0);}
-function fixesTotal(){return D.fixes.reduce((s,f)=>s+Number(f.amount||0),0)+fixesRetardTotal();}
+// fixesBase = charges normales sans rattrapage
+function fixesBase(){return D.fixes.reduce((s,f)=>s+Number(f.amount||0),0);}
+// fixesTotalMois = charges normales + rattrapage UNIQUEMENT mois courant (i=0)
+function fixesTotalMois(i){return fixesBase()+(i===0?fixesRetardTotal():0);}
+// fixesTotal() conservé pour affichage global (KPI, renderFixes)
+function fixesTotal(){return fixesBase()+fixesRetardTotal();}
+
+// Parse date ISO locale (évite décalage UTC en été)
+function parseLocalDate(str){
+  if(!str)return null;
+  const[y,mo,d]=str.split('-').map(Number);
+  return new Date(y,mo-1,d);
+}
 
 function dettesMois(i){
   const m=months[i];
   return D.dettes.filter(d=>{
     if(d.frequency!=='monthly')return false;
-    const s=d.start_date?new Date(d.start_date):null;
-    const e=d.end_date?new Date(d.end_date):null;
+    if(d.nature&&d.nature.includes('IR 2025'))return false;
+    const s=d.start_date?parseLocalDate(d.start_date):null;
+    const e=d.end_date?parseLocalDate(d.end_date):null;
     const ms=new Date(m.getFullYear(),m.getMonth(),1);
     if(s&&ms<new Date(s.getFullYear(),s.getMonth(),1))return false;
     if(e&&ms>new Date(e.getFullYear(),e.getMonth(),1))return false;
     return true;
   }).reduce((s,d)=>s+Number(d.monthly_amount||0),0);
+}
+
+// IR 2025 — mensualité DGFiP sur sept-déc 2026 uniquement
+function ir2025Mois(i){
+  const m=months[i];
+  const mY=m.getFullYear(),mM=m.getMonth();
+  if(mY!==2026||mM<8||mM>11)return 0;
+  const irDette=D.dettes.find(d=>d.nature&&d.nature.includes('IR 2025'));
+  return irDette?Number(irDette.monthly_amount||0):0;
 }
 
 function varsMois(i){
@@ -675,12 +698,11 @@ function projetsMois(i){
           t+=mensuelP;
       }
     }
-    // Sans date_debut+duree_mois : projet non comptabilisé dans la tréso
   });
   return t;
 }
 
-function totalBesoin(i){return dettesMois(i)+fixesTotal()+varsMois(i)+impotsMois(i)+projetsMois(i);}
+function totalBesoin(i){return dettesMois(i)+fixesTotalMois(i)+varsMois(i)+impotsMois(i)+projetsMois(i)+ir2025Mois(i);}
 function revNecessaire(i){return totalBesoin(i)+ravMois(i);}
 
 // ── Rendu ──
@@ -688,7 +710,7 @@ function renderAll(){renderKPIs();renderTabs();renderDetail();renderChart();rend
 
 function renderKPIs(){
   const i=selM;
-  const rev=revNecessaire(i),rav=ravMois(i),d=dettesMois(i),f=fixesTotal();
+  const rev=revNecessaire(i),rav=ravMois(i),d=dettesMois(i),f=fixesTotalMois(i);
   // Besoin perso net à couvrir via SARL Guiraud (sans TVA — calcul côté pro)
   document.getElementById('kpi-row').innerHTML=`
     <div class="kc" style="border-left:3px solid #1D9E75"><div class="kl">Revenus à verser</div><div class="kv" style="color:#1D9E75">${fmt(rev)}</div><div class="ks">${mLab[i]}</div></div>
@@ -708,14 +730,17 @@ function renderTabs(){
 
 function renderDetail(){
   const i=selM;
-  const d=dettesMois(i),f=fixesTotal(),v=varsMois(i),imp=impotsMois(i),pj=projetsMois(i),rav=ravMois(i);
-  const tot=d+f+v+imp+pj,rev=tot+rav;
+  const d=dettesMois(i),f=fixesTotalMois(i),v=varsMois(i),imp=impotsMois(i),pj=projetsMois(i),rav=ravMois(i),ir25=ir2025Mois(i);
+  const tot=d+f+v+imp+pj+ir25,rev=tot+rav;
   document.getElementById('det-mois-label').textContent=mLab[i];
   document.getElementById('d-dettes').textContent=fmtM(d);
   document.getElementById('d-fixes').textContent=fmtM(f);
   document.getElementById('d-vars').textContent=fmtM(v);
   document.getElementById('d-impots').textContent=fmtM(imp);
   document.getElementById('d-projets').textContent=fmtM(pj);
+  // Ligne IR 2025 — visible uniquement sur sept-déc 2026
+  const irRow=document.getElementById('d-ir2025-row');
+  if(irRow){irRow.style.display=ir25>0?'':'none';document.getElementById('d-ir2025').textContent=fmtM(ir25);}
   document.getElementById('d-total').textContent=fmt(tot);
   document.getElementById('d-rav').textContent=fmt(rav);
   document.getElementById('d-rev').textContent=fmt(rev);
@@ -732,10 +757,11 @@ function renderChart(){
   const hi=(c,i)=>months.map((_,j)=>j===i?c:c+'99');
   const ds=[
     {type:'bar',data:months.map((_,i)=>dettesMois(i)),backgroundColor:hi('#E24B4A',selM),stack:'s',order:2},
-    {type:'bar',data:months.map(()=>fixesTotal()),backgroundColor:hi('#BA7517',selM),stack:'s',order:2},
+    {type:'bar',data:months.map((_,i)=>fixesTotalMois(i)),backgroundColor:hi('#BA7517',selM),stack:'s',order:2},
     {type:'bar',data:months.map((_,i)=>varsMois(i)),backgroundColor:hi('#73726c',selM),stack:'s',order:2},
     {type:'bar',data:months.map((_,i)=>impotsMois(i)),backgroundColor:hi('#2C2C2A',selM),stack:'s',order:2},
     {type:'bar',data:months.map((_,i)=>projetsMois(i)),backgroundColor:hi('#185FA5',selM),stack:'s',order:2},
+    {type:'bar',data:months.map((_,i)=>ir2025Mois(i)),backgroundColor:hi('#8E44AD',selM),stack:'s',order:2},
     {type:'bar',data:months.map((_,i)=>ravMois(i)),backgroundColor:hi('#378ADD',selM),stack:'s',order:2},
     {type:'line',data:months.map((_,i)=>revNecessaire(i)),borderColor:'#1D9E75',borderWidth:2.5,borderDash:[5,4],pointRadius:4,pointBackgroundColor:'#1D9E75',fill:false,tension:0.3,order:1}
   ];
@@ -743,7 +769,7 @@ function renderChart(){
   chart=new Chart(document.getElementById('chartPerso'),{
     data:{labels:mLab,datasets:ds},
     options:{responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>'  '+['Dettes','Fixes','Variables','Impôts','Projets','RAV','Revenus'][ctx.datasetIndex]+' : '+fmt(ctx.raw)}}},
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>'  '+['Dettes','Fixes','Variables','Impôts PAS','Projets','IR 2025','RAV','Revenus'][ctx.datasetIndex]+' : '+fmt(ctx.raw)}}},
       scales:{
         x:{stacked:true,grid:{color:gc},ticks:{color:tc,font:{size:11}}},
         y:{stacked:true,grid:{color:gc},ticks:{color:tc,font:{size:11},callback:v=>Math.round(v/1000)+'k€'},beginAtZero:true}
@@ -1356,7 +1382,11 @@ async function saveIR2025(){
   await sb.from('settings').upsert({key:'ir2025_params',value:JSON.stringify(data)},{onConflict:'key'});
   // Créer une dette comme les autres
   await injectIR2025CommeDette(data);
-  document.getElementById('ir25-save-status').textContent='✓ Enregistré — dette DGFiP créée dans Dettes & Impôts';
+  // Recharger D.dettes en mémoire + rafraîchir tous les rendus immédiatement
+  const{data:nd}=await sb.from('debts').select('*').eq('company_id','perso').not('status','eq','solde');
+  if(nd)D.dettes=nd;
+  renderAll();
+  document.getElementById('ir25-save-status').textContent='✓ Enregistré — IR 2025 visible dans la vue 12 mois';
   setTimeout(()=>document.getElementById('ir25-save-status').textContent='',4000);
 }
 
