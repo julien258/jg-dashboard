@@ -634,7 +634,7 @@
             <th style="text-align:right">Total</th>
             <th style="text-align:right">Restant</th>
             <th style="text-align:right">/mois</th>
-            <th>Fréq.</th><th>Début</th><th>Fin</th><th>Statut</th><th>🌶️</th>
+            <th>Fréq.</th><th>Début</th><th>Fin</th><th>Statut</th><th>🌶️</th><th></th>
           </tr></thead>
           <tbody id="co-debt-tbody">
             <tr><td colspan="10" style="text-align:center;color:var(--t2);padding:1.5rem"><span class="spin"></span></td></tr>
@@ -5807,10 +5807,12 @@ async function addDebt(){
     ({error}=await sb.from('debts').insert(debtData));
   }
   if(error){toast('Erreur : '+error.message);return;}
-  document.getElementById('debt-edit-id').value=null;
+  document.getElementById('debt-edit-id').value='';
   toggleDebtForm();
   toast(editId?'✓ Dette mise à jour':'✓ Dette enregistrée');
   loadDebts();loadTresoChart();
+  // Rafraîchir aussi la vue société si active
+  if(curCo)loadCoDettes();
 }
 
 async function editDebt(id){
@@ -5832,13 +5834,19 @@ async function editDebt(id){
   document.getElementById('debt-monthly').value=data.monthly_amount||0;
   document.getElementById('debt-frequency').value=data.frequency;
   document.getElementById('debt-day').value=data.payment_day||'';
-  document.getElementById('debt-start').value=data.start_date||'';
-  document.getElementById('debt-end').value=data.end_date||'';
+  document.getElementById('debt-start').value=data.start_date?data.start_date.slice(0,10):'';
+  document.getElementById('debt-end').value=data.end_date?data.end_date.slice(0,10):'';
   document.getElementById('debt-status').value=data.status;
   document.getElementById('debt-notes').value=data.notes||'';
   document.getElementById('debt-edit-id').value=id;
-  const f=document.getElementById('debt-form');
-  if(f)f.style.display='block';
+  // Naviguer vers treso-tab-dettes pour rendre le formulaire visible
+  // (le debt-form est physiquement dans treso-tab-dettes)
+  showTreso();
+  setTimeout(()=>{
+    showTresoTab('dettes');
+    const f=document.getElementById('debt-form');
+    if(f){f.style.display='block';f.scrollIntoView({behavior:'smooth',block:'start'});}
+  },80);
 }
 
 async function delDebt(id){
@@ -7371,6 +7379,10 @@ async function loadCoDettes(){
       <td style="padding:6px 8px;font-size:11px;color:var(--t2)">${fmtD(d.end_date)}</td>
       <td style="padding:6px 8px"><span style="font-size:11px;color:${statColor};font-weight:500">${d.status||'—'}</span></td>
       <td style="padding:6px 4px">${urgIcons[d.urgency_level||0]||''}</td>
+      <td style="padding:4px 4px;white-space:nowrap">
+        <button onclick="editDebt('${d.id}')" style="border:none;background:none;cursor:pointer;color:var(--acc);font-size:13px" title="Modifier">✎</button>
+        <button onclick="delDebt('${d.id}')" style="border:none;background:none;cursor:pointer;color:var(--t2);font-size:14px" title="Supprimer">✕</button>
+      </td>
     </tr>`;
   }).join('');
 
