@@ -645,7 +645,7 @@
         <!-- To-do virements du mois -->
         <div class="card" style="margin-top:1rem">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
-            <div style="font-size:14px;font-weight:600">💸 To-do virements — <span id="virement-mois-label"></span></div>
+            <div style="font-size:14px;font-weight:600">📅 Prélèvements à venir — <span id="virement-mois-label"></span></div>
             <div style="display:flex;gap:8px;align-items:center">
               <input type="month" id="virement-mois" style="font-size:12px;padding:4px 8px;border-radius:6px;border:1px solid var(--b1)" onchange="loadVirements()">
               <button class="btn btn-g btn-sm" onclick="exportVirements()">📋 Copier liste</button>
@@ -7940,12 +7940,17 @@ async function loadVirements(){
   const el=document.getElementById('virement-mois-label');
   if(el)el.textContent=moisLabel;
 
-  const{data}=await sb.from('recurring_charges').select('*').eq('status','actif');
-  if(!data?.length){document.getElementById('virement-list').innerHTML='<p style="color:var(--t2);font-size:13px">Aucune charge active.</p>';return;}
+  // Filtrer par société courante si applicable
+  let q=sb.from('recurring_charges').select('*').eq('status','actif');
+  if(curCo?.id) q=q.eq('company_id',curCo.id);
+  const{data}=await q;
+  if(!data?.length){document.getElementById('virement-list').innerHTML='<div style="padding:1rem;color:var(--t2);font-size:13px">Aucune charge active.</div>';return;}
 
   const freqMois={monthly:1,quarterly:3,annual:12};
   const coNames={meulette:'La Meulette','sarl-guiraud':'SARL Guiraud','sas-living':'SAS Living','real-gains':'RG/Monikaza'};
-  const modeIcons={prelevement:'🏦 Prélèvement auto',virement:'💸 Virement à faire',cheque:'📝 Chèque',cb:'💳 Carte'};
+  const modeIcons={prelevement:'🏦',virement:'💸',cheque:'📝',cb:'💳'};
+  const today=new Date();
+  today.setHours(0,0,0,0);
 
   // Filtre les charges qui tombent ce mois
   const dues=data.filter(d=>{
@@ -7955,52 +7960,147 @@ async function loadVirements(){
     const startM=d.start_date?new Date(d.start_date).getMonth():0;
     const diffM=(month-1-startM+12)%12;
     return freq===1||(diffM%freq===0);
-  });
+  }).map(d=>{
+    // Calculer la date de prélèvement et la date d'approvisionnement (J-2)
+    const day=d.payment_day||1;
+    const prelDate=new Date(year,month-1,day);
+    const provDate=new Date(year,month-1,day-2); // J-2
+    const daysToProvision=Math.ceil((provDate-today)/86400000);
+    return {...d,prelDate,provDate,daysToProvision};
+  }).sort((a,b)=>a.prelDate-b.prelDate); // Trier par date de prélèvement
 
-  if(!dues.length){document.getElementById('virement-list').innerHTML=`<p style="color:var(--t2);font-size:13px">Aucune charge prévue en ${moisLabel}.</p>`;return;}
+  if(!dues.length){document.getElementById('virement-list').innerHTML=`<div style="padding:1rem;color:var(--t2);font-size:13px">Aucune charge prévue en ${moisLabel}.</div>`;return;}
 
-  // Grouper par société
-  const byCo={};
-  dues.forEach(d=>{
-    if(!byCo[d.company_id])byCo[d.company_id]=[];
-    byCo[d.company_id].push(d);
-  });
+  // ── BLOC ALERTES PRIORITAIRES ──
+  const urgent=dues.filter(d=>d.daysToProvision<=3&&d.daysToProvision>=0);
+  const warning=dues.filter(d=>d.daysToProvision>3&&d.daysToProvision<=7);
+  let alertHtml='';
 
-  let html='';
-  let totalVirements=0;
-  for(const[co,charges] of Object.entries(byCo)){
-    const totalCo=charges.reduce((s,d)=>s+Number(d.amount_ttc||0),0);
-    totalVirements+=totalCo;
-    html+=`<div style="margin-bottom:16px">
-      <div style="font-weight:600;font-size:13px;color:var(--acc);margin-bottom:8px;padding-bottom:4px;border-bottom:1px solid var(--b1)">
-        ${coNames[co]||co} — ${Math.round(totalCo).toLocaleString('fr-FR')} € à régler
-      </div>
-      <table style="width:100%;font-size:12px">
-        <thead><tr style="color:var(--t2)"><th style="text-align:left">Fournisseur</th><th style="text-align:left">Nature</th><th style="text-align:left">Mode</th><th style="text-align:left">Libellé virement</th><th style="text-align:left">Compte</th><th style="text-align:right">Montant</th><th style="text-align:center">Jour</th><th></th></tr></thead>
-        <tbody>
-        ${charges.map(d=>`<tr style="border-bottom:1px solid var(--b1)20">
-          <td style="padding:6px 4px"><strong>${d.fournisseur}</strong></td>
-          <td style="padding:6px 4px;color:var(--t2)">${d.nature}</td>
-          <td style="padding:6px 4px">${modeIcons[d.payment_mode]||'—'}</td>
-          <td style="padding:6px 4px;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--acc)">${d.virement_libelle||'<span style="color:var(--amb)">⚠ À renseigner</span>'}</td>
-          <td style="padding:6px 4px;font-size:11px;color:var(--t2)">${d.bank_account||'—'}</td>
-          <td style="padding:6px 4px;text-align:right;font-weight:600;color:var(--red)">${Math.round(d.amount_ttc).toLocaleString('fr-FR')} €</td>
-          <td style="padding:6px 4px;text-align:center;color:var(--t2)">${d.payment_day?'Le '+d.payment_day:'—'}</td>
-          <td style="padding:6px 4px">
-            ${d.retard_total>0?`<span class="badge br" style="font-size:10px">+${Number(d.retard_total).toLocaleString('fr-FR')}€ retard</span>`:''}
-          </td>
-        </tr>`).join('')}
-        </tbody>
-      </table>
-    </div>`;
+  if(urgent.length||warning.length){
+    alertHtml=`<div style="margin-bottom:16px">`;
+    // Urgences
+    urgent.forEach(d=>{
+      const compte=d.bank_account||'compte à définir';
+      const co=curCo?'':`<strong>${coNames[d.company_id]||d.company_id}</strong> — `;
+      alertHtml+=`<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:rgba(231,76,60,.1);border:1px solid var(--red);border-radius:8px;margin-bottom:6px">
+        <span style="font-size:18px">${d.daysToProvision<=0?'🚨':d.daysToProvision<=1?'🔴':'🟠'}</span>
+        <div style="flex:1">
+          <div style="font-weight:600;font-size:13px;color:var(--red)">
+            ${d.daysToProvision<=0?'AUJOURD'HUI — URGENT':d.daysToProvision===1?'DEMAIN':'Dans '+d.daysToProvision+' j'}
+            — Approvisionner <strong>${compte}</strong>${co?` (${co.replace(/<\/?strong>/g,'')})`:''}
+          </div>
+          <div style="font-size:12px;color:var(--t2);margin-top:2px">
+            ${d.fournisseur} · ${d.nature} · <strong style="color:var(--red)">${Math.round(d.amount_ttc).toLocaleString('fr-FR')} €</strong>
+            ${d.retard_total>0?` <span style="color:var(--red)">+${Number(d.retard_total).toLocaleString('fr-FR')}€ retard</span>`:''}
+            — Prélèvement le <strong>${d.payment_day}</strong>
+          </div>
+        </div>
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:18px;font-weight:700;color:var(--red);white-space:nowrap">
+          ${Math.round(Number(d.amount_ttc)+(Number(d.retard_total)||0)).toLocaleString('fr-FR')} €
+        </div>
+      </div>`;
+    });
+    // Alertes J-3 à J-7
+    warning.forEach(d=>{
+      const compte=d.bank_account||'compte à définir';
+      const co=curCo?'':`<strong>${coNames[d.company_id]||d.company_id}</strong> — `;
+      alertHtml+=`<div style="display:flex;align-items:center;gap:10px;padding:8px 14px;background:rgba(243,156,18,.1);border:1px solid var(--amb);border-radius:8px;margin-bottom:6px">
+        <span style="font-size:16px">🟡</span>
+        <div style="flex:1">
+          <div style="font-weight:600;font-size:12px;color:var(--amb)">
+            Dans ${d.daysToProvision} j — Approvisionner <strong>${compte}</strong>${co?` (${co.replace(/<\/?strong>/g,'')})`:''}
+          </div>
+          <div style="font-size:11px;color:var(--t2)">
+            ${d.fournisseur} · ${d.nature} · ${Math.round(d.amount_ttc).toLocaleString('fr-FR')} € — Prélèvement le ${d.payment_day}
+          </div>
+        </div>
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:15px;font-weight:600;color:var(--amb);white-space:nowrap">
+          ${Math.round(d.amount_ttc).toLocaleString('fr-FR')} €
+        </div>
+      </div>`;
+    });
+    alertHtml+=`</div>`;
   }
 
-  html+=`<div style="margin-top:12px;padding:12px;background:var(--rdd);border-radius:8px;display:flex;justify-content:space-between;align-items:center">
-    <span style="font-weight:600;color:var(--red)">Total virements ${moisLabel}</span>
-    <span style="font-family:'IBM Plex Mono',monospace;font-size:18px;font-weight:700;color:var(--red)">${Math.round(totalVirements).toLocaleString('fr-FR')} €</span>
+  // ── TABLEAU PAR SOCIÉTÉ → PAR COMPTE ──
+  // Grouper par société puis par compte bancaire
+  const byCo={};
+  dues.forEach(d=>{
+    const co=d.company_id;
+    const compte=d.bank_account||'Compte non renseigné';
+    if(!byCo[co])byCo[co]={total:0,comptes:{}};
+    if(!byCo[co].comptes[compte])byCo[co].comptes[compte]={total:0,charges:[]};
+    byCo[co].comptes[compte].charges.push(d);
+    byCo[co].comptes[compte].total+=Number(d.amount_ttc||0);
+    byCo[co].total+=Number(d.amount_ttc||0);
+  });
+
+  let tableHtml='';
+  let totalGlobal=0;
+  const coOrder=['sas-living','sarl-guiraud','meulette','real-gains'];
+  const coKeys=coOrder.filter(c=>byCo[c]).concat(Object.keys(byCo).filter(c=>!coOrder.includes(c)));
+
+  for(const co of coKeys){
+    const coData=byCo[co];
+    totalGlobal+=coData.total;
+    // Titre société (masqué si filtré sur 1 société)
+    if(!curCo?.id){
+      tableHtml+=`<div style="font-weight:700;font-size:14px;color:var(--acc);margin:16px 0 8px;padding-bottom:6px;border-bottom:2px solid var(--acc)">
+        ${coNames[co]||co} — <span style="color:var(--red)">${Math.round(coData.total).toLocaleString('fr-FR')} € ce mois</span>
+      </div>`;
+    }
+    // Par compte bancaire
+    for(const [compte,cData] of Object.entries(coData.comptes)){
+      const totalCompte=Math.round(cData.total);
+      // Calculer quand provisionner ce compte
+      const nextPrel=cData.charges.filter(d=>d.daysToProvision>=0).sort((a,b)=>a.daysToProvision-b.daysToProvision)[0];
+      const compteAlertColor=nextPrel?.daysToProvision<=3?'var(--red)':nextPrel?.daysToProvision<=7?'var(--amb)':'var(--t2)';
+
+      tableHtml+=`<div style="margin-bottom:14px">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:var(--s2);border-radius:8px;margin-bottom:4px;border-left:3px solid ${compteAlertColor}">
+          <div>
+            <span style="font-weight:600;font-size:12px">🏦 ${compte}</span>
+            ${nextPrel?`<span style="font-size:11px;color:${compteAlertColor};margin-left:8px">⚡ Approvisionner avant le ${nextPrel.provDate.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit'})}</span>`:''}
+          </div>
+          <span style="font-family:'IBM Plex Mono',monospace;font-weight:700;color:var(--red)">${totalCompte.toLocaleString('fr-FR')} €</span>
+        </div>
+        <table style="width:100%;font-size:12px;border-collapse:collapse">
+          <thead><tr style="font-size:11px;color:var(--t2);border-bottom:1px solid var(--b1)">
+            <th style="padding:5px 8px;text-align:left;font-weight:500">Fournisseur</th>
+            <th style="padding:5px 8px;text-align:left;font-weight:500">Nature</th>
+            <th style="padding:5px 8px;text-align:center;font-weight:500">Mode</th>
+            <th style="padding:5px 8px;text-align:center;font-weight:500">Prélevé le</th>
+            <th style="padding:5px 8px;text-align:center;font-weight:500">⚡ Approv. avant</th>
+            <th style="padding:5px 8px;text-align:right;font-weight:500">Montant</th>
+          </tr></thead>
+          <tbody>
+          ${cData.charges.map(d=>{
+            const provStr=d.payment_day?d.provDate.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit'}):'—';
+            const provColor=d.daysToProvision<=0?'var(--red)':d.daysToProvision<=3?'var(--red)':d.daysToProvision<=7?'var(--amb)':'var(--t2)';
+            const provBold=d.daysToProvision<=7?'font-weight:600':'';
+            const retard=Number(d.retard_total||0);
+            return `<tr style="border-bottom:0.5px solid var(--b1)">
+              <td style="padding:6px 8px"><strong>${d.fournisseur}</strong>${retard>0?` <span style="font-size:10px;color:var(--red)">+${retard.toLocaleString('fr-FR')}€ retard</span>`:''}</td>
+              <td style="padding:6px 8px;color:var(--t2)">${d.nature||'—'}</td>
+              <td style="padding:6px 8px;text-align:center">${modeIcons[d.payment_mode]||'—'}</td>
+              <td style="padding:6px 8px;text-align:center;color:var(--t2)">${d.payment_day?'Le '+d.payment_day:'—'}</td>
+              <td style="padding:6px 8px;text-align:center;color:${provColor};${provBold}">${provStr}</td>
+              <td style="padding:6px 8px;text-align:right;font-weight:600;color:var(--red)">${Math.round(Number(d.amount_ttc)+(retard||0)).toLocaleString('fr-FR')} €</td>
+            </tr>`;
+          }).join('')}
+          </tbody>
+        </table>
+      </div>`;
+    }
+  }
+
+  // Total global
+  tableHtml+=`<div style="margin-top:12px;padding:12px 16px;background:var(--s2);border-radius:8px;border-left:3px solid var(--red);display:flex;justify-content:space-between;align-items:center">
+    <span style="font-weight:700;color:var(--red)">Total prélèvements ${moisLabel}</span>
+    <span style="font-family:'IBM Plex Mono',monospace;font-size:20px;font-weight:700;color:var(--red)">${Math.round(totalGlobal).toLocaleString('fr-FR')} €</span>
   </div>`;
 
-  document.getElementById('virement-list').innerHTML=html;
+  document.getElementById('virement-list').innerHTML=alertHtml+tableHtml;
 }
 
 function exportVirements(){
