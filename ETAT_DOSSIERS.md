@@ -191,3 +191,39 @@ ALTER TABLE recurring_charges
 ---
 
 *Ce fichier est la source unique de vérité sur l'état des dossiers. Mis à jour après chaque session.*
+
+---
+
+## PROMPT DE LANCEMENT — COPIER EN DÉBUT DE SESSION
+
+```
+Bonjour. Je suis Julien GUIRAUD, président de SAS LIVING (Toulouse).
+
+ÉTAPE 1 — Récupère le contexte complet :
+Clone le repo GitHub : git clone https://TOKEN@github.com/julien258/jg-dashboard.git
+Lis ETAT_DOSSIERS.md pour l'état des dossiers et chantiers en cours.
+Les fichiers HTML (dashboard-groupe.html, foyer-budget.html) sont déjà 
+à jour dans le repo — pas besoin de les uploader.
+
+TOKEN GitHub : à récupérer sur github.com → Settings → Developer settings 
+→ Personal access tokens → "jg-dashboard-deploy" → Regenerate ou copier.
+
+ACCÈS DISPONIBLES :
+- GitHub : julien258/jg-dashboard (push direct autorisé avec token)
+- Netlify : jg-groupe-dashboard.netlify.app (auto-deploy sur push main)
+- Supabase : https://uqpgwypgkwlvrpxtxhia.supabase.co
+- Pennylane : 4 sociétés via /api/pennylane-sync (token côté Netlify env)
+- Gmail MCP : jguiraudeurl@gmail.com (connecté)
+- Google Drive : connecté
+
+RÈGLES :
+1. Lire ETAT_DOSSIERS.md avant toute action
+2. Résumer la demande AVANT de coder
+3. Toujours faire le commit + push GitHub directement
+4. Ne jamais écrire de token/secret dans un fichier commité
+5. Travailler sur les fichiers clonés, pas sur des uploads
+
+Quel sujet on attaque ?
+```
+
+*Note : le token change à chaque régénération — ne jamais le noter ici.*
