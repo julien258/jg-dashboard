@@ -7981,14 +7981,13 @@ async function loadVirements(){
     // Urgences
     urgent.forEach(d=>{
       const compte=d.bank_account||'compte à définir';
-      const co=curCo?'':`<strong>${coNames[d.company_id]||d.company_id}</strong> — `;
+      const co=curCo?'':'<strong>'+(coNames[d.company_id]||d.company_id)+'</strong> — ';
       alertHtml+=`<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:rgba(231,76,60,.1);border:1px solid var(--red);border-radius:8px;margin-bottom:6px">
         <span style="font-size:18px">${d.daysToProvision<=0?'🚨':d.daysToProvision<=1?'🔴':'🟠'}</span>
         <div style="flex:1">
           <div style="font-weight:600;font-size:13px;color:var(--red)">
-            ${d.daysToProvision<=0?'AUJOURD'HUI — URGENT':d.daysToProvision===1?'DEMAIN':'Dans '+d.daysToProvision+' j'}
-            — Approvisionner <strong>${compte}</strong>${co?` (${co.replace(/<\/?strong>/g,'')})`:''}
-          </div>
+            ${d.daysToProvision<=0?'AUJOURD\'HUI — URGENT':d.daysToProvision===1?'DEMAIN':'Dans '+d.daysToProvision+' j'}
+            — Approvisionner <strong>${compte}</strong>${co?(' ('+co.replace(/<strong>/g,'').replace(/<\/strong>/g,'')+')'):''}\n          </div>
           <div style="font-size:12px;color:var(--t2);margin-top:2px">
             ${d.fournisseur} · ${d.nature} · <strong style="color:var(--red)">${Math.round(d.amount_ttc).toLocaleString('fr-FR')} €</strong>
             ${d.retard_total>0?` <span style="color:var(--red)">+${Number(d.retard_total).toLocaleString('fr-FR')}€ retard</span>`:''}
@@ -8003,13 +8002,12 @@ async function loadVirements(){
     // Alertes J-3 à J-7
     warning.forEach(d=>{
       const compte=d.bank_account||'compte à définir';
-      const co=curCo?'':`<strong>${coNames[d.company_id]||d.company_id}</strong> — `;
+      const co=curCo?'':'<strong>'+(coNames[d.company_id]||d.company_id)+'</strong> — ';
       alertHtml+=`<div style="display:flex;align-items:center;gap:10px;padding:8px 14px;background:rgba(243,156,18,.1);border:1px solid var(--amb);border-radius:8px;margin-bottom:6px">
         <span style="font-size:16px">🟡</span>
         <div style="flex:1">
           <div style="font-weight:600;font-size:12px;color:var(--amb)">
-            Dans ${d.daysToProvision} j — Approvisionner <strong>${compte}</strong>${co?` (${co.replace(/<\/?strong>/g,'')})`:''}
-          </div>
+            Dans ${d.daysToProvision} j — Approvisionner <strong>${compte}</strong>${co?(' ('+co.replace(/<strong>/g,'').replace(/<\/strong>/g,'')+')'):''}\n          </div>
           <div style="font-size:11px;color:var(--t2)">
             ${d.fournisseur} · ${d.nature} · ${Math.round(d.amount_ttc).toLocaleString('fr-FR')} € — Prélèvement le ${d.payment_day}
           </div>
