@@ -177,6 +177,7 @@
   <div class="ptabs" id="ptabs" style="display:none">
     <button class="ptab active" onclick="showPane('kpi')">KPI & Bilan</button>
     <button class="ptab" onclick="showPane('cc')">CC & Dettes</button>
+    <button class="ptab" onclick="showPane('dettes')">💸 Dettes</button>
     <button class="ptab" onclick="showPane('pipeline')">Pipeline</button>
     <button class="ptab" onclick="showPane('comptes')">🏦 Comptes</button>
     <button class="ptab" onclick="showPane('docs')">Documents</button>
@@ -595,6 +596,58 @@
         </div>
       </div>
     </div>
+
+
+    <!-- ══ PANE DETTES PAR SOCIÉTÉ ══ -->
+    <div class="tp" id="p-dettes" style="display:none">
+
+      <!-- KPIs rapides dettes -->
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:1rem">
+        <div class="kc" style="border-left:3px solid var(--red)">
+          <div class="kl">Total dettes restantes</div>
+          <div class="kv n" id="co-debt-total">—</div>
+          <div class="ks" id="co-debt-count">—</div>
+        </div>
+        <div class="kc" style="border-left:3px solid var(--amb)">
+          <div class="kl">Échéance mensuelle</div>
+          <div class="kv w" id="co-debt-monthly">—</div>
+          <div class="ks">Toutes dettes actives</div>
+        </div>
+        <div class="kc" style="border-left:3px solid var(--grn)">
+          <div class="kl">Fin de plan estimée</div>
+          <div class="kv" id="co-debt-end">—</div>
+          <div class="ks">Dernière échéance</div>
+        </div>
+      </div>
+
+      <!-- Tableau des dettes -->
+      <div class="card" style="margin-bottom:1rem">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+          <div class="card-t" style="margin:0">Plan de dettes & apurement — <span id="co-debt-name" style="color:var(--acc)"></span></div>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-g btn-sm" onclick="showTresoTabDebt()">Vue consolidée →</button>
+          </div>
+        </div>
+        <div style="overflow-x:auto"><table>
+          <thead><tr>
+            <th>Débiteur</th><th>Nature</th>
+            <th style="text-align:right">Total</th>
+            <th style="text-align:right">Restant</th>
+            <th style="text-align:right">/mois</th>
+            <th>Fréq.</th><th>Début</th><th>Fin</th><th>Statut</th><th>🌶️</th>
+          </tr></thead>
+          <tbody id="co-debt-tbody">
+            <tr><td colspan="10" style="text-align:center;color:var(--t2);padding:1.5rem"><span class="spin"></span></td></tr>
+          </tbody>
+        </table></div>
+      </div>
+
+      <!-- Courbe d'apurement société -->
+      <div class="card">
+        <div class="card-t">Stock de dette — courbe d'apurement sur 12 mois</div>
+        <div style="position:relative;height:220px"><canvas id="coDebtStockChart"></canvas></div>
+      </div>
+    </div><!-- fin p-dettes -->
 
     <div class="tp" id="p-pipeline">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
@@ -7241,12 +7294,13 @@ function showPane(n){
   document.querySelectorAll('.ptab').forEach(t=>t.classList.remove('active'));
   const pane=document.getElementById('p-'+n);
   if(pane){pane.classList.add('active');pane.style.display='block';}
-  ['kpi','cc','pipeline','comptes','docs','todo'].forEach((t,i)=>{
+  ['kpi','cc','dettes','pipeline','comptes','docs','todo'].forEach((t,i)=>{
     if(t===n)document.querySelectorAll('.ptab')[i]?.classList.add('active');
   });
   if(n==='docs')loadDocs();
   if(n==='todo')loadTodos('co-todos',curCo?.id||'group');
   if(n==='cc')loadCCBalances();
+  if(n==='dettes')loadCoDettes();
   if(n==='pipeline')loadCoPipeline();
   if(n==='comptes'){
     const el=document.getElementById('comptes-co-name');
@@ -7254,6 +7308,111 @@ function showPane(n){
     loadComptes();
     renderCoPennylane();
   }
+}
+
+function showTresoTabDebt(){
+  showTreso();
+  setTimeout(()=>showTresoTab('dettes'),100);
+}
+
+// ===== DETTES PAR SOCIÉTÉ =====
+let _coDebtChart = null;
+
+async function loadCoDettes(){
+  if(!curCo) return;
+  const coId = curCo.id;
+  document.getElementById('co-debt-name').textContent = curCo.name;
+  document.getElementById('co-debt-tbody').innerHTML = '<tr><td colspan="10" style="text-align:center;color:var(--t2);padding:1.5rem"><span class="spin"></span></td></tr>';
+
+  // Charger les dettes filtrées par société
+  const {data:dettes, error} = await sb.from('debts')
+    .select('*')
+    .eq('company_id', coId)
+    .not('status','eq','solde')
+    .order('urgency_level', {ascending:false});
+
+  if(error || !dettes?.length){
+    document.getElementById('co-debt-tbody').innerHTML = '<tr><td colspan="10" style="text-align:center;color:var(--t2);padding:1.5rem">Aucune dette active pour cette société</td></tr>';
+    document.getElementById('co-debt-total').textContent = '0 €';
+    document.getElementById('co-debt-count').textContent = '0 créancier';
+    document.getElementById('co-debt-monthly').textContent = '0 €/m';
+    document.getElementById('co-debt-end').textContent = '—';
+    if(_coDebtChart){_coDebtChart.destroy();_coDebtChart=null;}
+    return;
+  }
+
+  const urgIcons = {3:'🌶️🌶️🌶️',2:'🌶️🌶️',1:'🌶️',0:''};
+  const freqLabels = {monthly:'Mens.',quarterly:'Trim.',annual:'Ann.',ponctuel:'Ponct.'};
+  const fmt = v => v!=null ? Number(v).toLocaleString('fr-FR')+' €' : '—';
+  const fmtD = s => s ? s.slice(0,7) : '—';
+
+  // KPI totaux
+  const totalRestant = dettes.reduce((s,d)=>s+Number(d.amount_remaining||d.amount_total||0),0);
+  const totalMensuel = dettes.filter(d=>d.frequency==='monthly').reduce((s,d)=>s+Number(d.monthly_amount||0),0);
+  const endDates = dettes.map(d=>d.end_date).filter(Boolean).sort();
+  const lastEnd = endDates[endDates.length-1];
+
+  document.getElementById('co-debt-total').textContent = Math.round(totalRestant).toLocaleString('fr-FR')+' €';
+  document.getElementById('co-debt-count').textContent = dettes.length+' créancier'+(dettes.length>1?'s':'');
+  document.getElementById('co-debt-monthly').textContent = Math.round(totalMensuel).toLocaleString('fr-FR')+' €/m';
+  document.getElementById('co-debt-end').textContent = lastEnd ? lastEnd.slice(0,7) : 'Non définie';
+
+  // Tableau
+  document.getElementById('co-debt-tbody').innerHTML = dettes.map(d=>{
+    const statColor = d.status==='en_cours'?'var(--amb)':d.status==='suspendu'?'var(--t2)':'var(--grn)';
+    return `<tr style="border-bottom:0.5px solid var(--b1)">
+      <td style="padding:6px 8px;font-weight:500">${d.debiteur||'—'}</td>
+      <td style="padding:6px 8px;font-size:12px;color:var(--t2)">${d.nature||'—'}</td>
+      <td style="text-align:right;padding:6px 8px">${fmt(d.amount_total)}</td>
+      <td style="text-align:right;padding:6px 8px;color:var(--red);font-weight:600">${fmt(d.amount_remaining||d.amount_total)}</td>
+      <td style="text-align:right;padding:6px 8px;color:var(--amb)">${d.monthly_amount?fmt(d.monthly_amount):'—'}</td>
+      <td style="padding:6px 8px;font-size:11px">${freqLabels[d.frequency]||d.frequency||'—'}</td>
+      <td style="padding:6px 8px;font-size:11px;color:var(--t2)">${fmtD(d.start_date)}</td>
+      <td style="padding:6px 8px;font-size:11px;color:var(--t2)">${fmtD(d.end_date)}</td>
+      <td style="padding:6px 8px"><span style="font-size:11px;color:${statColor};font-weight:500">${d.status||'—'}</span></td>
+      <td style="padding:6px 4px">${urgIcons[d.urgency_level||0]||''}</td>
+    </tr>`;
+  }).join('');
+
+  // Courbe d'apurement sur 12 mois
+  const now = new Date();
+  const months12 = Array.from({length:12},(_,i)=>{
+    const d = new Date(now.getFullYear(), now.getMonth()+i, 1);
+    return {year:d.getFullYear(), month:d.getMonth(), label:(d.getMonth()+1)+'/'+String(d.getFullYear()).slice(2)};
+  });
+
+  let stock = totalRestant;
+  const stockData = months12.map(m=>{
+    const mensuel = dettes.filter(d=>{
+      if(d.frequency!=='monthly')return false;
+      if(d.start_date){const s=new Date(d.start_date);if(m.year<s.getFullYear()||(m.year===s.getFullYear()&&m.month<s.getMonth()))return false;}
+      if(d.end_date){const e=new Date(d.end_date);if(m.year>e.getFullYear()||(m.year===e.getFullYear()&&m.month>e.getMonth()))return false;}
+      return true;
+    }).reduce((s,d)=>s+Number(d.monthly_amount||0),0);
+    stock = Math.max(0, stock - mensuel);
+    return Math.round(stock);
+  });
+
+  const ctx = document.getElementById('coDebtStockChart');
+  if(!ctx) return;
+  if(_coDebtChart){_coDebtChart.destroy();}
+  const isDark = matchMedia('(prefers-color-scheme:dark)').matches;
+  const tc = isDark?'#9c9a92':'#73726c';
+  _coDebtChart = new Chart(ctx.getContext('2d'),{
+    type:'line',
+    data:{labels:months12.map(m=>m.label), datasets:[{
+      label:'Stock dette '+curCo.name, data:stockData,
+      borderColor:'#E74C3C', backgroundColor:'rgba(231,76,60,0.08)',
+      borderWidth:2.5, pointRadius:3, tension:0.3, fill:true
+    }]},
+    options:{responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{
+        x:{grid:{color:isDark?'rgba(255,255,255,.05)':'rgba(0,0,0,.05)'},ticks:{color:tc,font:{size:11}}},
+        y:{grid:{color:isDark?'rgba(255,255,255,.05)':'rgba(0,0,0,.05)'},ticks:{color:tc,font:{size:11},callback:v=>Math.round(v/1000)+'k€'},beginAtZero:true}
+      }
+    }
+  });
 }
 
 // ===== CC & DETTES =====
@@ -7676,22 +7835,42 @@ async function analysePrelevements(){
 
 async function savePrelFournisseur(label, avgDay, avgAmount, inputId){
   const inputEl = document.getElementById(inputId);
-  const fournisseurNom = inputEl?.value?.trim();
-  if(!fournisseurNom){ toast('Renseignez un fournisseur'); return; }
+  const fournisseurNom = inputEl?.value?.trim() || label;
 
-  // Chercher le fournisseur par raison_sociale
-  const { data: suppliers } = await sb.from('suppliers').select('id').ilike('raison_sociale', '%'+fournisseurNom.split(' ')[0]+'%').limit(1);
-  if(!suppliers?.length){ toast('Fournisseur non trouvé dans la base'); return; }
+  // Créer directement une charge récurrente depuis le pattern Pennylane
+  const coId = curCo?.id || 'sarl-guiraud';
+  const catMap = {
+    'loyer':'loyer','bail':'loyer','domiciliation':'loyer',
+    'orange':'abonnement','sfr':'abonnement','bouygues':'abonnement','free':'abonnement',
+    'assur':'assurance','maif':'assurance','axa':'assurance','allianz':'assurance',
+    'comptab':'comptable','expert':'comptable','juridique':'comptable',
+    'leasing':'leasing','lld':'leasing','arval':'leasing','alphabet':'leasing',
+    'sncf':'abonnement','oui.sncf':'abonnement',
+    'claude':'abonnement','anthropic':'abonnement','notion':'abonnement','slack':'abonnement','pennylane':'abonnement'
+  };
+  const lowerLabel = label.toLowerCase();
+  const categorie = Object.entries(catMap).find(([k])=>lowerLabel.includes(k))?.[1] || 'autre';
 
-  const { error } = await sb.from('suppliers').update({
-    prelevement_jour: avgDay,
-    prelevement_montant: avgAmount,
-    prelevement_libelle: label
-  }).eq('id', suppliers[0].id);
+  const {error} = await sb.from('recurring_charges').insert({
+    company_id: coId,
+    fournisseur: fournisseurNom || label,
+    nature: label,
+    category: categorie,
+    amount_ht: Math.round(avgAmount / 1.20),
+    amount_ttc: avgAmount,
+    tva: 20,
+    frequency: 'monthly',
+    payment_day: avgDay,
+    paiement_mode: 'prelevement',
+    status: 'actif',
+    notes: 'Importé depuis analyse Pennylane — à vérifier'
+  });
 
-  if(error) { toast('Erreur : ' + error.message); return; }
-  toast('✓ Jour de prélèvement enregistré (J=' + avgDay + ')');
-  inputEl.style.borderColor = 'var(--grn)';
+  if(error){ toast('Erreur création charge : '+error.message); return; }
+  toast('✓ Charge récurrente créée — '+fournisseurNom);
+  if(inputEl){ inputEl.style.borderColor='var(--grn)'; inputEl.disabled=true; }
+  const btn = inputEl?.closest('tr')?.querySelector('button');
+  if(btn){ btn.textContent='✓'; btn.disabled=true; btn.style.color='var(--grn)'; }
 }
 
 async function loadComptes(){
@@ -8842,14 +9021,49 @@ async function renderCoKPIs(){
     ? (soldeBancaire>=0?'+':'')+Math.round(soldeBancaire).toLocaleString('fr-FR')+' €'
     : '—';
 
+  // ── KPI spécifique SARL GUIRAUD : facturation à émettre vers LIVING ──
+  let kpiFacturationGuiraud = null;
+  if(curCo.id === 'sarl-guiraud'){
+    try{
+      const moisCourant = new Date().toISOString().slice(0,7); // YYYY-MM
+      const [{data:budgetMois},{data:chargesGuiraud}] = await Promise.all([
+        sb.from('budget_mensuel_perso').select('*').eq('mois', moisCourant).maybeSingle(),
+        sb.from('recurring_charges').select('amount_ht,frequency').eq('company_id','sarl-guiraud').eq('status','active')
+      ]);
+      // Besoin perso net = dettes + fixes + variables + IR + PAS + RAV (depuis foyer-budget)
+      // On utilise le champ rev_necessaire si dispo, sinon on approxime depuis budget_mensuel_perso
+      const besoinPersoNet = budgetMois?.rev_necessaire || budgetMois?.revenus_a_verser || 0;
+      // Charges récurrentes SARL GUIRAUD (mensuelisées)
+      const chargesProMensuel = (chargesGuiraud||[]).reduce((s,c)=>{
+        const ht = Number(c.amount_ht||0);
+        if(c.frequency==='monthly') return s+ht;
+        if(c.frequency==='quarterly') return s+ht/3;
+        if(c.frequency==='annual') return s+ht/12;
+        return s;
+      },0);
+      const totalHT = besoinPersoNet + chargesProMensuel;
+      const totalTTC = Math.round(totalHT * 1.20);
+      kpiFacturationGuiraud = {
+        l:'📋 À facturer → LIVING',
+        v: totalHT>0 ? Math.round(totalHT).toLocaleString('fr-FR')+' € HT' : '—',
+        c: totalHT>0?'w':'',
+        s: totalHT>0 ? `TTC : ${totalTTC.toLocaleString('fr-FR')} € · Perso ${Math.round(besoinPersoNet).toLocaleString('fr-FR')}€ + Pro ${Math.round(chargesProMensuel).toLocaleString('fr-FR')}€` : 'Paramétrez le budget perso',
+        border:'#F39C12'
+      };
+    }catch(e){ console.warn('KPI facturation GUIRAUD:', e); }
+  }
+
   // KPIs calculés pour toutes les sociétés
-  const kpisCalc=[
+  const kpisCalcBase=[
     {l:'CA / Commissions YTD',v:caYTD>0?Math.round(caYTD).toLocaleString('fr-FR')+' €':'—',c:caYTD>0?'p':'',s:'Contrats actifs CRM',border:'var(--grn)'},
     {l:'À encaisser',v:afacturer>0?Math.round(afacturer).toLocaleString('fr-FR')+' €':'—',c:afacturer>0?'w':'',s:'Signés non facturés',border:'var(--amb)'},
     {l:'Solde bancaire',v:soldeBancaireStr,c:soldeBancaire!=null?(soldeBancaire>=0?'p':'n'):'',s:socPennylane?'Pennylane temps réel':'Non connecté',border:soldeBancaire!=null&&soldeBancaire>=0?'var(--grn)':'var(--red)'},
     {l:'CC net inter-soc.',v:(netCC>=0?'+':'')+Math.round(netCC).toLocaleString('fr-FR')+' €',c:netCC>=0?'p':'n',s:'Position inter-sociétés',border:'var(--acc)'},
     {l:'Pipeline total',v:volumeLLD+volumeCGW>0?((volumeLLD+volumeCGW)/1e6).toFixed(1)+' M€':'—',c:volumeLLD+volumeCGW>0?'p':'',s:'LLD + CGW en cours',border:'var(--acc)'},
   ];
+  const kpisCalc = kpiFacturationGuiraud
+    ? [kpiFacturationGuiraud, ...kpisCalcBase.slice(0,4)]
+    : kpisCalcBase;
   // Pour Meulette et autres : utiliser kpis depuis Supabase si dispo
   const canEdit=!['sas-living','sarl-guiraud','real-gains','spv-monikaza'].includes(curCo.id);
   const finalKpis=canEdit&&savedKpis?.length ? savedKpis.map(k=>({l:k.label,v:k.value,c:'',s:k.sublabel||'',id:k.id,border:'var(--acc)'})) : kpisCalc;
