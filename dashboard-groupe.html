@@ -484,12 +484,15 @@
             <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
               <!-- Bloc 1 : Identification -->
               <div class="fg"><label>Société débitrice</label>
-                <select id="ch-company">
+                <select id="ch-company" onchange="checkChargeCompany()">
                   <option value="sarl-guiraud">SARL Guiraud</option>
                   <option value="sas-living">SAS Living</option>
                   <option value="meulette">La Meulette</option>
                   <option value="real-gains">RG / Monikaza</option>
                 </select>
+                <div id="ch-company-warning" style="display:none;font-size:10px;color:var(--amb);margin-top:3px">
+                  ⚠ Différent de la vue courante — vérifiez avant d'enregistrer
+                </div>
               </div>
               <div class="fg"><label>Fournisseur / Créancier</label><input type="text" id="ch-fournisseur" placeholder="BNP, Arval, Orange..."></div>
               <div class="fg"><label>Nature / Libellé</label><input type="text" id="ch-nature" placeholder="Leasing Porsche, Abonnement..."></div>
@@ -7522,6 +7525,17 @@ function toggleChargeForm(){
     document.getElementById('ch-retard-nb').value=0;
     document.getElementById('ch-retard-frais').value=0;
     document.getElementById('ch-retard-total').value='';
+    // Pré-sélectionner la société courante — évite de sauvegarder sous la mauvaise entité
+    if(curCo?.id){
+      const sel=document.getElementById('ch-company');
+      if(sel)sel.value=curCo.id;
+    }
+    // Reset nouveaux champs contrat
+    if(document.getElementById('ch-resiliation-notice')) document.getElementById('ch-resiliation-notice').value='';
+    if(document.getElementById('ch-auto-renewal')) document.getElementById('ch-auto-renewal').value='true';
+    if(document.getElementById('ch-contract-duration')) document.getElementById('ch-contract-duration').value='';
+    if(document.getElementById('ch-resiliation-deadline')) document.getElementById('ch-resiliation-deadline').textContent='—';
+    f.scrollIntoView({behavior:'smooth',block:'start'});
   } else {
     f.style.display='none';
   }
@@ -7529,6 +7543,13 @@ function toggleChargeForm(){
 
 function closeChargeForm(){
   document.getElementById('charge-form').style.display='none';
+}
+
+function checkChargeCompany(){
+  const sel = document.getElementById('ch-company')?.value;
+  const warn = document.getElementById('ch-company-warning');
+  if (!warn) return;
+  warn.style.display = (curCo?.id && sel !== curCo.id) ? 'block' : 'none';
 }
 
 function calcChargeTTC(){
