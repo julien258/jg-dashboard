@@ -539,12 +539,33 @@
               </div>
               <div class="fg"><label>Libellé virement</label><input type="text" id="ch-libelle-virement" placeholder="Paiement facture X / Rembst CC..."></div>
               <div class="fg"><label>Date début</label><input type="date" id="ch-start"></div>
-              <div class="fg"><label>Date fin / renouvellement</label><input type="date" id="ch-end"></div>
+              <div class="fg"><label>Date fin / renouvellement</label><input type="date" id="ch-end" onchange="calcResiliationDeadline()"></div>
               <!-- Bloc 4 : Impayés -->
               <div class="fg"><label>Échéances en retard (nb)</label><input type="number" id="ch-retard-nb" placeholder="0" min="0" oninput="calcRetard()"></div>
               <div class="fg"><label>Frais de retard (€)</label><input type="number" id="ch-retard-frais" placeholder="0" oninput="calcRetard()"></div>
               <div class="fg"><label>Total dû en retard (€)</label><input type="number" id="ch-retard-total" style="border-color:var(--red)" placeholder="Calculé auto"></div>
-              <!-- Bloc 5 : Notes -->
+              <!-- Bloc 5 : Contrat & Résiliation -->
+              <div class="fg">
+                <label>Durée contrat (mois)</label>
+                <input type="number" id="ch-contract-duration" placeholder="12" min="1">
+              </div>
+              <div class="fg">
+                <label>Préavis résiliation (jours)</label>
+                <input type="number" id="ch-resiliation-notice" placeholder="30" min="0">
+              </div>
+              <div class="fg">
+                <label>Renouvellement tacite</label>
+                <select id="ch-auto-renewal">
+                  <option value="true">Oui — renouvellement automatique</option>
+                  <option value="false">Non — résiliation automatique</option>
+                </select>
+              </div>
+              <div class="fg" id="ch-resiliation-deadline-fg" style="background:var(--amd);border-radius:8px;padding:8px;border:1px solid var(--amb)">
+                <label style="color:var(--amb)">⚠ Date limite résiliation calculée</label>
+                <div id="ch-resiliation-deadline" style="font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:600;color:var(--amb)">—</div>
+                <div style="font-size:10px;color:var(--t2);margin-top:2px">= Date fin − préavis</div>
+              </div>
+              <!-- Bloc 6 : Notes -->
               <div class="fg" style="grid-column:1/-1"><label>Notes / Observations</label><textarea id="ch-notes" style="min-height:50px" placeholder="Conditions de résiliation, renouvellement tacite, contact SAV..."></textarea></div>
             </div>
             <div id="ch-mensuelle-preview" style="font-size:12px;color:var(--t2);margin-top:8px"></div>
@@ -568,19 +589,54 @@
           </div>
         </div>
 
-        <!-- Tableau -->
-        <div class="card">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
-            <div>
-              <span style="font-size:13px;color:var(--t2)">Total charges récurrentes / mois</span>
-              <span id="charge-total-mensuel" style="font-family:'IBM Plex Mono',monospace;font-size:18px;color:var(--red);font-weight:600;margin-left:12px">—</span>
-            </div>
-            <span id="charge-total-annuel" style="font-size:12px;color:var(--t2)"></span>
+        <!-- KPIs + filtres charges -->
+        <div style="display:flex;gap:12px;margin-bottom:1rem;flex-wrap:wrap;align-items:center">
+          <div class="kc" style="border-left:3px solid var(--red);min-width:160px">
+            <div class="kl">Total / mois</div>
+            <div class="kv n" id="charge-total-mensuel">—</div>
+            <div class="ks" id="charge-total-annuel"></div>
           </div>
-          <div style="overflow-x:auto"><table>
-            <thead><tr><th>Société</th><th>Fournisseur</th><th>Nature</th><th>Catégorie</th><th style="text-align:right">HT</th><th style="text-align:right">TTC</th><th>Fréquence</th><th>Compte</th><th>Mode</th><th>Fin</th><th>Retard</th><th>Statut</th><th></th></tr></thead>
-            <tbody id="charge-tbody"><tr><td colspan="13" style="text-align:center;color:var(--t2);padding:2rem"><span class="spin"></span></td></tr></tbody>
-          </table></div>
+          <div class="kc" style="border-left:3px solid var(--amb);min-width:140px">
+            <div class="kl">⚠ Résiliation urgente</div>
+            <div class="kv w" id="charge-alert-count">—</div>
+            <div class="ks">Dans les 90 jours</div>
+          </div>
+          <div class="kc" style="border-left:3px solid var(--grn);min-width:140px">
+            <div class="kl">Contrats actifs</div>
+            <div class="kv" id="charge-count-actif">—</div>
+            <div class="ks">Fournisseurs uniques</div>
+          </div>
+        </div>
+
+        <!-- Barre filtres + recherche -->
+        <div style="display:flex;gap:8px;margin-bottom:1rem;flex-wrap:wrap;align-items:center">
+          <input type="text" id="charge-search" placeholder="🔍 Rechercher fournisseur..." 
+            oninput="renderChargesGrouped()"
+            style="padding:6px 10px;border:1px solid var(--b1);border-radius:6px;font-size:12px;background:var(--s2);color:var(--t1);width:200px">
+          <div style="display:flex;gap:4px;flex-wrap:wrap" id="charge-cat-filters">
+            <button class="btn btn-p btn-sm charge-cat-btn active" data-cat="" onclick="setChargeFilter(this,'')">Tous</button>
+            <button class="btn btn-g btn-sm charge-cat-btn" data-cat="assurance" onclick="setChargeFilter(this,'assurance')">🛡 Assurances</button>
+            <button class="btn btn-g btn-sm charge-cat-btn" data-cat="comptable" onclick="setChargeFilter(this,'comptable')">📊 Comptable</button>
+            <button class="btn btn-g btn-sm charge-cat-btn" data-cat="loyer" onclick="setChargeFilter(this,'loyer')">🏢 Loyer</button>
+            <button class="btn btn-g btn-sm charge-cat-btn" data-cat="abonnement" onclick="setChargeFilter(this,'abonnement')">📱 Abonnements</button>
+            <button class="btn btn-g btn-sm charge-cat-btn" data-cat="leasing" onclick="setChargeFilter(this,'leasing')">🚗 Leasing</button>
+            <button class="btn btn-g btn-sm charge-cat-btn" data-cat="autre" onclick="setChargeFilter(this,'autre')">Autre</button>
+          </div>
+          <div style="margin-left:auto;display:flex;gap:6px">
+            <button class="btn btn-g btn-sm" onclick="checkDbMigration()" title="Vérifier colonnes résiliation">🔧 Schéma</button>
+          </div>
+        </div>
+
+        <!-- Tableau groupé par catégorie -->
+        <div id="charges-grouped-view"></div>
+
+        <!-- Modal fiche contrat -->
+        <div id="charge-detail-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1000;align-items:center;justify-content:center">
+          <div style="background:var(--s1);border-radius:12px;padding:1.5rem;width:600px;max-width:95vw;max-height:90vh;overflow-y:auto;position:relative">
+            <button onclick="document.getElementById('charge-detail-modal').style.display='none'" 
+              style="position:absolute;top:12px;right:12px;border:none;background:none;cursor:pointer;font-size:18px;color:var(--t2)">✕</button>
+            <div id="charge-detail-content"></div>
+          </div>
         </div>
 
         <!-- To-do virements du mois -->
@@ -7527,7 +7583,11 @@ async function saveCharge(){
     retard_frais:retardFrais,
     retard_total:retardTotal,
     notes:document.getElementById('ch-notes').value||null,
-    source:'manuel'
+    source:'manuel',
+    // Nouveaux champs contrat — colonnes à ajouter via migration SQL si absentes
+    resiliation_notice_days:parseInt(document.getElementById('ch-resiliation-notice')?.value)||null,
+    auto_renewal:document.getElementById('ch-auto-renewal')?.value==='true',
+    contract_duration_months:parseInt(document.getElementById('ch-contract-duration')?.value)||null
   };
 
   let error;
@@ -7545,48 +7605,255 @@ async function saveCharge(){
 // Alias pour compatibilité
 async function addCharge(){saveCharge();}
 
-async function loadCharges(){
-  const coFilter=curCo?[curCo.id]:['sarl-guiraud','sas-living','meulette','real-gains','spv-monikaza'];
-  const{data}=await sb.from('recurring_charges').select('*').in('company_id',coFilter).order('company_id').order('category');
-  const tbody=document.getElementById('charge-tbody');
-  if(!data?.length){
-    tbody.innerHTML='<tr><td colspan="13" style="text-align:center;color:var(--t2);padding:2rem">Aucune charge — créez manuellement ou importez un fichier</td></tr>';
-    document.getElementById('charge-total-mensuel').textContent='0 €';
+// Données charges en mémoire pour filtrage côté client
+let _chargesData = [];
+let _chargesCatFilter = '';
+
+function setChargeFilter(btn, cat) {
+  _chargesCatFilter = cat;
+  document.querySelectorAll('.charge-cat-btn').forEach(b => b.classList.remove('active','btn-p'));
+  document.querySelectorAll('.charge-cat-btn').forEach(b => b.classList.add('btn-g'));
+  btn.classList.remove('btn-g'); btn.classList.add('active','btn-p');
+  renderChargesGrouped();
+}
+
+function calcResiliationDeadline() {
+  const endVal = document.getElementById('ch-end')?.value;
+  const noticeVal = parseInt(document.getElementById('ch-resiliation-notice')?.value) || 0;
+  const el = document.getElementById('ch-resiliation-deadline');
+  const fg = document.getElementById('ch-resiliation-deadline-fg');
+  if (!el) return;
+  if (endVal && noticeVal > 0) {
+    const deadline = new Date(endVal);
+    deadline.setDate(deadline.getDate() - noticeVal);
+    const now = new Date();
+    const daysLeft = Math.ceil((deadline - now) / 86400000);
+    const color = daysLeft < 30 ? 'var(--red)' : daysLeft < 90 ? 'var(--amb)' : 'var(--grn)';
+    el.style.color = color;
+    el.textContent = deadline.toLocaleDateString('fr-FR') + (daysLeft >= 0 ? ` (J-${daysLeft})` : ' ⚠ DÉPASSÉE');
+    if (fg) fg.style.display = 'block';
+  } else {
+    el.textContent = '—';
+    if (fg) fg.style.display = noticeVal > 0 ? 'block' : 'none';
+  }
+}
+
+async function checkDbMigration() {
+  toast('Vérification du schéma...');
+  try {
+    const res = await fetch('/api/db-migrate');
+    const data = await res.json();
+    if (data.columns_exist) {
+      toast('✅ ' + data.message);
+    } else {
+      // Copier le SQL dans le presse-papier et ouvrir Supabase
+      if (navigator.clipboard) await navigator.clipboard.writeText(data.migration_sql);
+      toast('📋 SQL copié ! Collez-le dans Supabase SQL Editor');
+      setTimeout(() => window.open(data.supabase_sql_editor, '_blank'), 1000);
+    }
+  } catch(e) {
+    toast('Erreur : ' + e.message);
+  }
+}
+
+function getResiliationDeadline(d) {
+  if (!d.end_date || !d.resiliation_notice_days) return null;
+  const deadline = new Date(d.end_date);
+  deadline.setDate(deadline.getDate() - d.resiliation_notice_days);
+  return deadline;
+}
+
+function showChargeDetail(id) {
+  const d = _chargesData.find(x => x.id === id);
+  if (!d) return;
+  const modal = document.getElementById('charge-detail-modal');
+  const content = document.getElementById('charge-detail-content');
+  const freqLabels = {monthly:'Mensuelle',quarterly:'Trimestrielle',annual:'Annuelle'};
+  const modeLabels = {prelevement:'Prélèvement auto',virement:'Virement manuel',cheque:'Chèque',cb:'Carte bancaire'};
+  const freqMois = {monthly:1,quarterly:3,annual:12};
+  const mensuel = Math.round(Number(d.amount_ttc||0)/(freqMois[d.frequency]||1));
+  const deadline = getResiliationDeadline(d);
+  const now = new Date();
+  const daysLeft = deadline ? Math.ceil((deadline - now) / 86400000) : null;
+  const deadlineColor = daysLeft === null ? 'var(--t2)' : daysLeft < 30 ? 'var(--red)' : daysLeft < 90 ? 'var(--amb)' : 'var(--grn)';
+  const deadlineStr = deadline ? deadline.toLocaleDateString('fr-FR') + (daysLeft >= 0 ? ` (J-${daysLeft})` : ' ⚠ DÉPASSÉE') : '—';
+  const coNames = {meulette:'La Meulette','sarl-guiraud':'SARL Guiraud','sas-living':'SAS Living','real-gains':'RG/Monikaza'};
+
+  content.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:1.5rem">
+      <div>
+        <div style="font-size:18px;font-weight:700">${d.fournisseur}</div>
+        <div style="font-size:12px;color:var(--t2)">${coNames[d.company_id]||d.company_id} · ${d.category} · ${d.status}</div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-size:22px;font-weight:700;color:var(--red)">${mensuel.toLocaleString('fr-FR')} €/m</div>
+        <div style="font-size:11px;color:var(--t2)">${Math.round(d.amount_ht||0).toLocaleString('fr-FR')} € HT</div>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:1.5rem">
+      <div style="background:var(--s2);border-radius:8px;padding:12px">
+        <div style="font-size:10px;color:var(--t2);text-transform:uppercase;margin-bottom:8px">📋 Contrat</div>
+        <div style="font-size:12px"><strong>Nature :</strong> ${d.nature||'—'}</div>
+        <div style="font-size:12px;margin-top:4px"><strong>Réf. :</strong> ${d.contract_ref||'—'}</div>
+        <div style="font-size:12px;margin-top:4px"><strong>Durée :</strong> ${d.contract_duration_months ? d.contract_duration_months+' mois' : '—'}</div>
+        <div style="font-size:12px;margin-top:4px"><strong>Début :</strong> ${d.start_date ? new Date(d.start_date).toLocaleDateString('fr-FR') : '—'}</div>
+        <div style="font-size:12px;margin-top:4px"><strong>Fin :</strong> ${d.end_date ? new Date(d.end_date).toLocaleDateString('fr-FR') : '—'}</div>
+        <div style="font-size:12px;margin-top:4px"><strong>Renouvellement tacite :</strong> ${d.auto_renewal!==false ? '✅ Oui' : '❌ Non'}</div>
+      </div>
+      <div style="background:var(--s2);border-radius:8px;padding:12px">
+        <div style="font-size:10px;color:var(--t2);text-transform:uppercase;margin-bottom:8px">💳 Paiement</div>
+        <div style="font-size:12px"><strong>Fréquence :</strong> ${freqLabels[d.frequency]||d.frequency}</div>
+        <div style="font-size:12px;margin-top:4px"><strong>Jour :</strong> ${d.payment_day ? 'Le '+d.payment_day : '—'}</div>
+        <div style="font-size:12px;margin-top:4px"><strong>Mode :</strong> ${modeLabels[d.payment_mode]||d.payment_mode||'—'}</div>
+        <div style="font-size:12px;margin-top:4px"><strong>Compte :</strong> ${d.bank_account||'—'}</div>
+        <div style="font-size:12px;margin-top:4px"><strong>Libellé :</strong> ${d.virement_libelle||'—'}</div>
+        ${Number(d.retard_total||0)>0 ? `<div style="font-size:12px;margin-top:4px;color:var(--red)"><strong>⚠ Retard :</strong> ${Number(d.retard_total).toLocaleString('fr-FR')} €</div>` : ''}
+      </div>
+    </div>
+    ${deadline ? `
+    <div style="background:${daysLeft<30?'rgba(231,76,60,.1)':daysLeft<90?'rgba(243,156,18,.1)':'rgba(46,204,113,.1)'};border:1px solid ${deadlineColor};border-radius:8px;padding:12px;margin-bottom:1rem">
+      <div style="font-size:11px;text-transform:uppercase;color:${deadlineColor};font-weight:600;margin-bottom:4px">⚠ Résiliation — préavis ${d.resiliation_notice_days}j</div>
+      <div style="font-size:16px;font-weight:700;color:${deadlineColor}">Date limite : ${deadlineStr}</div>
+      <div style="font-size:11px;color:var(--t2);margin-top:4px">Au-delà de cette date, le contrat se renouvelle automatiquement pour une nouvelle période.</div>
+    </div>` : ''}
+    <div style="background:var(--s2);border-radius:8px;padding:12px;margin-bottom:1.5rem">
+      <div style="font-size:10px;color:var(--t2);text-transform:uppercase;margin-bottom:8px">📞 Contact fournisseur</div>
+      <div style="font-size:12px"><strong>${d.fournisseur}</strong>${d.contact ? ' · '+d.contact : ''}</div>
+      ${d.adresse ? `<div style="font-size:11px;color:var(--t2);margin-top:4px">${d.adresse}</div>` : ''}
+    </div>
+    ${d.notes ? `<div style="background:var(--s2);border-radius:8px;padding:12px;margin-bottom:1.5rem"><div style="font-size:10px;color:var(--t2);text-transform:uppercase;margin-bottom:8px">📝 Notes</div><div style="font-size:12px;white-space:pre-wrap">${d.notes}</div></div>` : ''}
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-p btn-sm" onclick="editCharge('${d.id}');document.getElementById('charge-detail-modal').style.display='none'">✎ Modifier</button>
+      <button class="btn btn-g btn-sm" onclick="document.getElementById('charge-detail-modal').style.display='none'">Fermer</button>
+    </div>`;
+  modal.style.display = 'flex';
+}
+
+function renderChargesGrouped() {
+  const container = document.getElementById('charges-grouped-view');
+  if (!container) return;
+
+  const search = (document.getElementById('charge-search')?.value || '').toLowerCase();
+  const catFilter = _chargesCatFilter;
+  const freqMois = {monthly:1,quarterly:3,annual:12};
+  const modeIcons = {prelevement:'🏦',virement:'💸',cheque:'📝',cb:'💳'};
+  const catLabels = {abonnement:'📱 Abonnements',leasing:'🚗 Leasing',comptable:'📊 Comptable & Juridique',assurance:'🛡 Assurances',loyer:'🏢 Loyer & Domiciliation',salaire:'👥 Salaires & Social',autre:'📦 Autres'};
+  const catOrder = ['assurance','comptable','loyer','leasing','abonnement','salaire','autre'];
+
+  let filtered = _chargesData.filter(d => {
+    if (catFilter && d.category !== catFilter) return false;
+    if (search && !d.fournisseur?.toLowerCase().includes(search) && !d.nature?.toLowerCase().includes(search)) return false;
+    return true;
+  });
+
+  // KPI alertes
+  const now = new Date();
+  const alertes = filtered.filter(d => {
+    const dl = getResiliationDeadline(d);
+    return dl && (dl - now) / 86400000 < 90;
+  });
+  const elAlert = document.getElementById('charge-alert-count');
+  if (elAlert) { elAlert.textContent = alertes.length; elAlert.style.color = alertes.length > 0 ? 'var(--amb)' : 'var(--grn)'; }
+  const elCount = document.getElementById('charge-count-actif');
+  if (elCount) { const uniq = new Set(filtered.filter(d=>d.status==='actif').map(d=>d.fournisseur)); elCount.textContent = uniq.size; }
+
+  if (!filtered.length) {
+    container.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--t2)">Aucune charge pour cette sélection</div>';
     return;
   }
-  const coNames={meulette:'La Meulette','sarl-guiraud':'SARL Guiraud','sas-living':'SAS Living','real-gains':'RG/Monikaza'};
-  const freqLabels={monthly:'Mensuelle',quarterly:'Trimestrielle',annual:'Annuelle'};
-  const catColors={abonnement:'bb',leasing:'ba',comptable:'bp',assurance:'bg',loyer:'br',salaire:'bz',autre:'bz'};
-  const freqMois={monthly:1,quarterly:3,annual:12};
-  const modeIcons={prelevement:'🏦',virement:'💸',cheque:'📝',cb:'💳'};
 
-  const totalMensuel=data.filter(d=>d.status==='actif').reduce((s,d)=>s+Number(d.amount_ttc||0)/(freqMois[d.frequency]||1),0);
+  // Grouper par catégorie
+  const groups = {};
+  catOrder.forEach(c => groups[c] = []);
+  filtered.forEach(d => { const c = d.category || 'autre'; if (!groups[c]) groups[c] = []; groups[c].push(d); });
+
+  let html = '';
+  catOrder.forEach(cat => {
+    const rows = groups[cat];
+    if (!rows.length) return;
+    const catTotal = rows.filter(d=>d.status==='actif').reduce((s,d) => s + Number(d.amount_ttc||0)/(freqMois[d.frequency]||1), 0);
+    const catAlertes = rows.filter(d => { const dl = getResiliationDeadline(d); return dl && (dl - now) / 86400000 < 90; });
+
+    html += `<div class="card" style="margin-bottom:1rem">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;cursor:pointer" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none'">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="font-size:14px;font-weight:600">${catLabels[cat]||cat}</span>
+          <span style="font-size:11px;color:var(--t2)">${rows.length} contrat${rows.length>1?'s':''}</span>
+          ${catAlertes.length ? `<span style="font-size:11px;color:var(--amb);font-weight:600">⚠ ${catAlertes.length} résiliation${catAlertes.length>1?'s':''} urgente${catAlertes.length>1?'s':''}</span>` : ''}
+        </div>
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:15px;font-weight:600;color:var(--red)">${Math.round(catTotal).toLocaleString('fr-FR')} €/m</div>
+      </div>
+      <div>
+        <table style="width:100%">
+          <thead><tr style="font-size:11px;color:var(--t2);border-bottom:1px solid var(--b1)">
+            <th style="padding:4px 8px;text-align:left">Fournisseur</th>
+            <th style="padding:4px 8px;text-align:left">Nature</th>
+            <th style="padding:4px 8px;text-align:right">TTC/mois</th>
+            <th style="padding:4px 8px;text-align:center">Mode</th>
+            <th style="padding:4px 8px">Fin contrat</th>
+            <th style="padding:4px 8px">⚠ Résil. avant</th>
+            <th style="padding:4px 8px;text-align:center">Auto</th>
+            <th style="padding:4px 8px;text-align:center">Statut</th>
+            <th style="padding:4px 8px"></th>
+          </tr></thead>
+          <tbody>`;
+
+    rows.forEach(d => {
+      const mensuel = Math.round(Number(d.amount_ttc||0)/(freqMois[d.frequency]||1));
+      const deadline = getResiliationDeadline(d);
+      const daysLeft = deadline ? Math.ceil((deadline - now) / 86400000) : null;
+      const dlColor = daysLeft === null ? 'var(--t2)' : daysLeft < 30 ? 'var(--red)' : daysLeft < 90 ? 'var(--amb)' : 'var(--grn)';
+      const dlStr = deadline ? deadline.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'2-digit'}) + (daysLeft !== null ? ` (J-${daysLeft})` : '') : '—';
+      const endStr = d.end_date ? new Date(d.end_date).toLocaleDateString('fr-FR',{month:'short',year:'2-digit'}) : '—';
+      const endColor = d.end_date && new Date(d.end_date) < new Date(Date.now()+90*24*3600*1000) ? 'color:var(--amb)' : 'color:var(--t2)';
+      const retard = Number(d.retard_total||0);
+      const statusBadge = d.status==='actif' ? '<span style="font-size:10px;color:var(--grn)">●</span>' : '<span style="font-size:10px;color:var(--t2)">●</span>';
+
+      html += `<tr style="border-bottom:0.5px solid var(--b1);cursor:pointer" onclick="showChargeDetail('${d.id}')">
+        <td style="padding:7px 8px">
+          <strong style="font-size:12px">${d.fournisseur}</strong>
+          ${retard > 0 ? `<span style="font-size:10px;color:var(--red);margin-left:4px">⚠${retard.toLocaleString('fr-FR')}€</span>` : ''}
+        </td>
+        <td style="padding:7px 8px;font-size:11px;color:var(--t2)">${d.nature||'—'}</td>
+        <td style="padding:7px 8px;text-align:right;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;color:var(--red)">${mensuel.toLocaleString('fr-FR')} €</td>
+        <td style="padding:7px 8px;text-align:center">${modeIcons[d.payment_mode]||'—'}</td>
+        <td style="padding:7px 8px;font-size:11px;${endColor}">${endStr}</td>
+        <td style="padding:7px 8px;font-size:11px;font-weight:${daysLeft!==null&&daysLeft<90?'600':'400'};color:${dlColor}">${dlStr}</td>
+        <td style="padding:7px 8px;text-align:center;font-size:12px">${d.auto_renewal!==false ? '🔄' : '—'}</td>
+        <td style="padding:7px 8px;text-align:center">${statusBadge}</td>
+        <td style="padding:7px 4px;white-space:nowrap" onclick="event.stopPropagation()">
+          <button onclick="editCharge('${d.id}')" style="border:none;background:none;cursor:pointer;color:var(--acc);font-size:13px">✎</button>
+          <button onclick="delCharge('${d.id}')" style="border:none;background:none;cursor:pointer;color:var(--t2);font-size:13px">✕</button>
+        </td>
+      </tr>`;
+    });
+
+    html += `</tbody></table></div></div>`;
+  });
+
+  container.innerHTML = html;
+}
+
+async function loadCharges(){
+  const coFilter=curCo?[curCo.id]:['sarl-guiraud','sas-living','meulette','real-gains','spv-monikaza'];
+  const{data}=await sb.from('recurring_charges').select('*').in('company_id',coFilter).order('category').order('fournisseur');
+
+  const freqMois={monthly:1,quarterly:3,annual:12};
+  _chargesData = data || [];
+
+  if(!_chargesData.length){
+    const el = document.getElementById('charges-grouped-view');
+    if(el) el.innerHTML='<div class="card" style="text-align:center;padding:2rem;color:var(--t2)">Aucune charge — créez manuellement ou importez un fichier</div>';
+    document.getElementById('charge-total-mensuel').textContent='0 €';
+    document.getElementById('charge-total-annuel').textContent='';
+    return;
+  }
+
+  const totalMensuel=_chargesData.filter(d=>d.status==='actif').reduce((s,d)=>s+Number(d.amount_ttc||0)/(freqMois[d.frequency]||1),0);
   document.getElementById('charge-total-mensuel').textContent=Math.round(totalMensuel).toLocaleString('fr-FR')+' €/mois';
   document.getElementById('charge-total-annuel').textContent='Annuel : '+Math.round(totalMensuel*12).toLocaleString('fr-FR')+' €';
 
-  tbody.innerHTML=data.map(d=>{
-    const retard=Number(d.retard_total||0);
-    const retardBadge=retard>0?`<span class="badge br" style="font-size:10px">⚠ ${retard.toLocaleString('fr-FR')}€ dû</span>`:'';
-    const finColor=d.end_date&&new Date(d.end_date)<new Date(Date.now()+60*24*3600*1000)?'color:var(--amb)':'color:var(--t2)';
-    return `<tr>
-      <td style="font-size:11px;color:var(--t2)">${coNames[d.company_id]||d.company_id}</td>
-      <td><strong>${d.fournisseur}</strong>${d.contact?`<div style="font-size:10px;color:var(--t2)">${d.contact}</div>`:''}</td>
-      <td style="font-size:12px">${d.nature}</td>
-      <td><span class="badge ${catColors[d.category]||'bz'}" style="font-size:10px">${d.category}</span></td>
-      <td style="text-align:right;font-family:'IBM Plex Mono',monospace;font-size:12px">${d.amount_ht?Math.round(d.amount_ht).toLocaleString('fr-FR')+' €':'—'}</td>
-      <td style="text-align:right;font-family:'IBM Plex Mono',monospace;font-weight:600;color:var(--red)">${Math.round(d.amount_ttc).toLocaleString('fr-FR')} €</td>
-      <td style="font-size:12px">${freqLabels[d.frequency]||d.frequency}${d.payment_day?'<br><span style="font-size:10px;color:var(--t2)">Le '+d.payment_day+'</span>':''}</td>
-      <td style="font-size:11px;color:var(--t2)">${d.bank_account||'—'}</td>
-      <td style="font-size:12px;text-align:center">${modeIcons[d.payment_mode]||'—'}</td>
-      <td style="font-size:11px;${finColor}">${d.end_date?new Date(d.end_date).toLocaleDateString('fr-FR',{month:'short',year:'2-digit'}):'—'}</td>
-      <td>${retardBadge}</td>
-      <td><span class="badge ${d.status==='actif'?'bg':d.status==='suspendu'?'ba':'bz'}">${d.status}</span></td>
-      <td style="display:flex;gap:4px">
-        <button onclick="editCharge('${d.id}')" style="border:none;background:none;cursor:pointer;color:var(--acc);font-size:14px" title="Modifier">✎</button>
-        <button onclick="delCharge('${d.id}')" style="border:none;background:none;cursor:pointer;color:var(--t2);font-size:14px" title="Supprimer">✕</button>
-      </td>
-    </tr>`;
-  }).join('');
+  renderChargesGrouped();
 
   // Init to-do virements sur le mois courant
   const vm=document.getElementById('virement-mois');
@@ -7625,7 +7892,15 @@ async function editCharge(id){
   document.getElementById('ch-retard-frais').value=data.retard_frais||0;
   document.getElementById('ch-retard-total').value=data.retard_total||0;
   document.getElementById('ch-notes').value=data.notes||'';
+  // Nouveaux champs contrat
+  if(document.getElementById('ch-resiliation-notice'))
+    document.getElementById('ch-resiliation-notice').value=data.resiliation_notice_days||'';
+  if(document.getElementById('ch-auto-renewal'))
+    document.getElementById('ch-auto-renewal').value=String(data.auto_renewal!==false);
+  if(document.getElementById('ch-contract-duration'))
+    document.getElementById('ch-contract-duration').value=data.contract_duration_months||'';
   calcChargeMensuelle();
+  calcResiliationDeadline();
   f.scrollIntoView({behavior:'smooth',block:'start'});
 }
 
