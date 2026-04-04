@@ -128,21 +128,18 @@ export default async (req) => {
     const deadline = new Date(Date.now() + 15 * 24 * 3600 * 1000).toISOString().split('T')[0];
     const label = moisLabel(mois);
 
-    // Créer la facture dans Pennylane
+    // Créer la facture dans Pennylane — payload direct sans wrapper
     const invoicePayload = {
-      invoice: {
-        customer_id: customerId,
-        date: today,
-        deadline: deadline,
-        subject: `Management Fees — ${label}`,
-        invoice_lines: [{
-          label: `Convention de management fees GUIRAUD JULIEN / SAS LIVING — ${label}`,
-          quantity: 1,
-          unit_price: AMOUNT_HT,
-          vat_rate: TVA_CODE,
-          section_rank: null
-        }]
-      }
+      customer_id: customerId,
+      date: today,
+      deadline: deadline,
+      subject: `Management Fees — ${label}`,
+      invoice_lines: [{
+        label: `Convention de management fees GUIRAUD JULIEN / SAS LIVING — ${label}`,
+        quantity: 1,
+        unit_price: AMOUNT_HT,
+        vat_rate: TVA_CODE
+      }]
     };
 
     const result = await plFetch(token, 'POST', '/customer_invoices', invoicePayload);
