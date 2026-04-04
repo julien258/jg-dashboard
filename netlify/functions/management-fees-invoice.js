@@ -133,8 +133,11 @@ export default async (req) => {
       customer_id: customerId,
       date: today,
       deadline: deadline,
+      title: 'Convention Management Fees',
+      description: 'Convention entre SARL GUIRAUD JULIEN et SAS LIVING',
       invoice_lines: [{
-        label: `Convention de management fees GUIRAUD JULIEN / SAS LIVING — ${label}`,
+        label: 'Prestations management',
+        description: label,
         quantity: 1,
         unit: 'piece',
         raw_currency_unit_price: String(AMOUNT_HT),
