@@ -53,18 +53,31 @@ async function sbFetch(path, options = {}) {
   return text ? JSON.parse(text) : null;
 }
 
-// Trouve le client "LIVING" dans Pennylane SARL GUIRAUD par nom
+// Trouve le client "LIVING" dans Pennylane SARL GUIRAUD
 async function findCustomerLiving(token) {
   try {
-    const filter = JSON.stringify([{ field: 'name', operator: 'contains', value: CUSTOMER_NAME }]);
-    const res = await plFetch(token, 'GET', `/customers?filter=${encodeURIComponent(filter)}&limit=10`);
+    // Pennylane supporte un paramètre search sur le nom
+    const res = await plFetch(token, 'GET', `/customers?search=${encodeURIComponent(CUSTOMER_NAME)}&limit=50`);
     const list = res.customers || res.items || (Array.isArray(res) ? res : []);
     const found = list.find(c =>
       (c.name || '').toUpperCase().includes('LIVING') ||
       (c.company_name || '').toUpperCase().includes('LIVING')
     );
     if (found) return found.id;
-    throw new Error(`Client "${CUSTOMER_NAME}" introuvable dans Pennylane SARL GUIRAUD. Vérifiez le nom exact.`);
+  } catch(e) {
+    // fallback : lister sans filtre et chercher côté serveur
+  }
+
+  try {
+    const res = await plFetch(token, 'GET', `/customers?limit=100`);
+    const list = res.customers || res.items || (Array.isArray(res) ? res : []);
+    const found = list.find(c =>
+      (c.name || '').toUpperCase().includes('LIVING') ||
+      (c.company_name || '').toUpperCase().includes('LIVING')
+    );
+    if (found) return found.id;
+    const names = list.slice(0, 10).map(c => c.name || c.company_name).join(', ');
+    throw new Error(`Client "LIVING" introuvable. Clients disponibles : ${names}`);
   } catch(e) {
     throw new Error(`Recherche client Pennylane: ${e.message}`);
   }
