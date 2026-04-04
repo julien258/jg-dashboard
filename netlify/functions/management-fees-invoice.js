@@ -130,18 +130,16 @@ export default async (req) => {
 
     // Créer la facture dans Pennylane — payload direct sans wrapper
     const invoicePayload = {
-      customer_invoice: {
-        customer_id: customerId,
-        date: today,
-        deadline: deadline,
-        subject: `Management Fees — ${label}`,
-        invoice_lines: [{
-          label: `Convention de management fees GUIRAUD JULIEN / SAS LIVING — ${label}`,
-          quantity: 1,
-          unit_price: AMOUNT_HT,
-          vat_rate: TVA_CODE
-        }]
-      }
+      customer_id: customerId,
+      date: today,
+      deadline: deadline,
+      invoice_lines: [{
+        label: `Convention de management fees GUIRAUD JULIEN / SAS LIVING — ${label}`,
+        quantity: 1,
+        unit: 'piece',
+        raw_currency_unit_price: String(AMOUNT_HT),
+        vat_rate: TVA_CODE
+      }]
     };
 
     const result = await plFetch(token, 'POST', '/customer_invoices', invoicePayload);
