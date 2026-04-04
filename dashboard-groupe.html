@@ -162,6 +162,7 @@
     <button class="gbtn" onclick="showPatrimoine()"><span>💎</span> Patrimoine</button>
     <button class="gbtn" onclick="showOptim()"><span>⚖️</span> Optim. rémunération</button>
     <button class="gbtn" onclick="showApurement()"><span>🚨</span> Apurement dettes</button>
+    <button class="gbtn" onclick="showMgmtFees()"><span>🏛️</span> Fact. GUIRAUD→LIVING</button>
     <button class="gbtn" onclick="showGED()"><span>📂</span> GED Documents</button>
     <button class="gbtn" onclick="showMail()" id="btn-mail"><span>📧</span> Mails</button>
     <button class="gbtn" id="btn-contentieux" onclick="showContentieux()"><span>⚖️</span> Contentieux</button>
@@ -1588,6 +1589,50 @@
     </div>
   </div>
 
+
+  <!-- MANAGEMENT FEES — FACTURATION GUIRAUD → LIVING -->
+  <div class="pv cnt" id="v-mgmtfees">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem;flex-wrap:wrap;gap:8px">
+      <div>
+        <div style="font-size:20px;font-weight:600">🏛️ Facturation Management Fees</div>
+        <div style="font-size:12px;color:var(--t2);margin-top:2px">GUIRAUD JULIEN → SAS LIVING · 60 000 € HT / mois · TVA 20%</div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <span id="mf-status-dot" style="width:8px;height:8px;border-radius:50%;background:var(--t2);display:inline-block"></span>
+        <span id="mf-status-lbl" style="font-size:12px;color:var(--t2)">—</span>
+      </div>
+    </div>
+
+    <!-- KPIs -->
+    <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:1.5rem">
+      <div class="card" style="padding:.875rem">
+        <div style="font-size:12px;color:var(--t2);margin-bottom:4px">Factures émises</div>
+        <div id="mf-kpi-emises" style="font-size:22px;font-weight:600;color:var(--grn)">—</div>
+        <div style="font-size:11px;color:var(--t2)">sur 12 mois 2026</div>
+      </div>
+      <div class="card" style="padding:.875rem">
+        <div style="font-size:12px;color:var(--t2);margin-bottom:4px">Dues (non émises)</div>
+        <div id="mf-kpi-dues" style="font-size:22px;font-weight:600;color:var(--red)">—</div>
+        <div style="font-size:11px;color:var(--t2)">à émettre</div>
+      </div>
+      <div class="card" style="padding:.875rem">
+        <div style="font-size:12px;color:var(--t2);margin-bottom:4px">Total HT émis</div>
+        <div id="mf-kpi-total-ht" style="font-size:22px;font-weight:600">—</div>
+        <div style="font-size:11px;color:var(--t2)">TVA collectée : <span id="mf-kpi-tva">—</span></div>
+      </div>
+      <div class="card" style="padding:.875rem">
+        <div style="font-size:12px;color:var(--t2);margin-bottom:4px">Restant à facturer</div>
+        <div id="mf-kpi-restant" style="font-size:22px;font-weight:600;color:var(--amb)">—</div>
+        <div style="font-size:11px;color:var(--t2)">sur 2026</div>
+      </div>
+    </div>
+
+    <!-- Grille 12 mois -->
+    <div id="mf-grid" style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:1.5rem"></div>
+
+    <!-- Log -->
+    <div id="mf-log" style="font-size:12px;color:var(--t2);min-height:24px;margin-top:.5rem"></div>
+  </div>
 
   <!-- GED — GESTION ÉLECTRONIQUE DE DOCUMENTS -->
   <!-- MAIL -->
@@ -3560,6 +3605,154 @@ async function openGEDDoc(storagePath){
     else toast('Erreur : '+d.error);
   }catch(e){toast('Erreur : '+e.message);}
 }
+
+// ─── MANAGEMENT FEES — FACTURATION GUIRAUD → LIVING ───────────────────────
+const MF_MOIS_FR = ['Janvier','Février','Mars','Avril','Mai','Juin',
+                     'Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+
+function mfMoisLabel(mois) {
+  const [y,m] = mois.split('-');
+  return MF_MOIS_FR[parseInt(m)-1] + ' ' + y;
+}
+
+async function showMgmtFees() {
+  setViews('v-mgmtfees');
+  document.getElementById('ptabs').style.display = 'none';
+  document.getElementById('tb-title').textContent = 'Facturation GUIRAUD → LIVING';
+  document.getElementById('tb-sub').textContent = 'Management Fees 2026 · 60 000 € HT/mois';
+  await loadMgmtFees();
+}
+
+async function loadMgmtFees() {
+  const log = document.getElementById('mf-log');
+  const dot = document.getElementById('mf-status-dot');
+  const lbl = document.getElementById('mf-status-lbl');
+  log.textContent = 'Chargement…';
+  dot.style.background = 'var(--amb)';
+  lbl.textContent = 'Chargement…';
+
+  // Charger les factures existantes depuis Supabase
+  let invoices = [];
+  try {
+    const r = await sb.from('management_fees_invoices').select('*').order('mois');
+    invoices = r.data || [];
+    dot.style.background = 'var(--grn)';
+    lbl.textContent = 'Connecté';
+    log.textContent = '';
+  } catch(e) {
+    dot.style.background = 'var(--red)';
+    lbl.textContent = 'Erreur Supabase';
+    log.textContent = 'Erreur chargement : ' + e.message;
+    return;
+  }
+
+  const invMap = {};
+  invoices.forEach(i => { invMap[i.mois] = i; });
+
+  // Mois jan–déc 2026
+  const today = new Date();
+  const moisActuel = today.getFullYear() + '-' + String(today.getMonth()+1).padStart(2,'0');
+
+  let nbEmises = 0, nbDues = 0, totalHT = 0, totalTVA = 0;
+  const moisGrid = [];
+
+  for (let m = 1; m <= 12; m++) {
+    const mois = '2026-' + String(m).padStart(2,'0');
+    const label = MF_MOIS_FR[m-1] + ' 2026';
+    const inv = invMap[mois];
+    const isPassé = mois < moisActuel;
+    const isCourant = mois === moisActuel;
+
+    let statut, statutColor, statutLabel;
+    if (inv) {
+      nbEmises++;
+      totalHT += 60000;
+      totalTVA += 12000;
+      statut = 'emise';
+      statutColor = 'var(--grn)';
+      statutLabel = '✅ ' + inv.invoice_number;
+    } else if (isPassé) {
+      nbDues++;
+      statut = 'due';
+      statutColor = 'var(--red)';
+      statutLabel = '🔴 À émettre';
+    } else if (isCourant) {
+      nbDues++;
+      statut = 'courant';
+      statutColor = 'var(--amb)';
+      statutLabel = '⏳ Mois courant';
+    } else {
+      statut = 'futur';
+      statutColor = 'var(--t2)';
+      statutLabel = '— Futur';
+    }
+    moisGrid.push({ mois, label, inv, statut, statutColor, statutLabel, isPassé, isCourant });
+  }
+
+  const restant = (12 - nbEmises) * 60000;
+
+  // KPIs
+  document.getElementById('mf-kpi-emises').textContent = nbEmises + '/12';
+  document.getElementById('mf-kpi-dues').textContent = nbDues;
+  document.getElementById('mf-kpi-total-ht').textContent = totalHT.toLocaleString('fr-FR') + ' €';
+  document.getElementById('mf-kpi-tva').textContent = totalTVA.toLocaleString('fr-FR') + ' €';
+  document.getElementById('mf-kpi-restant').textContent = restant.toLocaleString('fr-FR') + ' €';
+
+  // Grille
+  const grid = document.getElementById('mf-grid');
+  grid.innerHTML = moisGrid.map(m => {
+    const canEmit = m.statut !== 'futur' || m.isCourant;
+    const btnDisabled = m.statut === 'emise' ? 'disabled' : '';
+    const btnLabel = m.statut === 'emise' ? 'Facturée' : (m.statut === 'futur' ? 'Émettre' : 'Émettre');
+    const btnStyle = m.statut === 'emise'
+      ? 'background:rgba(0,0,0,.05);color:var(--t2);cursor:default'
+      : 'background:var(--acc);color:#fff;cursor:pointer';
+    const plLink = m.inv?.pennylane_url
+      ? `<a href="${m.inv.pennylane_url}" target="_blank" style="font-size:11px;color:var(--acc);text-decoration:none">↗ Pennylane</a>`
+      : '';
+
+    return `<div class="card" style="padding:14px;border-left:3px solid ${m.statutColor}">
+      <div style="font-weight:600;font-size:13px;margin-bottom:6px">${m.label}</div>
+      <div style="font-size:11px;color:${m.statutColor};margin-bottom:6px">${m.statutLabel}</div>
+      ${m.inv ? `<div style="font-size:11px;color:var(--t2);margin-bottom:4px">60 000 € HT · +12 000 € TVA</div>` : ''}
+      ${plLink ? `<div style="margin-bottom:8px">${plLink}</div>` : ''}
+      <button onclick="mfEmettre('${m.mois}')" ${btnDisabled}
+        style="width:100%;padding:6px;font-size:12px;border:0;border-radius:6px;${btnStyle}">
+        ${btnLabel}
+      </button>
+    </div>`;
+  }).join('');
+}
+
+async function mfEmettre(mois) {
+  const log = document.getElementById('mf-log');
+  log.textContent = `Émission en cours pour ${mfMoisLabel(mois)}…`;
+
+  try {
+    const res = await fetch('/api/management-fees-invoice', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mois })
+    });
+    const data = await res.json();
+
+    if (res.status === 409 && data.already_exists) {
+      log.textContent = `ℹ️ ${data.error}`;
+      return;
+    }
+    if (!data.ok) {
+      log.textContent = `❌ Erreur : ${data.error}`;
+      return;
+    }
+
+    log.textContent = `✅ Facture ${data.invoice_number} émise pour ${data.mois_label} — 60 000 € HT · Pennylane : ${data.pennylane_url}`;
+    // Recharger la grille
+    await loadMgmtFees();
+  } catch(e) {
+    log.textContent = `❌ Erreur réseau : ${e.message}`;
+  }
+}
+// ─────────────────────────────────────────────────────────────────────────────
 
 function showGED(){
   setViews('v-ged');
