@@ -3731,172 +3731,138 @@ function mfMoisLabel(mois) {
 }
 
 async // ─── GESTION TVA GROUPE ────────────────────────────────────────────────────
-const TVA_SOCIETES = [
-  { id: 'sas-living',   label: 'SAS LIVING',     couleur: '#534AB7' },
-  { id: 'sarl-guiraud', label: 'SARL GUIRAUD',   couleur: '#185FA5' },
-  { id: 'meulette',     label: 'La Meulette',     couleur: '#5F5E5A' },
+// ─── GESTION TVA GROUPE ────────────────────────────────────────────────────
+var TVA_SOCS = [
+  { id: 'sas-living',   label: 'SAS LIVING',   couleur: '#534AB7' },
+  { id: 'sarl-guiraud', label: 'SARL GUIRAUD', couleur: '#185FA5' },
+  { id: 'meulette',     label: 'La Meulette',  couleur: '#5F5E5A' }
 ];
 
-// Catégories/labels NON déductibles
-const TVA_NON_DEDUCTIBLE_KEYWORDS = [
-  'assur','insurance','véhicule','vehicule','voiture','auto','leasing véh',
-  'carburant','essence','diesel','gazole','loyer résid','loyer habitation'
-];
+var TVA_EXCLU = ['assur','insurance','vehicule','véhicule','voiture','carburant','essence','diesel','gazole'];
 
-function isTVADeductible(charge) {
-  if (charge.tva_deductible === false) return false;
-  if (charge.tva_deductible === true) return true;
-  // Heuristique sur category + fournisseur
-  const txt = ((charge.category||'')+(charge.fournisseur||'')+(charge.label||'')).toLowerCase();
-  return !TVA_NON_DEDUCTIBLE_KEYWORDS.some(k => txt.includes(k));
+function isTVADed(c) {
+  if (c.tva_deductible === false) return false;
+  if (c.tva_deductible === true) return true;
+  var txt = ((c.category||'')+(c.fournisseur||'')+(c.label||'')).toLowerCase();
+  for (var i=0;i<TVA_EXCLU.length;i++) { if (txt.indexOf(TVA_EXCLU[i])>=0) return false; }
+  return true;
 }
 
-let _tvaData = null;
+var _tvaData = null;
 
-async function showTVA() {
+function showTVA() {
   setViews('v-tva');
   document.getElementById('ptabs').style.display = 'none';
   document.getElementById('tb-title').textContent = 'Gestion TVA — Groupe';
   document.getElementById('tb-sub').textContent = 'Flux · Collectée · Déductible · Crédit · Alertes';
-  // Sélectionner le mois courant
-  const now = new Date();
-  const moisCourant = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
-  const sel = document.getElementById('tva-mois-sel');
-  if (sel) { [...sel.options].forEach(o => { if(o.value===moisCourant) o.selected=true; }); }
-  await loadTVA();
+  var now = new Date();
+  var mc = now.getFullYear()+'-'+(now.getMonth()+1<10?'0':'')+(now.getMonth()+1);
+  var sel = document.getElementById('tva-mois-sel');
+  if (sel) { for(var i=0;i<sel.options.length;i++){if(sel.options[i].value===mc){sel.options[i].selected=true;break;}} }
+  loadTVA();
 }
 
-async function loadTVA() {
-  try {
-    const [chargesRes, mfRes] = await Promise.all([
-      sb.from('recurring_charges').select('*').eq('status','actif').in('company_id', TVA_SOCIETES.map(s=>s.id)),
-      sb.from('management_fees_invoices').select('*').order('mois')
-    ]);
-    _tvaData = { charges: chargesRes.data || [], mfInvoices: mfRes.data || [] };
+function loadTVA() {
+  Promise.all([
+    sb.from('recurring_charges').select('*').eq('status','actif').in('company_id',['sas-living','sarl-guiraud','meulette']),
+    sb.from('management_fees_invoices').select('*').order('mois')
+  ]).then(function(results) {
+    _tvaData = { charges: results[0].data || [], mfInvoices: results[1].data || [], tvaColl: 0 };
     renderTVATableau();
-  } catch(e) {
-    document.getElementById('tva-tableau').innerHTML =
-      `<div style="color:var(--red);padding:1rem">Erreur chargement : ${e.message}</div>`;
-  }
+  }).catch(function(e) {
+    document.getElementById('tva-tableau').innerHTML = '<div style="color:red;padding:1rem">Erreur : '+e.message+'</div>';
+  });
 }
 
 function renderTVATableau() {
   if (!_tvaData) return;
-  const { charges, mfInvoices } = _tvaData;
-  const sel = document.getElementById('tva-mois-sel');
-  const moisSel = sel ? sel.value : '2026-04';
-  const moisLabel = sel ? sel.options[sel.selectedIndex]?.text : moisSel;
-  const fmt = n => Math.round(n).toLocaleString('fr-FR') + ' €';
+  var charges = _tvaData.charges;
+  var sel = document.getElementById('tva-mois-sel');
+  var moisSel = sel ? sel.value : '2026-04';
 
-  // Calcul par société
-  const rows = TVA_SOCIETES.map(soc => {
-    const chargesSoc = charges.filter(c => c.company_id === soc.id);
-    const nbTotal = chargesSoc.length;
-    const nonValides = chargesSoc.filter(c => c.tva_deductible === null || c.tva_deductible === undefined).length;
+  function fmt(n) { return Math.round(n).toLocaleString('fr-FR')+' €'; }
 
-    // TVA déductible estimée (charges mensualisées)
-    const tvaDeductible = chargesSoc.filter(isTVADeductible).reduce((s, c) => {
-      const freqMois = { mensuel:1, trimestriel:3, annuel:12 };
-      const mois = freqMois[c.frequency] || 1;
-      const ht = Number(c.amount_ht || (c.amount_ttc ? c.amount_ttc/1.20 : 0));
-      return s + (ht / mois) * 0.20;
-    }, 0);
-
-    // TVA collectée
-    let tvaCollectee = 0;
-    let tvaCollecteeNote = '';
-    if (soc.id === 'sarl-guiraud') {
-      const mfMois = mfInvoices.find(m => m.mois === moisSel);
-      tvaCollectee = mfMois ? 12000 : 12000; // forfait convention
-      tvaCollecteeNote = 'Fact. management fees';
-    } else if (soc.id === 'sas-living') {
-      tvaCollectee = _tvaData._tvaCollecteeLiving || 0;
-      tvaCollecteeNote = _tvaData._tvaCollecteeLiving ? 'Saisie manuelle' : 'Commissions FR 2014 00e0 renseigner';
-    } else if (soc.id === 'meulette') {
-      tvaCollectee = 0;
-      tvaCollecteeNote = 'Exonérée TVA';
-    }
-
-    const solde = tvaCollectee - tvaDeductible;
-    return { ...soc, tvaCollectee, tvaDeductible, solde, tvaCollecteeNote, nbTotal, nonValides };
+  var rows = TVA_SOCS.map(function(soc) {
+    var sc = charges.filter(function(c){return c.company_id===soc.id;});
+    var nonVal = sc.filter(function(c){return c.tva_deductible===null||c.tva_deductible===undefined;}).length;
+    var freq = {mensuel:1,trimestriel:3,annuel:12};
+    var tvaDed = sc.filter(isTVADed).reduce(function(s,c){
+      var m = freq[c.frequency]||1;
+      var ht = Number(c.amount_ht||(c.amount_ttc?c.amount_ttc/1.20:0));
+      return s+(ht/m)*0.20;
+    },0);
+    var tvaColl=0, note='';
+    if (soc.id==='sarl-guiraud') { tvaColl=12000; note='Fact. management fees'; }
+    else if (soc.id==='sas-living') { tvaColl=_tvaData.tvaColl||0; note=_tvaData.tvaColl?'Saisie manuelle':'Commissions FR — à renseigner'; }
+    else { tvaColl=0; note='Exonérée TVA'; }
+    return { soc:soc, tvaDed:tvaDed, tvaColl:tvaColl, note:note, nonVal:nonVal, solde:tvaColl-tvaDed };
   });
 
-  // Calcul crédit cumulé LIVING (structurel Manhattan)
-  const livingRow = rows.find(r => r.id === 'sas-living');
-  const creditLiving = livingRow ? Math.max(0, -livingRow.solde) : 0;
+  // Alerte
+  var living = rows.filter(function(r){return r.soc.id==='sas-living';})[0];
+  var credit = living ? Math.max(0,-living.solde) : 0;
+  var alertEl = document.getElementById('tva-alert');
+  var alertMsg = document.getElementById('tva-alert-msg');
+  if (alertEl) alertEl.style.display = credit>=10000 ? 'block' : 'none';
+  if (alertMsg && credit>=10000) alertMsg.textContent = 'Crédit TVA SAS LIVING estimé à '+fmt(credit)+' — Vérifier sur 2-3 mois consécutifs avant demande (imprimé 3519).';
 
-  // Alerte crédit
-  const alertEl = document.getElementById('tva-alert');
-  const alertMsg = document.getElementById('tva-alert-msg');
-  if (creditLiving >= 10000) {
-    alertEl.style.display = 'block';
-    alertMsg.textContent = `Crédit TVA SAS LIVING estimé à ${Math.round(creditLiving).toLocaleString('fr-FR')} € — Vérifier sur 2-3 mois consécutifs avant demande de remboursement (imprimé n°3519).`;
-  } else {
-    alertEl.style.display = 'none';
-  }
+  // Nb non validés
+  var totalNV = rows.reduce(function(s,r){return s+r.nonVal;},0);
+  var nbEl = document.getElementById('tva-nb-non-valides');
+  if (nbEl) nbEl.textContent = totalNV>0 ? '⚠️ '+totalNV+' charge(s) à valider (tva_deductible non renseigné)' : '✅ Toutes les charges sont paramétrées';
 
-  // Nombre de charges non validées
-  const totalNonVal = rows.reduce((s, r) => s + r.nonValides, 0);
-  const nbEl = document.getElementById('tva-nb-non-valides');
-  if (nbEl) nbEl.textContent = totalNonVal > 0 ? `⚠️ ${totalNonVal} charge(s) à valider (tva_deductible non renseigné)` : '✅ Toutes les charges sont paramétrées';
+  // Tableau
+  var h = '<table style="width:100%;border-collapse:collapse;font-size:12px">';
+  h += '<thead><tr style="background:var(--bg2)">';
+  h += '<th style="padding:8px 12px;border-bottom:0.5px solid var(--b1);text-align:left;color:var(--t2);font-weight:500">Société</th>';
+  h += '<th style="padding:8px 12px;border-bottom:0.5px solid var(--b1);text-align:right;color:var(--t2);font-weight:500">TVA collectée</th>';
+  h += '<th style="padding:8px 12px;border-bottom:0.5px solid var(--b1);text-align:right;color:var(--t2);font-weight:500">Note</th>';
+  h += '<th style="padding:8px 12px;border-bottom:0.5px solid var(--b1);text-align:right;color:var(--t2);font-weight:500">TVA déductible estimée</th>';
+  h += '<th style="padding:8px 12px;border-bottom:0.5px solid var(--b1);text-align:right;color:var(--t2);font-weight:500">Solde net CA3</th>';
+  h += '<th style="padding:8px 12px;border-bottom:0.5px solid var(--b1);text-align:right;color:var(--t2);font-weight:500">Action</th>';
+  h += '</tr></thead><tbody>';
 
-  // Rendu tableau
-  const th = (t, right) => `<th style="padding:8px 12px;border-bottom:0.5px solid var(--b1);color:var(--t2);font-weight:500;text-align:${right?'right':'left'};font-size:12px">${t}</th>`;
-  const td = (v, color, bold) => `<td style="padding:7px 12px;border-bottom:0.5px solid var(--b1);text-align:right;font-variant-numeric:tabular-nums;${color?'color:'+color+';':''}${bold?'font-weight:600;':''}">${v}</td>`;
-  const tdl = (v, color) => `<td style="padding:7px 12px;border-bottom:0.5px solid var(--b1);${color?'color:'+color+';':''}">${v}</td>`;
-
-  let html = `<table style="width:100%;border-collapse:collapse;font-size:12px">
-    <thead><tr style="background:var(--bg2)">
-      ${th('Société')}${th('TVA collectée',true)}${th('Note',true)}${th('TVA déductible estimée',true)}${th('Solde net CA3',true)}${th('Action',true)}
-    </tr></thead><tbody>`;
-
-  rows.forEach(r => {
-    const soldeColor = r.solde > 0 ? 'var(--red)' : r.solde < 0 ? 'var(--grn)' : 'var(--t2)';
-    const soldeLabel = r.solde > 0 ? `À payer : ${fmt(r.solde)}` : r.solde < 0 ? `Crédit : ${fmt(-r.solde)}` : '—';
-    const action = r.id === 'sas-living'
-      ? `<button class="btn btn-g btn-sm" onclick="tvaRenseignerCollectee('${r.id}','${moisSel}')">Saisir collectée</button>`
-      : r.id === 'meulette' ? '<span style="color:var(--t2);font-size:11px">Exonérée</span>'
-      : `<span style="font-size:11px;color:var(--t2)">${Math.round(r.nonValides)} à valider</span>`;
-
-    html += `<tr>
-      ${tdl(`<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${r.couleur};margin-right:6px"></span><strong>${r.label}</strong>`)}
-      ${td(r.tvaCollectee > 0 ? fmt(r.tvaCollectee) : '—', r.tvaCollectee > 0 ? 'var(--grn)' : 'var(--t2)')}
-      ${td(`<span style="font-size:11px;color:var(--t2)">${r.tvaCollecteeNote}</span>`)}
-      ${td(r.tvaDeductible > 0 ? '− '+fmt(r.tvaDeductible) : '—', 'var(--blue,#378ADD)')}
-      ${td(soldeLabel, soldeColor, true)}
-      ${td(action)}
-    </tr>`;
+  var totalColl=0, totalDed=0;
+  rows.forEach(function(r) {
+    totalColl+=r.tvaColl; totalDed+=r.tvaDed;
+    var sc = r.solde>0 ? 'color:var(--red)' : r.solde<0 ? 'color:var(--grn)' : 'color:var(--t2)';
+    var sl = r.solde>0 ? 'À payer : '+fmt(r.solde) : r.solde<0 ? 'Crédit : '+fmt(-r.solde) : '—';
+    var act = r.soc.id==='sas-living'
+      ? '<button class="btn btn-g btn-sm" onclick="tvaRenseignerCollectee()">Saisir collectée</button>'
+      : r.soc.id==='meulette' ? '<span style="color:var(--t2);font-size:11px">Exonérée</span>'
+      : '<span style="font-size:11px;color:var(--t2)">'+r.nonVal+' à valider</span>';
+    h += '<tr>';
+    h += '<td style="padding:7px 12px;border-bottom:0.5px solid var(--b1)"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:'+r.soc.couleur+';margin-right:6px"></span><strong>'+r.soc.label+'</strong></td>';
+    h += '<td style="padding:7px 12px;border-bottom:0.5px solid var(--b1);text-align:right;'+(r.tvaColl>0?'color:var(--grn)':'color:var(--t2)')+'">'+(r.tvaColl>0?fmt(r.tvaColl):'—')+'</td>';
+    h += '<td style="padding:7px 12px;border-bottom:0.5px solid var(--b1);text-align:right;font-size:11px;color:var(--t2)">'+r.note+'</td>';
+    h += '<td style="padding:7px 12px;border-bottom:0.5px solid var(--b1);text-align:right;color:#378ADD">'+(r.tvaDed>0?'&minus; '+fmt(r.tvaDed):'—')+'</td>';
+    h += '<td style="padding:7px 12px;border-bottom:0.5px solid var(--b1);text-align:right;font-weight:600;'+sc+'">'+sl+'</td>';
+    h += '<td style="padding:7px 12px;border-bottom:0.5px solid var(--b1);text-align:right">'+act+'</td>';
+    h += '</tr>';
   });
 
-  // Total groupe
-  const totalColl = rows.reduce((s,r) => s+r.tvaCollectee, 0);
-  const totalDed = rows.reduce((s,r) => s+r.tvaDeductible, 0);
-  const totalSolde = totalColl - totalDed;
-  html += `<tr style="background:var(--bg2)">
-    ${tdl('<strong>Total groupe</strong>')}
-    ${td(fmt(totalColl), 'var(--grn)', true)}
-    ${td('')}
-    ${td('− '+fmt(totalDed), 'var(--blue,#378ADD)', true)}
-    ${td(totalSolde >= 0 ? `À payer : ${fmt(totalSolde)}` : `Crédit : ${fmt(-totalSolde)}`, totalSolde >= 0 ? 'var(--red)' : 'var(--grn)', true)}
-    ${td('')}
-  </tr>`;
-
-  html += '</tbody></table>';
-  document.getElementById('tva-tableau').innerHTML = html;
+  var ts = totalColl-totalDed;
+  h += '<tr style="background:var(--bg2)">';
+  h += '<td style="padding:7px 12px;font-weight:600">Total groupe</td>';
+  h += '<td style="padding:7px 12px;text-align:right;font-weight:600;color:var(--grn)">'+fmt(totalColl)+'</td>';
+  h += '<td style="padding:7px 12px"></td>';
+  h += '<td style="padding:7px 12px;text-align:right;font-weight:600;color:#378ADD">&minus; '+fmt(totalDed)+'</td>';
+  h += '<td style="padding:7px 12px;text-align:right;font-weight:600;'+(ts>=0?'color:var(--red)':'color:var(--grn)')+'">'+(ts>=0?'À payer : '+fmt(ts):'Crédit : '+fmt(-ts))+'</td>';
+  h += '<td style="padding:7px 12px"></td></tr>';
+  h += '</tbody></table>';
+  document.getElementById('tva-tableau').innerHTML = h;
 }
 
-function tvaRenseignerCollectee(socId, mois) {
-  const val = prompt(`TVA collectée SAS LIVING pour ${mois} (€) :`);
+function tvaRenseignerCollectee() {
+  var val = prompt('TVA collectée SAS LIVING ce mois (€) :');
   if (!val || isNaN(parseFloat(val))) return;
-  // Mise à jour locale pour preview
-  if (_tvaData) {
-    _tvaData._tvaCollecteeLiving = parseFloat(val);
-  }
+  if (_tvaData) _tvaData.tvaColl = parseFloat(val);
   renderTVATableau();
 }
 // ─────────────────────────────────────────────────────────────────────────────
 
-function showMgmtFees() {
+
+async function showMgmtFees() {
   setViews('v-mgmtfees');
   document.getElementById('ptabs').style.display = 'none';
   document.getElementById('tb-title').textContent = 'Facturation GUIRAUD → LIVING';
