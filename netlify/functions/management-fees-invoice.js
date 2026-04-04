@@ -137,7 +137,8 @@ export default async (req) => {
       invoice_lines: [{
         label: `Convention de management fees GUIRAUD JULIEN / SAS LIVING — ${label}`,
         quantity: 1,
-        unit_price: AMOUNT_HT,
+        unit: 'piece',
+        unit_price_without_vat: AMOUNT_HT,
         vat_rate: TVA_CODE
       }]
     };
