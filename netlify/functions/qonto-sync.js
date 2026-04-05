@@ -1,9 +1,4 @@
 // qonto-sync.js — Proxy API Qonto multi-comptes
-// GET /api/qonto-sync?action=balances
-// GET /api/qonto-sync?action=transactions&account=GUIRAUD
-// GET /api/qonto-sync?action=missing&account=GUIRAUD
-
-import { env } from 'process';
 
 const QONTO_BASE = 'https://thirdparty.qonto.com/v2';
 const TIMEOUT_MS = 8000;
@@ -16,14 +11,8 @@ const ACCOUNTS = [
   { envKey: 'QONTO_MONIKAZA',   label: 'Monikaza SPV',  companyId: 'spv-monikaza' },
 ];
 
-const CORS = { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' };
-
 function getCredentials(envKey) {
-  // Essayer process.env ET Netlify.env
-  let val = env[envKey];
-  if (!val && typeof Netlify !== 'undefined') {
-    try { val = Netlify.env.get(envKey); } catch(e) {}
-  }
+  const val = Netlify.env.get(envKey);
   if (!val) return null;
   const idx = val.indexOf(':');
   if (idx === -1) return null;
@@ -49,9 +38,9 @@ async function qontoFetch(login, secret, path) {
   }
 }
 
-async function fetchAccount(acc) {
+async function fetchAccountBalances(acc) {
   const creds = getCredentials(acc.envKey);
-  if (!creds) return { ...acc, configured: false, bank_accounts: [], error: 'Token manquant' };
+  if (!creds) return { ...acc, configured: false, bank_accounts: [], total_balance: 0, error: 'Token manquant' };
 
   try {
     const data = await qontoFetch(creds.login, creds.secret, '/organization');
@@ -77,47 +66,42 @@ async function fetchAccount(acc) {
   }
 }
 
-export default async (req) => {
-  if (req.method === 'OPTIONS') return new Response('', { headers: CORS });
-
+export default async (req, context) => {
   const url = new URL(req.url);
   const action = url.searchParams.get('action') || 'balances';
   const accountFilter = url.searchParams.get('account');
 
   try {
-    // ── BALANCES : tous les comptes en parallèle ──────────────────────────
+
+    // ── BALANCES ─────────────────────────────────────────────────────────
     if (action === 'balances') {
       const toFetch = accountFilter
         ? ACCOUNTS.filter(a => a.envKey.includes(accountFilter.toUpperCase()))
         : ACCOUNTS;
 
-      // Appels PARALLÈLES avec Promise.allSettled
-      const results = await Promise.allSettled(toFetch.map(fetchAccount));
-      const accounts = results.map((r, i) =>
+      const settled = await Promise.allSettled(toFetch.map(fetchAccountBalances));
+      const accounts = settled.map((r, i) =>
         r.status === 'fulfilled' ? r.value : { ...toFetch[i], error: r.reason?.message, bank_accounts: [], total_balance: 0 }
       );
-
       const totalEur = accounts.reduce((s, a) => s + (a.total_balance || 0), 0);
-
-      return new Response(JSON.stringify({ ok: true, accounts, totalEur }), { headers: CORS });
+      return Response.json({ ok: true, accounts, totalEur });
     }
 
     // ── TRANSACTIONS ─────────────────────────────────────────────────────
     if (action === 'transactions') {
-      if (!accountFilter) return new Response(JSON.stringify({ ok: false, error: 'account requis' }), { status: 400, headers: CORS });
+      if (!accountFilter) return Response.json({ ok: false, error: 'account requis' }, { status: 400 });
       const acc = ACCOUNTS.find(a => a.envKey.includes(accountFilter.toUpperCase()));
-      if (!acc) return new Response(JSON.stringify({ ok: false, error: 'Compte inconnu: ' + accountFilter }), { status: 400, headers: CORS });
+      if (!acc) return Response.json({ ok: false, error: 'Compte inconnu: ' + accountFilter }, { status: 400 });
 
       const creds = getCredentials(acc.envKey);
-      if (!creds) return new Response(JSON.stringify({ ok: false, error: acc.envKey + ' non configuré' }), { status: 500, headers: CORS });
+      if (!creds) return Response.json({ ok: false, error: acc.envKey + ' non configuré' }, { status: 500 });
 
       const perPage = url.searchParams.get('per_page') || '30';
       const status = url.searchParams.get('status') || 'completed';
 
-      // Récupérer le slug du compte principal
       const orgData = await qontoFetch(creds.login, creds.secret, '/organization');
       const slug = orgData.organization?.bank_accounts?.[0]?.slug;
-      if (!slug) return new Response(JSON.stringify({ ok: false, error: 'Aucun compte bancaire' }), { status: 404, headers: CORS });
+      if (!slug) return Response.json({ ok: false, error: 'Aucun compte bancaire' }, { status: 404 });
 
       const params = new URLSearchParams({ bank_account_slug: slug, status, current_page: 1, per_page: perPage, sort_by: 'settled_at:desc' });
       const txData = await qontoFetch(creds.login, creds.secret, `/transactions?${params}`);
@@ -125,6 +109,7 @@ export default async (req) => {
       const transactions = (txData.transactions || []).map(t => ({
         id: t.transaction_id,
         amount: t.amount,
+        currency: t.currency,
         side: t.side,
         label: t.label,
         reference: t.reference,
@@ -139,52 +124,51 @@ export default async (req) => {
         vat_rate: t.vat_rate,
       }));
 
-      return new Response(JSON.stringify({
+      return Response.json({
         ok: true, account: acc.label, companyId: acc.companyId,
         transactions,
         missing_attachments: transactions.filter(t => t.side === 'debit' && !t.has_attachments).length,
         meta: txData.meta || {}
-      }), { headers: CORS });
+      });
     }
 
     // ── ATTACHMENTS ───────────────────────────────────────────────────────
     if (action === 'attachments') {
       const transactionId = url.searchParams.get('transaction_id');
-      if (!accountFilter || !transactionId) return new Response(JSON.stringify({ ok: false, error: 'account et transaction_id requis' }), { status: 400, headers: CORS });
+      if (!accountFilter || !transactionId) return Response.json({ ok: false, error: 'account et transaction_id requis' }, { status: 400 });
 
       const acc = ACCOUNTS.find(a => a.envKey.includes(accountFilter.toUpperCase()));
-      if (!acc) return new Response(JSON.stringify({ ok: false, error: 'Compte inconnu' }), { status: 400, headers: CORS });
+      if (!acc) return Response.json({ ok: false, error: 'Compte inconnu' }, { status: 400 });
 
       const creds = getCredentials(acc.envKey);
-      if (!creds) return new Response(JSON.stringify({ ok: false, error: acc.envKey + ' non configuré' }), { status: 500, headers: CORS });
+      if (!creds) return Response.json({ ok: false, error: acc.envKey + ' non configuré' }, { status: 500 });
 
       const txData = await qontoFetch(creds.login, creds.secret, `/transactions/${transactionId}`);
       const attachmentIds = txData.transaction?.attachment_ids || [];
 
-      const attachments = await Promise.allSettled(
+      const settled = await Promise.allSettled(
         attachmentIds.map(id => qontoFetch(creds.login, creds.secret, `/attachments/${id}`))
       );
 
-      return new Response(JSON.stringify({
+      return Response.json({
         ok: true,
         transaction_id: transactionId,
-        attachments: attachments.map((r, i) =>
+        attachments: settled.map((r, i) =>
           r.status === 'fulfilled'
             ? { id: attachmentIds[i], url: r.value.attachment?.url, filename: r.value.attachment?.filename, content_type: r.value.attachment?.content_type }
             : { id: attachmentIds[i], error: r.reason?.message }
         )
-      }), { headers: CORS });
+      });
     }
 
-    // ── MISSING : transactions sans pièce jointe ──────────────────────────
+    // ── MISSING ───────────────────────────────────────────────────────────
     if (action === 'missing') {
-      if (!accountFilter) return new Response(JSON.stringify({ ok: false, error: 'account requis' }), { status: 400, headers: CORS });
-
+      if (!accountFilter) return Response.json({ ok: false, error: 'account requis' }, { status: 400 });
       const acc = ACCOUNTS.find(a => a.envKey.includes(accountFilter.toUpperCase()));
-      if (!acc) return new Response(JSON.stringify({ ok: false, error: 'Compte inconnu' }), { status: 400, headers: CORS });
+      if (!acc) return Response.json({ ok: false, error: 'Compte inconnu' }, { status: 400 });
 
       const creds = getCredentials(acc.envKey);
-      if (!creds) return new Response(JSON.stringify({ ok: false, error: acc.envKey + ' non configuré' }), { status: 500, headers: CORS });
+      if (!creds) return Response.json({ ok: false, error: acc.envKey + ' non configuré' }, { status: 500 });
 
       const orgData = await qontoFetch(creds.login, creds.secret, '/organization');
       const slug = orgData.organization?.bank_accounts?.[0]?.slug;
@@ -196,13 +180,13 @@ export default async (req) => {
         .filter(t => t.side === 'debit' && (t.attachment_ids || []).length === 0)
         .map(t => ({ id: t.transaction_id, label: t.label, amount: t.amount, settled_at: t.settled_at, category: t.category }));
 
-      return new Response(JSON.stringify({ ok: true, account: acc.label, missing_count: missing.length, missing }), { headers: CORS });
+      return Response.json({ ok: true, account: acc.label, missing_count: missing.length, missing });
     }
 
-    return new Response(JSON.stringify({ ok: false, error: 'Action inconnue: ' + action }), { status: 400, headers: CORS });
+    return Response.json({ ok: false, error: 'Action inconnue: ' + action }, { status: 400 });
 
   } catch(e) {
-    return new Response(JSON.stringify({ ok: false, error: e.message }), { status: 500, headers: CORS });
+    return Response.json({ ok: false, error: e.message }, { status: 500 });
   }
 };
 
