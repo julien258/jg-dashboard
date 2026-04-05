@@ -176,18 +176,25 @@ export default async (req) => {
   }));
 
   // ── WISE ──────────────────────────────────────────────────────────────────
-  const wiseToken = Netlify.env.get('WISE_API_TOKEN');
-  if (!wiseToken) {
-    report.errors.push('WISE_API_TOKEN manquant');
-  } else {
+  // Chaque token Wise peut couvrir 1 ou plusieurs profils
+  const wiseTokens = [
+    { envKey: 'WISE_API_TOKEN',    defaultCompanyId: 'perso' },      // perso + real-gains
+    { envKey: 'WISE_LIVING_TOKEN', defaultCompanyId: 'sas-living' }, // SAS LIVING
+    { envKey: 'WISE_MEULETTE_TOKEN', defaultCompanyId: 'meulette' }, // La Meulette (à ajouter)
+  ];
+
+  for (const wt of wiseTokens) {
+    const wiseToken = Netlify.env.get(wt.envKey);
+    if (!wiseToken) continue;
+
     try {
       const profiles = await wiseGet(wiseToken, '/v1/profiles');
       await Promise.allSettled(profiles.map(async (profile) => {
-        const companyId = wiseCompanyId(profile);
+        const companyId = wiseCompanyId(profile) || wt.defaultCompanyId;
         try {
           const balances = await wiseGet(wiseToken, `/v4/profiles/${profile.id}/balances?types=STANDARD`);
           const accounts = (Array.isArray(balances) ? balances : [])
-            .filter(b => (b.amount?.value ?? 0) !== 0) // ne garder que les soldes non nuls
+            .filter(b => (b.amount?.value ?? 0) !== 0)
             .map(b => ({
               iban: null,
               bic: null,
@@ -202,11 +209,11 @@ export default async (req) => {
           report.deleted += r.deleted;
           report.companies.push({ source: 'wise', companyId, profileType: profile.type, accounts: accounts.length, ...r });
         } catch(e) {
-          report.errors.push(`wise/${profile.type}: ${e.message}`);
+          report.errors.push(`wise/${wt.envKey}/${profile.type}: ${e.message}`);
         }
       }));
     } catch(e) {
-      report.errors.push(`wise: ${e.message}`);
+      report.errors.push(`wise/${wt.envKey}: ${e.message}`);
     }
   }
 
