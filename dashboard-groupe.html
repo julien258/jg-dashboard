@@ -195,9 +195,18 @@
       <div class="kc" style="border-left:3px solid var(--acc)"><div class="kl">Pipeline total</div><div class="kv p" id="grp-pipeline">—</div><div class="ks">LLD + CGW</div></div>
       <div class="kc" style="border-left:3px solid var(--acc)"><div class="kl">Comptes courants</div><div class="kv w" id="grp-cc-net">—</div><div class="ks">Inter-sociétés net</div></div>
     </div>
-    <div class="g2 mb">
-      <div class="card"><div class="card-t">CA par société — YTD</div><div style="position:relative;height:220px"><canvas id="gCAc"></canvas></div></div>
-      <div class="card"><div class="card-t">Trésorerie par banque</div><div style="position:relative;height:220px" id="treso-banque-chart"><canvas id="gBKc"></canvas></div></div>
+    <div class="card mb" id="qonto-bloc" style="margin-bottom:1rem">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem">
+        <div class="card-t" style="margin:0">💳 Soldes Qonto — Temps réel</div>
+        <button class="btn btn-g btn-sm" onclick="loadQonto()">↺ Actualiser</button>
+      </div>
+      <div id="qonto-grid" style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px">
+        <div style="grid-column:1/-1;text-align:center;color:var(--t2);font-size:12px;padding:.5rem"><span class="spin"></span> Chargement...</div>
+      </div>
+      <div id="qonto-total" style="margin-top:.75rem;padding-top:.75rem;border-top:0.5px solid var(--b1);display:flex;justify-content:space-between;align-items:center">
+        <span style="font-size:12px;color:var(--t2)">Total trésorerie Qonto groupe</span>
+        <span id="qonto-total-val" style="font-size:18px;font-weight:600">—</span>
+      </div>
     </div>
     <div class="card mb"><div class="card-t">Tableau de bord sociétés</div><div style="overflow-x:auto"><table><thead><tr><th>Société</th><th>CA YTD</th><th>Trésorerie</th><th>CC inter-soc</th><th>Statut</th><th></th></tr></thead><tbody id="grp-tbl"></tbody></table></div></div>
     <div class="card"><div class="card-t">Comptes courants inter-sociétés</div><table><thead><tr><th>De</th><th>Vers</th><th>Solde</th><th>Sens</th><th>Optimisation fiscale</th></tr></thead><tbody id="grp-cc-tbody"><tr><td colspan="5" style="text-align:center;color:var(--t2);padding:1rem"><span class="spin"></span></td></tr></tbody></table></div>
@@ -3729,6 +3738,79 @@ function mfMoisLabel(mois) {
   const [y,m] = mois.split('-');
   return MF_MOIS_FR[parseInt(m)-1] + ' ' + y;
 }
+
+// ─── QONTO — SOLDES TEMPS RÉEL ────────────────────────────────────────────
+async function loadQonto() {
+  var grid = document.getElementById('qonto-grid');
+  var totalEl = document.getElementById('qonto-total-val');
+  if (grid) grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:var(--t2);font-size:12px;padding:.5rem"><span class="spin"></span> Chargement...</div>';
+
+  try {
+    var res = await fetch('/api/qonto-sync?action=balances');
+    var data = await res.json();
+    if (!data.ok) throw new Error(data.error);
+
+    var accounts = data.accounts || [];
+    var totalEur = 0;
+
+    var html = accounts.map(function(acc) {
+      var bals = acc.bank_accounts || [];
+      var totalAcc = bals.reduce(function(s, b) { return s + (b.balance || 0); }, 0);
+      totalEur += totalAcc;
+      var color = totalAcc >= 0 ? 'var(--grn)' : 'var(--red)';
+      var sign = totalAcc >= 0 ? '' : '-';
+      var balHtml = bals.length > 0
+        ? bals.map(function(b) {
+            return '<div style="font-size:10px;color:var(--t2)">' + (b.name || 'Compte') + '</div>';
+          }).join('')
+        : '<div style="font-size:10px;color:var(--t2)">Non configuré</div>';
+
+      if (acc.error) {
+        return '<div style="background:var(--bg2);border-radius:8px;padding:10px;border-left:3px solid var(--red)">'
+          + '<div style="font-size:11px;font-weight:500;margin-bottom:4px">' + acc.label + '</div>'
+          + '<div style="font-size:11px;color:var(--red)">⚠️ ' + acc.error.substring(0, 40) + '</div>'
+          + '</div>';
+      }
+
+      return '<div style="background:var(--bg2);border-radius:8px;padding:10px;border-left:3px solid ' + color + ';cursor:pointer" onclick="showQontoDetail(\'' + acc.companyId + '\')" title="Voir transactions">'
+        + '<div style="font-size:11px;font-weight:500;margin-bottom:6px;color:var(--t1)">' + acc.label + '</div>'
+        + '<div style="font-size:17px;font-weight:600;color:' + color + '">' + sign + Math.abs(Math.round(totalAcc)).toLocaleString('fr-FR') + ' €</div>'
+        + balHtml
+        + '</div>';
+    }).join('');
+
+    if (grid) grid.innerHTML = html;
+    if (totalEl) {
+      totalEl.textContent = (totalEur >= 0 ? '' : '-') + Math.abs(Math.round(totalEur)).toLocaleString('fr-FR') + ' €';
+      totalEl.style.color = totalEur >= 0 ? 'var(--grn)' : 'var(--red)';
+    }
+
+    // Mettre à jour le KPI tréso consolidée
+    var tresoEl = document.getElementById('grp-treso-total');
+    if (tresoEl && totalEur) {
+      tresoEl.textContent = Math.round(totalEur).toLocaleString('fr-FR') + ' €';
+    }
+
+    window._qontoData = data;
+
+  } catch(e) {
+    if (grid) grid.innerHTML = '<div style="grid-column:1/-1;color:var(--red);font-size:12px;padding:.5rem">❌ ' + e.message + '</div>';
+  }
+}
+
+async function showQontoDetail(companyId) {
+  var envMap = {
+    'sarl-guiraud': 'GUIRAUD',
+    'sas-living': 'LIVING',
+    'meulette': 'MEULETTE',
+    'real-gains': 'REAL_GAINS',
+    'spv-monikaza': 'MONIKAZA'
+  };
+  var account = envMap[companyId] || companyId.toUpperCase();
+  // Ouvrir dans un nouvel onglet pour ne pas quitter le dashboard
+  window.open('/api/qonto-sync?action=transactions&account=' + account, '_blank');
+}
+// ─────────────────────────────────────────────────────────────────────────────
 
 // ─── GESTION TVA GROUPE ────────────────────────────────────────────────────
 var TVA_SOCS = [
@@ -11303,6 +11385,7 @@ async function init(){
   generateTrailingReceivables();
   loadAlertes();
   loadGrpKpis();
+  loadQonto();
 }
 
 async function generateTrailingReceivables(){
