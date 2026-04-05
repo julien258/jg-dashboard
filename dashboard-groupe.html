@@ -4834,11 +4834,11 @@ function renderCoPennylane(){
     'real-gains': ['bel','compte principal','qonto'],
     'meulette': null, // tous
     'sas-living': null, // tous
-    'sarl-guiraud': null // tous
+    'sarl-guiraud': ['credit agricole','qonto','guiraud-julien-4008','compte courant e.u.r.l','charges','financement ca']
   };
   const wl = compteWhitelist[curCo?.id];
   let comptes = socData.comptes;
-  if(wl) comptes = comptes.filter(c => wl.some(k => (c.nom||'').toLowerCase().includes(k) || (c.banque||'').toLowerCase().includes(k)));
+  if(wl) comptes = comptes.filter(c => wl.some(k => (c.nom||'').toLowerCase().includes(k) || (c.banque||'').toLowerCase().includes(k) || (c.iban||'').toLowerCase().includes(k)));
 
   encart.style.display='block';
   grid.innerHTML = comptes.map(c => {
