@@ -11349,8 +11349,10 @@ async function initCoCharts(){
   }
 }
 
-new Chart(document.getElementById('gCAc').getContext('2d'),{type:'bar',data:{labels:companies.map(c=>c.name),datasets:[{label:'CA YTD',data:companies.map(c=>Number(c.kpis[0].v.replace(/[^0-9]/g,'')||0)),backgroundColor:companies.map(c=>c.color+'33'),borderColor:companies.map(c=>c.color),borderWidth:1.5,borderRadius:6}]},options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{ticks:{callback:v=>(v/1000).toFixed(0)+'k€',color:'#7A849E',font:{size:10}},grid:{color:'#2A304533'}},y:{ticks:{color:'#7A849E',font:{size:10},maxRotation:0},grid:{display:false}}}}});
-new Chart(document.getElementById('gBKc').getContext('2d'),{type:'doughnut',data:{labels:['BNP (Opco)','CIC (Opco)','Crédit Agri.','LCL (Perso)'],datasets:[{data:[22000,12200,22000,31100],backgroundColor:['#3D8EF0','#2ECC71','#9B59B6','#F39C12'],borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,cutout:'60%',plugins:{legend:{position:'right',labels:{color:'#7A849E',font:{size:11},boxWidth:10,padding:8}}}}});
+const gCAc = document.getElementById('gCAc');
+if (gCAc) new Chart(gCAc.getContext('2d'),{type:'bar',data:{labels:companies.map(c=>c.name),datasets:[{label:'CA YTD',data:companies.map(c=>Number(c.kpis[0].v.replace(/[^0-9]/g,'')||0)),backgroundColor:companies.map(c=>c.color+'33'),borderColor:companies.map(c=>c.color),borderWidth:1.5,borderRadius:6}]},options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{ticks:{callback:v=>(v/1000).toFixed(0)+'k€',color:'#7A849E',font:{size:10}},grid:{color:'#2A304533'}},y:{ticks:{color:'#7A849E',font:{size:10},maxRotation:0},grid:{display:false}}}}});
+const gBKc = document.getElementById('gBKc');
+if (gBKc) new Chart(gBKc.getContext('2d'),{type:'doughnut',data:{labels:['BNP (Opco)','CIC (Opco)','Crédit Agri.','LCL (Perso)'],datasets:[{data:[22000,12200,22000,31100],backgroundColor:['#3D8EF0','#2ECC71','#9B59B6','#F39C12'],borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,cutout:'60%',plugins:{legend:{position:'right',labels:{color:'#7A849E',font:{size:11},boxWidth:10,padding:8}}}}});
 
 // INIT
 document.getElementById('today').textContent=new Date().toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short',year:'numeric'});
