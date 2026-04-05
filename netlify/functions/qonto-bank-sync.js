@@ -15,13 +15,25 @@ const QONTO_ACCOUNTS = [
   { envKey: 'QONTO_MONIKAZA',   companyId: 'spv-monikaza' },
 ];
 
-// Mapping Wise : type de profil → company_id
-// 'business' = premier profil business trouvé → sarl-guiraud
-// 'personal'  → perso
-const WISE_PROFILE_MAP = {
-  business: 'sarl-guiraud',
-  personal: 'perso',
+// Mapping Wise par nom de profil business (profile.details.name)
+// Le profil personal → perso
+// Les profils business → mapping par nom
+const WISE_BUSINESS_MAP = {
+  'living': 'sas-living',
+  'sas living': 'sas-living',
+  'meulette': 'meulette',
+  'la meulette': 'meulette',
+  'guiraud': 'sarl-guiraud',
 };
+
+function wiseCompanyId(profile) {
+  if (profile.type === 'personal') return 'perso';
+  const name = (profile.details?.name || '').toLowerCase();
+  for (const [key, val] of Object.entries(WISE_BUSINESS_MAP)) {
+    if (name.includes(key)) return val;
+  }
+  return 'sarl-guiraud'; // fallback
+}
 
 function getCreds(envKey) {
   const val = Netlify.env.get(envKey);
@@ -177,7 +189,7 @@ export default async (req) => {
     try {
       const profiles = await wiseGet(wiseToken, '/v1/profiles');
       await Promise.allSettled(profiles.map(async (profile) => {
-        const companyId = WISE_PROFILE_MAP[profile.type] || 'perso';
+        const companyId = wiseCompanyId(profile);
         try {
           const balances = await wiseGet(wiseToken, `/v4/profiles/${profile.id}/balances?types=STANDARD`);
           const accounts = (Array.isArray(balances) ? balances : [])
