@@ -3744,59 +3744,35 @@ async function loadQonto() {
   var grid = document.getElementById('qonto-grid');
   var totalEl = document.getElementById('qonto-total-val');
   if (grid) grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:var(--t2);font-size:12px;padding:.5rem"><span class="spin"></span> Chargement...</div>';
-
   try {
     var res = await fetch('/api/qonto-sync?action=balances');
+    if (!res.ok) throw new Error('HTTP ' + res.status);
     var data = await res.json();
-    if (!data.ok) throw new Error(data.error);
-
+    if (!data.ok) throw new Error(data.error || 'Erreur API');
     var accounts = data.accounts || [];
-    var totalEur = 0;
-
-    var html = accounts.map(function(acc) {
-      var bals = acc.bank_accounts || [];
-      var totalAcc = bals.reduce(function(s, b) { return s + (b.balance || 0); }, 0);
-      totalEur += totalAcc;
-      var color = totalAcc >= 0 ? 'var(--grn)' : 'var(--red)';
-      var sign = totalAcc >= 0 ? '' : '-';
-      var balHtml = bals.length > 0
-        ? bals.map(function(b) {
-            return '<div style="font-size:10px;color:var(--t2)">' + (b.name || 'Compte') + '</div>';
-          }).join('')
-        : '<div style="font-size:10px;color:var(--t2)">Non configuré</div>';
-
-      if (acc.error) {
-        return '<div style="background:var(--bg2);border-radius:8px;padding:10px;border-left:3px solid var(--red)">'
-          + '<div style="font-size:11px;font-weight:500;margin-bottom:4px">' + acc.label + '</div>'
-          + '<div style="font-size:11px;color:var(--red)">⚠️ ' + acc.error.substring(0, 40) + '</div>'
-          + '</div>';
-      }
-
-      return '<div style="background:var(--bg2);border-radius:8px;padding:10px;border-left:3px solid ' + color + ';cursor:pointer" onclick="showQontoDetail(\'' + acc.companyId + '\')" title="Voir transactions">'
-        + '<div style="font-size:11px;font-weight:500;margin-bottom:6px;color:var(--t1)">' + acc.label + '</div>'
-        + '<div style="font-size:17px;font-weight:600;color:' + color + '">' + sign + Math.abs(Math.round(totalAcc)).toLocaleString('fr-FR') + ' €</div>'
-        + balHtml
-        + '</div>';
-    }).join('');
-
-    if (grid) grid.innerHTML = html;
-    if (totalEl) {
-      totalEl.textContent = (totalEur >= 0 ? '' : '-') + Math.abs(Math.round(totalEur)).toLocaleString('fr-FR') + ' €';
-      totalEl.style.color = totalEur >= 0 ? 'var(--grn)' : 'var(--red)';
+    var totalEur = data.totalEur || 0;
+    var html = '';
+    for (var i = 0; i < accounts.length; i++) {
+      var acc = accounts[i];
+      var bal = acc.total_balance || 0;
+      var color = bal >= 0 ? 'var(--grn)' : 'var(--red)';
+      var err = acc.error ? '<div style="font-size:10px;color:var(--red)">⚠ ' + acc.error + '</div>' : '';
+      html += '<div style="background:var(--bg2);border-radius:8px;padding:10px;border-left:3px solid ' + color + '">';
+      html += '<div style="font-size:11px;font-weight:500;margin-bottom:4px">' + (acc.label || '') + '</div>';
+      html += '<div style="font-size:17px;font-weight:600;color:' + color + '">' + Math.round(bal).toLocaleString('fr-FR') + ' €</div>';
+      html += err;
+      html += '</div>';
     }
-
-    // Mettre à jour le KPI tréso consolidée
+    if (grid) grid.innerHTML = html || '<div style="color:var(--t2)">Aucun compte</div>';
+    if (totalEl) { totalEl.textContent = Math.round(totalEur).toLocaleString('fr-FR') + ' €'; totalEl.style.color = totalEur >= 0 ? 'var(--grn)' : 'var(--red)'; }
     var tresoEl = document.getElementById('grp-treso-total');
-    if (tresoEl && totalEur) {
-      tresoEl.textContent = Math.round(totalEur).toLocaleString('fr-FR') + ' €';
-    }
-
+    if (tresoEl && totalEur) tresoEl.textContent = Math.round(totalEur).toLocaleString('fr-FR') + ' €';
     window._qontoData = data;
-
   } catch(e) {
-    if (grid) grid.innerHTML = '<div style="grid-column:1/-1;color:var(--red);font-size:12px;padding:.5rem">❌ ' + e.message + '</div>';
+    if (grid) grid.innerHTML = '<div style="grid-column:1/-1;color:var(--red);font-size:12px;padding:.5rem">❌ Qonto: ' + (e.message || 'Erreur') + '</div>';
   }
 }
+
 
 async function showQontoDetail(companyId) {
   var envMap = {
