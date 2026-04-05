@@ -198,7 +198,10 @@
     <div class="card mb" id="qonto-bloc" style="margin-bottom:1rem">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem">
         <div class="card-t" style="margin:0">💳 Soldes Qonto — Temps réel</div>
-        <button class="btn btn-g btn-sm" onclick="loadQonto()">↺ Actualiser</button>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-g btn-sm" onclick="syncQontoAccounts()" title="Synchroniser les comptes Qonto vers la base">⟳ Sync comptes</button>
+          <button class="btn btn-g btn-sm" onclick="loadQonto()">↺ Actualiser</button>
+        </div>
       </div>
       <div id="qonto-grid" style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px">
         <div style="grid-column:1/-1;text-align:center;color:var(--t2);font-size:12px;padding:.5rem"><span class="spin"></span> Chargement...</div>
@@ -3740,6 +3743,24 @@ function mfMoisLabel(mois) {
 }
 
 // ─── QONTO — SOLDES TEMPS RÉEL ────────────────────────────────────────────
+async function syncQontoAccounts(silent = false) {
+  if (!silent) {
+    const grid = document.getElementById('qonto-grid');
+    if (grid) grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:var(--t2);font-size:12px;padding:.5rem"><span class="spin"></span> Synchronisation comptes Qonto...</div>';
+  }
+  try {
+    const res = await fetch('/api/qonto-bank-sync', { method: 'POST' });
+    const data = await res.json();
+    if (!silent) {
+      toast(data.message || 'Sync Qonto terminée');
+      await loadQonto();
+    }
+    return data;
+  } catch(e) {
+    if (!silent) toast('❌ Erreur sync Qonto : ' + e.message);
+  }
+}
+
 async function loadQonto() {
   var grid = document.getElementById('qonto-grid');
   var totalEl = document.getElementById('qonto-total-val');
@@ -11364,6 +11385,7 @@ async function init(){
   loadAlertes();
   loadGrpKpis();
   loadQonto();
+  syncQontoAccounts(true); // sync silencieuse au démarrage
 }
 
 async function generateTrailingReceivables(){
