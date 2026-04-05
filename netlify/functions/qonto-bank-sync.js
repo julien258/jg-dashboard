@@ -1,18 +1,27 @@
 // qonto-bank-sync.js
-// Synchronise les comptes Qonto vers bank_accounts_pro (upsert + suppression des clôturés)
-// POST /api/qonto-bank-sync          → sync tous les comptes
+// Synchronise Qonto + Wise → bank_accounts_pro (upsert + suppression des clôturés)
+// POST /api/qonto-bank-sync          → sync tout
 // POST /api/qonto-bank-sync?dry=true → simulation sans écriture
 
 const QONTO_BASE = 'https://thirdparty.qonto.com/v2';
+const WISE_BASE  = 'https://api.wise.com';
 const TIMEOUT_MS = 8000;
 
-const ACCOUNTS = [
+const QONTO_ACCOUNTS = [
   { envKey: 'QONTO_GUIRAUD',    companyId: 'sarl-guiraud' },
   { envKey: 'QONTO_LIVING',     companyId: 'sas-living' },
   { envKey: 'QONTO_MEULETTE',   companyId: 'meulette' },
   { envKey: 'QONTO_REAL_GAINS', companyId: 'real-gains' },
   { envKey: 'QONTO_MONIKAZA',   companyId: 'spv-monikaza' },
 ];
+
+// Mapping Wise : type de profil → company_id
+// 'business' = premier profil business trouvé → sarl-guiraud
+// 'personal'  → perso
+const WISE_PROFILE_MAP = {
+  business: 'sarl-guiraud',
+  personal: 'perso',
+};
 
 function getCreds(envKey) {
   const val = Netlify.env.get(envKey);
@@ -21,28 +30,40 @@ function getCreds(envKey) {
   return idx === -1 ? null : { login: val.substring(0, idx), secret: val.substring(idx + 1) };
 }
 
-async function qontoGet(login, secret, path) {
+async function fetchWithTimeout(url, opts = {}) {
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
   try {
-    const res = await fetch(`${QONTO_BASE}${path}`, {
-      headers: { 'Authorization': `${login}:${secret}` },
-      signal: ctrl.signal
-    });
+    const res = await fetch(url, { ...opts, signal: ctrl.signal });
     clearTimeout(t);
-    const txt = await res.text();
-    if (!res.ok) throw new Error(`Qonto ${res.status}: ${txt.substring(0, 150)}`);
-    return JSON.parse(txt);
+    return res;
   } catch(e) {
     clearTimeout(t);
-    if (e.name === 'AbortError') throw new Error('Timeout Qonto');
+    if (e.name === 'AbortError') throw new Error('Timeout');
     throw e;
   }
 }
 
+async function qontoGet(login, secret, path) {
+  const res = await fetchWithTimeout(`${QONTO_BASE}${path}`, {
+    headers: { 'Authorization': `${login}:${secret}` }
+  });
+  const txt = await res.text();
+  if (!res.ok) throw new Error(`Qonto ${res.status}: ${txt.substring(0, 150)}`);
+  return JSON.parse(txt);
+}
+
+async function wiseGet(token, path) {
+  const res = await fetchWithTimeout(`${WISE_BASE}${path}`, {
+    headers: { 'Authorization': `Bearer ${token}` }
+  });
+  const txt = await res.text();
+  if (!res.ok) throw new Error(`Wise ${res.status}: ${txt.substring(0, 150)}`);
+  return JSON.parse(txt);
+}
+
 async function sbFetch(path, opts = {}) {
-  const url = `${Netlify.env.get('SUPABASE_URL')}/rest/v1${path}`;
-  const res = await fetch(url, {
+  const res = await fetch(`${Netlify.env.get('SUPABASE_URL')}/rest/v1${path}`, {
     method: opts.method || 'GET',
     headers: {
       'apikey': Netlify.env.get('SUPABASE_SERVICE_KEY'),
@@ -57,105 +78,137 @@ async function sbFetch(path, opts = {}) {
   return txt ? JSON.parse(txt) : [];
 }
 
+// Upsert/suppression générique pour une liste de comptes
+async function syncAccounts({ companyId, source, accounts, dryRun }) {
+  // accounts = [{ iban, bic, balance, name, currency, external_ref }]
+  const existing = await sbFetch(
+    `/bank_accounts_pro?company_id=eq.${companyId}&source=eq.${source}&select=id,iban,external_ref`
+  );
+
+  const existingByRef = {};
+  existing.forEach(e => {
+    const key = e.iban || e.external_ref;
+    existingByRef[key] = e;
+  });
+
+  const incomingRefs = new Set(accounts.map(a => a.iban || a.external_ref));
+  let created = 0, updated = 0, deleted = 0;
+
+  for (const acct of accounts) {
+    const key = acct.iban || acct.external_ref;
+    const payload = {
+      company_id: companyId,
+      banque: source === 'qonto' ? 'QONTO' : 'WISE',
+      iban: acct.iban || null,
+      bic: acct.bic || null,
+      type_compte: 'courant',
+      solde: acct.balance,
+      solde_date: new Date().toISOString().split('T')[0],
+      source,
+      external_ref: acct.external_ref || acct.iban,
+      nom_compte: acct.name,
+      devise: acct.currency || 'EUR',
+    };
+
+    if (!dryRun) {
+      if (existingByRef[key]) {
+        await sbFetch(
+          `/bank_accounts_pro?id=eq.${existingByRef[key].id}`,
+          { method: 'PATCH', body: { solde: acct.balance, solde_date: payload.solde_date, nom_compte: acct.name }, prefer: 'return=minimal' }
+        );
+        updated++;
+      } else {
+        await sbFetch('/bank_accounts_pro', { method: 'POST', body: payload, prefer: 'return=minimal' });
+        created++;
+      }
+    } else {
+      existingByRef[key] ? updated++ : created++;
+    }
+  }
+
+  // Supprimer les comptes disparus (clôturés)
+  for (const ex of existing) {
+    const key = ex.iban || ex.external_ref;
+    if (!incomingRefs.has(key)) {
+      if (!dryRun) {
+        await sbFetch(`/bank_accounts_pro?id=eq.${ex.id}`, { method: 'DELETE', prefer: 'return=minimal' });
+      }
+      deleted++;
+    }
+  }
+
+  return { created, updated, deleted };
+}
+
 export default async (req) => {
   const url = new URL(req.url);
   const dryRun = url.searchParams.get('dry') === 'true';
+  const report = { ok: true, dryRun, created: 0, updated: 0, deleted: 0, errors: [], companies: [] };
 
-  const report = { synced: 0, created: 0, updated: 0, deleted: 0, errors: [], companies: [] };
-
-  const results = await Promise.allSettled(ACCOUNTS.map(async (acc) => {
+  // ── QONTO ─────────────────────────────────────────────────────────────────
+  await Promise.allSettled(QONTO_ACCOUNTS.map(async (acc) => {
     const creds = getCreds(acc.envKey);
-    if (!creds) {
-      report.errors.push(`${acc.companyId}: token manquant`);
-      return;
-    }
-
+    if (!creds) { report.errors.push(`${acc.companyId}: QONTO token manquant`); return; }
     try {
-      // 1. Récupérer les comptes Qonto
       const data = await qontoGet(creds.login, creds.secret, '/organization');
-      const qontoAccounts = (data.organization?.bank_accounts || []).map(ba => ({
+      const accounts = (data.organization?.bank_accounts || []).map(ba => ({
         iban: ba.iban,
         bic: ba.bic,
         balance: ba.balance_cents / 100,
         name: ba.name || 'Compte principal',
-        slug: ba.slug,
+        external_ref: ba.slug,
         currency: ba.currency || 'EUR',
       }));
-
-      // 2. Récupérer les comptes Qonto existants en base pour cette société
-      const existing = await sbFetch(
-        `/bank_accounts_pro?company_id=eq.${acc.companyId}&source=eq.qonto&select=id,iban,external_ref`
-      );
-
-      const existingByIban = {};
-      existing.forEach(e => { existingByIban[e.iban] = e; });
-      const qontoIbans = new Set(qontoAccounts.map(a => a.iban));
-
-      let created = 0, updated = 0, deleted = 0;
-
-      // 3. Upsert chaque compte Qonto
-      for (const qa of qontoAccounts) {
-        const payload = {
-          company_id: acc.companyId,
-          banque: 'QONTO',
-          iban: qa.iban,
-          bic: qa.bic,
-          type_compte: 'courant',
-          solde: qa.balance,
-          solde_date: new Date().toISOString().split('T')[0],
-          source: 'qonto',
-          external_ref: qa.slug,
-          nom_compte: qa.name,
-          devise: qa.currency,
-        };
-
-        if (!dryRun) {
-          if (existingByIban[qa.iban]) {
-            // Update
-            await sbFetch(
-              `/bank_accounts_pro?id=eq.${existingByIban[qa.iban].id}`,
-              { method: 'PATCH', body: { solde: qa.balance, solde_date: payload.solde_date, nom_compte: qa.name }, prefer: 'return=minimal' }
-            );
-            updated++;
-          } else {
-            // Insert
-            await sbFetch('/bank_accounts_pro', { method: 'POST', body: payload, prefer: 'return=minimal' });
-            created++;
-          }
-        } else {
-          existingByIban[qa.iban] ? updated++ : created++;
-        }
-      }
-
-      // 4. Supprimer les comptes Qonto qui n'existent plus
-      for (const ex of existing) {
-        if (!qontoIbans.has(ex.iban)) {
-          if (!dryRun) {
-            await sbFetch(`/bank_accounts_pro?id=eq.${ex.id}`, { method: 'DELETE', prefer: 'return=minimal' });
-          }
-          deleted++;
-        }
-      }
-
-      report.synced++;
-      report.created += created;
-      report.updated += updated;
-      report.deleted += deleted;
-      report.companies.push({ companyId: acc.companyId, accounts: qontoAccounts.length, created, updated, deleted });
-
+      const r = await syncAccounts({ companyId: acc.companyId, source: 'qonto', accounts, dryRun });
+      report.created += r.created;
+      report.updated += r.updated;
+      report.deleted += r.deleted;
+      report.companies.push({ source: 'qonto', companyId: acc.companyId, accounts: accounts.length, ...r });
     } catch(e) {
-      report.errors.push(`${acc.companyId}: ${e.message}`);
+      report.errors.push(`qonto/${acc.companyId}: ${e.message}`);
     }
   }));
 
-  return Response.json({
-    ok: true,
-    dryRun,
-    ...report,
-    message: dryRun
-      ? `Simulation : ${report.created} à créer, ${report.updated} à mettre à jour, ${report.deleted} à supprimer`
-      : `Sync OK : ${report.created} créés, ${report.updated} mis à jour, ${report.deleted} supprimés`
-  });
+  // ── WISE ──────────────────────────────────────────────────────────────────
+  const wiseToken = Netlify.env.get('WISE_API_TOKEN');
+  if (!wiseToken) {
+    report.errors.push('WISE_API_TOKEN manquant');
+  } else {
+    try {
+      const profiles = await wiseGet(wiseToken, '/v1/profiles');
+      await Promise.allSettled(profiles.map(async (profile) => {
+        const companyId = WISE_PROFILE_MAP[profile.type] || 'perso';
+        try {
+          const balances = await wiseGet(wiseToken, `/v4/profiles/${profile.id}/balances?types=STANDARD`);
+          const accounts = (Array.isArray(balances) ? balances : [])
+            .filter(b => (b.amount?.value ?? 0) !== 0) // ne garder que les soldes non nuls
+            .map(b => ({
+              iban: null,
+              bic: null,
+              balance: b.amount?.value ?? 0,
+              name: `Wise ${b.currency || b.amount?.currency}`,
+              external_ref: `wise-${profile.id}-${b.currency || b.amount?.currency}`,
+              currency: b.currency || b.amount?.currency,
+            }));
+          const r = await syncAccounts({ companyId, source: 'wise', accounts, dryRun });
+          report.created += r.created;
+          report.updated += r.updated;
+          report.deleted += r.deleted;
+          report.companies.push({ source: 'wise', companyId, profileType: profile.type, accounts: accounts.length, ...r });
+        } catch(e) {
+          report.errors.push(`wise/${profile.type}: ${e.message}`);
+        }
+      }));
+    } catch(e) {
+      report.errors.push(`wise: ${e.message}`);
+    }
+  }
+
+  report.message = dryRun
+    ? `Simulation : ${report.created} à créer, ${report.updated} à mettre à jour, ${report.deleted} à supprimer`
+    : `Sync OK — Qonto + Wise : ${report.created} créés, ${report.updated} mis à jour, ${report.deleted} supprimés`;
+
+  return Response.json(report);
 };
 
 export const config = { path: '/api/qonto-bank-sync' };
