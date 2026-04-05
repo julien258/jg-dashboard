@@ -15,24 +15,18 @@ const QONTO_ACCOUNTS = [
   { envKey: 'QONTO_MONIKAZA',   companyId: 'spv-monikaza' },
 ];
 
-// Mapping Wise par nom de profil business (profile.details.name)
-// Le profil personal → perso
-// Les profils business → mapping par nom
-const WISE_BUSINESS_MAP = {
-  'living': 'sas-living',
-  'sas living': 'sas-living',
-  'meulette': 'meulette',
-  'la meulette': 'meulette',
-  'guiraud': 'sarl-guiraud',
+// Mapping Wise par profile ID (récupéré via /v1/profiles)
+// À mettre à jour quand de nouveaux comptes Wise sont créés
+const WISE_PROFILE_ID_MAP = {
+  24414380: 'perso',        // JULIEN GUIRAUD — personnel
+  24414368: 'real-gains',   // BACK END LOGISTICS — Real Gains
+  // À ajouter quand créés :
+  // XXXXX: 'sas-living',
+  // XXXXX: 'meulette',
 };
 
 function wiseCompanyId(profile) {
-  if (profile.type === 'personal') return 'perso';
-  const name = (profile.details?.name || '').toLowerCase();
-  for (const [key, val] of Object.entries(WISE_BUSINESS_MAP)) {
-    if (name.includes(key)) return val;
-  }
-  return 'sarl-guiraud'; // fallback
+  return WISE_PROFILE_ID_MAP[profile.id] || (profile.type === 'personal' ? 'perso' : 'real-gains');
 }
 
 function getCreds(envKey) {
