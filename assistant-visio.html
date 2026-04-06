@@ -59,6 +59,14 @@
 <header>
   <div class="logo">Assistant Visio JG</div>
   <span class="lang-badge">EN → FR</span>
+  <input id="interlocuteur" placeholder="Interlocuteur (ex: John Smith, CGW)" style="background:#1a1d27;border:1px solid #2a2d3a;color:#d1d5db;border-radius:6px;padding:5px 10px;font-size:12px;width:220px;outline:none">
+  <select id="societe" style="background:#1a1d27;border:1px solid #2a2d3a;color:#d1d5db;border-radius:6px;padding:5px 8px;font-size:12px;outline:none">
+    <option value="sas-living">SAS LIVING</option>
+    <option value="sarl-guiraud">SARL GUIRAUD</option>
+    <option value="meulette">La Meulette</option>
+    <option value="real-gains">Real Gains</option>
+    <option value="spv-monikaza">Monikaza SPV</option>
+  </select>
   <div class="status-dot" id="dot"></div>
   <div class="status-txt" id="status-txt">Prêt</div>
 </header>
@@ -100,6 +108,9 @@
     </div>
     <div class="cr-body" id="cr-body"></div>
     <div class="cr-footer">
+      <button class="btn btn-primary" id="btn-send-dashboard" onclick="sendToDashboard()" style="font-size:13px;padding:7px 18px">Envoyer au dashboard</button>
+      <span id="send-status" style="font-size:12px;color:#4b5563;padding-top:8px"></span>
+      <div style="flex:1"></div>
       <span style="font-size:12px;color:#4b5563">Généré par Claude — relire avant envoi</span>
     </div>
   </div>
@@ -366,6 +377,115 @@ function clearAll() {
 
 function escHtml(s) {
   return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+const SUPABASE_URL = 'https://uqpgwypgkwlvrpxtxhia.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVxcGd3eXBna3dsdnJweHR4aGlhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM1ODg2NzAsImV4cCI6MjA4OTE2NDY3MH0.EVdcTLWbkx9X0L16-Az0GmfAVOsB977AAaSCeHiwihE';
+
+async function sbInsert(table, data) {
+  const key = SUPABASE_KEY;
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'apikey': key,
+      'Authorization': 'Bearer ' + key,
+      'Prefer': 'return=representation'
+    },
+    body: JSON.stringify(data)
+  });
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(err);
+  }
+  return res.json();
+}
+
+async function sendToDashboard() {
+  const btn = document.getElementById('btn-send-dashboard');
+  const statusEl = document.getElementById('send-status');
+  const crText = document.getElementById('cr-body').textContent;
+  const interlocuteur = document.getElementById('interlocuteur').value || 'Interlocuteur inconnu';
+  const societe = document.getElementById('societe').value || 'sas-living';
+  const today = new Date().toISOString().split('T')[0];
+  const heure = new Date().toLocaleTimeString('fr-FR', {hour:'2-digit', minute:'2-digit'});
+
+  btn.disabled = true;
+  btn.textContent = 'Envoi en cours...';
+  statusEl.textContent = '';
+
+  try {
+    // 1. Extraire les TODOs depuis le CR via Claude
+    const res = await fetch(PROXY, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        max_tokens: 600,
+        system: SYSTEM,
+        messages: [{role:'user', content:
+`Voici un compte rendu de visio avec ${interlocuteur}:
+
+${crText}
+
+Extrais UNIQUEMENT les actions à suivre et décisions en JSON (max 5):
+{"todos":[{"title":"action courte","priority":"high|medium|low"}]}`
+        }]
+      })
+    });
+    const d = await res.json();
+    const raw = (d?.content?.[0]?.text || '{}').replace(/\`\`\`json|\`\`\`/g,'').trim();
+    const parsed = JSON.parse(raw);
+    const todos = parsed.todos || [];
+
+    // 2. Insérer les TODOs dans Supabase
+    let todosCreated = 0;
+    for (const t of todos) {
+      try {
+        await sbInsert('todos', {
+          company_id: societe,
+          title: '📹 ' + t.title,
+          category: 'suivi',
+          status: 'a_faire',
+          priority: t.priority || 'medium',
+          done: false,
+          notes: `Issu de visio avec ${interlocuteur} — ${today} ${heure}`
+        });
+        todosCreated++;
+      } catch(e) { console.warn('Todo insert error:', e); }
+    }
+
+    // 3. Sauvegarder le CR dans la GED
+    const fileName = `CR_Visio_${interlocuteur.replace(/[^a-zA-Z0-9]/g,'_')}_${today}.txt`;
+    const fileContent = `COMPTE RENDU DE VISIO
+Date: ${today} à ${heure}
+Interlocuteur: ${interlocuteur}
+Société: ${societe}
+
+${crText}`;
+    const blob = new Blob([fileContent], {type:'text/plain'});
+    const formData = new FormData();
+    formData.append('file', blob, fileName);
+    formData.append('societe', societe);
+    formData.append('doc_type', 'compte_rendu');
+    formData.append('interlocuteur', interlocuteur);
+
+    try {
+      await fetch('/api/ged-upload', {method:'POST', body: formData});
+    } catch(e) { console.warn('GED upload error:', e); }
+
+    // 4. Feedback
+    const msg = `✅ ${todosCreated} tâche(s) créée(s) dans le dashboard`;
+    statusEl.textContent = msg;
+    statusEl.style.color = '#4caf8a';
+    btn.textContent = '✓ Envoyé';
+    btn.style.background = '#2a3d2a';
+
+  } catch(e) {
+    statusEl.textContent = '❌ Erreur: ' + e.message;
+    statusEl.style.color = '#e05a6a';
+    btn.disabled = false;
+    btn.textContent = 'Envoyer au dashboard';
+  }
 }
 </script>
 </body>
