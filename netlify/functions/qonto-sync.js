@@ -98,47 +98,37 @@ export default async (req, context) => {
 
       const perPage = url.searchParams.get('per_page') || '30';
       const status = url.searchParams.get('status') || 'completed';
+      const ibanParam = url.searchParams.get('iban');
+      let ibans = [];
 
-      // Récupérer TOUS les IBANs de la société (pas juste le premier)
-      const orgData = await qontoFetch(creds.login, creds.secret, '/organization');
-      const bankAccounts = orgData.organization?.bank_accounts || [];
-      if (!bankAccounts.length) return Response.json({ ok: false, error: 'Aucun compte bancaire' }, { status: 404 });
-
-      // Fetcher les transactions de chaque compte et merger
-      const allTxRaw = [];
-      for (const ba of bankAccounts) {
-        if (!ba.iban) continue;
-        try {
-          const params = new URLSearchParams({ iban: ba.iban, status, current_page: 1, per_page: perPage, sort_by: 'settled_at:desc' });
-          const txData = await qontoFetch(creds.login, creds.secret, `/transactions?${params}`);
-          allTxRaw.push(...(txData.transactions || []));
-        } catch(e) {
-          // continuer si un compte échoue
-        }
+      if (ibanParam) {
+        ibans = [ibanParam];
+      } else {
+        const orgData = await qontoFetch(creds.login, creds.secret, '/organization');
+        ibans = (orgData.organization?.bank_accounts || []).map(ba => ba.iban).filter(Boolean);
+        if (!ibans.length) return Response.json({ ok: false, error: 'Aucun IBAN' }, { status: 404 });
       }
 
-      // Trier par date décroissante et dédupliquer
+      const allTxRaw = [];
+      for (const iban of ibans) {
+        try {
+          const p = new URLSearchParams({ iban, status, current_page: 1, per_page: perPage, sort_by: 'settled_at:desc' });
+          const d = await qontoFetch(creds.login, creds.secret, '/transactions?' + p);
+          allTxRaw.push(...(d.transactions || []));
+        } catch(e) {}
+      }
+
       const seen = new Set();
       const transactions = allTxRaw
         .filter(t => { if (seen.has(t.transaction_id)) return false; seen.add(t.transaction_id); return true; })
         .sort((a, b) => new Date(b.settled_at || b.emitted_at) - new Date(a.settled_at || a.emitted_at))
         .map(t => ({
-        id: t.transaction_id,
-        amount: t.amount,
-        currency: t.currency,
-        side: t.side,
-        label: t.label,
-        reference: t.reference,
-        status: t.status,
-        settled_at: t.settled_at,
-        emitted_at: t.emitted_at,
-        category: t.category,
-        note: t.note,
-        has_attachments: (t.attachment_ids || []).length > 0,
-        attachment_ids: t.attachment_ids || [],
-        vat_amount: t.vat_amount,
-        vat_rate: t.vat_rate,
-      }));
+          id: t.transaction_id, amount: t.amount, currency: t.currency, side: t.side,
+          label: t.label, reference: t.reference, status: t.status,
+          settled_at: t.settled_at, emitted_at: t.emitted_at, category: t.category,
+          note: t.note, has_attachments: (t.attachment_ids || []).length > 0,
+          attachment_ids: t.attachment_ids || [], vat_amount: t.vat_amount, vat_rate: t.vat_rate,
+        }));
 
       return Response.json({
         ok: true, account: acc.label, companyId: acc.companyId,
