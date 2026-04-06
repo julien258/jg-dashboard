@@ -1550,79 +1550,33 @@
 
   <!-- APUREMENT DETTES -->
   <div class="pv cnt" id="v-apurement">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
       <div>
-        <div style="font-size:20px;font-weight:600">🚨 Tableau d'apurement</div>
-        <div style="font-size:12px;color:var(--t2);margin-top:2px">M-1 · Mois en cours · M+1 — navigation ◀ ▶</div>
+        <div style="font-size:20px;font-weight:600">Apurement dettes</div>
+        <div style="font-size:12px;color:var(--t2);margin-top:2px">Piments · Prélèvements · Planning de paiement</div>
       </div>
-      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-        <div style="display:flex;align-items:center;gap:8px">
-          <button class="btn btn-g btn-sm" onclick="shiftApurement(-1)" title="Mois précédent">◀</button>
-          <span id="apurement-nav-label" style="font-size:12px;color:var(--t2);min-width:120px;text-align:center"></span>
-          <button class="btn btn-g btn-sm" onclick="shiftApurement(1)" title="Mois suivant">▶</button>
-        </div>
-        <div style="display:flex;align-items:center;gap:6px;border-left:1px solid var(--b1);padding-left:12px">
-          <span style="font-size:11px;color:var(--t2)">🛡️ Réserve min.</span>
-          <input type="number" id="apur-reserve-input" value="2000" min="0" step="500"
-            style="width:90px;font-family:monospace;font-size:12px;border:1px solid var(--b1);border-radius:6px;padding:3px 6px;background:var(--s1);color:var(--t1)"
-            oninput="saveApurReserve(this.value);updateApurAllChecks()">
-          <span style="font-size:11px;color:var(--t2)">€/mois</span>
-        </div>
-      </div>
-    </div>
-    <!-- Filtres apurement -->
-    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:1rem;align-items:flex-end" id="apur-filters">
-      <div>
-        <div style="font-size:10px;color:var(--t2);margin-bottom:3px;text-transform:uppercase">Fournisseur</div>
-        <input type="text" id="apur-f-fournisseur" placeholder="Tous" style="width:140px;font-size:12px" oninput="applyApurFilters()">
-      </div>
-      <div>
-        <div style="font-size:10px;color:var(--t2);margin-bottom:3px;text-transform:uppercase">N° Facture</div>
-        <input type="text" id="apur-f-invoice" placeholder="Tous" style="width:120px;font-size:12px" oninput="applyApurFilters()">
-      </div>
-      <div>
-        <div style="font-size:10px;color:var(--t2);margin-bottom:3px;text-transform:uppercase">Montant max (€)</div>
-        <input type="number" id="apur-f-montant" placeholder="∞" style="width:100px;font-size:12px" oninput="applyApurFilters()">
-      </div>
-      <div>
-        <div style="font-size:10px;color:var(--t2);margin-bottom:3px;text-transform:uppercase">Échéance avant</div>
-        <input type="date" id="apur-f-echeance" style="width:130px;font-size:12px" oninput="applyApurFilters()">
-      </div>
-      <div>
-        <div style="font-size:10px;color:var(--t2);margin-bottom:3px;text-transform:uppercase">Priorité</div>
-        <select id="apur-f-priorite" style="font-size:12px" onchange="applyApurFilters()">
-          <option value="">Toutes</option>
+      <div style="display:flex;align-items:center;gap:8px">
+        <input type="text" id="apur-search" placeholder="Filtrer fournisseur..." style="width:180px;font-size:12px" oninput="apurFilterBacklog(this.value)">
+        <select id="apur-f-prio" style="font-size:12px" onchange="apurFilterBacklog(document.getElementById('apur-search').value)">
+          <option value="">Toutes priorités</option>
           <option value="3">🌶️🌶️🌶️ Critique</option>
           <option value="2">🌶️🌶️ Important</option>
           <option value="1">🌶️ Souple</option>
-          <option value="0">Sans priorité</option>
+        </select>
+        <select id="apur-f-co" style="font-size:12px" onchange="apurFilterBacklog(document.getElementById('apur-search').value)">
+          <option value="">Toutes sociétés</option>
+          <option value="sarl-guiraud">SARL GUIRAUD</option>
+          <option value="sas-living">SAS LIVING</option>
+          <option value="meulette">La Meulette</option>
+          <option value="real-gains">Real Gains</option>
+          <option value="spv-monikaza">Monikaza</option>
         </select>
       </div>
-      <div>
-        <div style="font-size:10px;color:var(--t2);margin-bottom:3px;text-transform:uppercase">Statut</div>
-        <select id="apur-f-statut" style="font-size:12px" onchange="applyApurFilters()">
-          <option value="">Tous</option>
-          <option value="a_payer">À payer</option>
-          <option value="paye">Payé</option>
-          <option value="litige">Litige</option>
-        </select>
-      </div>
-      <button class="btn btn-g btn-sm" onclick="resetApurFilters()" style="height:28px;font-size:11px">✕ Réinitialiser</button>
-      <div id="apur-filter-count" style="font-size:11px;color:var(--t2);padding:4px 0;align-self:flex-end"></div>
     </div>
-    <!-- Grille principale -->
-    <div id="apurement-main" style="display:grid;grid-template-columns:240px repeat(3,minmax(0,1fr));gap:12px;align-items:start;width:100%;min-width:0;overflow:hidden"></div>
-    <!-- Légende -->
-    <div style="margin-top:12px;font-size:11px;color:var(--t2);display:flex;gap:16px;flex-wrap:wrap">
-      <span>🌶️🌶️🌶️ Critique (URSSAF, impôts, huissiers)</span>
-      <span>🌶️🌶️ Important (comptable, avocats)</span>
-      <span>🌶️ Souple (peut attendre)</span>
-      <span>📅 Facture — plus ancienne en premier</span>
-    </div>
+    <div id="apur-frise" style="margin-bottom:12px"></div>
+    <div id="apurement-main" style="display:grid;grid-template-columns:220px 1fr 290px;gap:12px;align-items:start"></div>
   </div>
 
-
-  <!-- GESTION TVA — GROUPE -->
   <div class="pv cnt" id="v-tva">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem;flex-wrap:wrap;gap:8px">
       <div>
@@ -5969,322 +5923,268 @@ function shiftApurement(delta){
   loadApurement();
 }
 
+
 async function loadApurement(){
-  if(window._apurOffset===undefined)window._apurOffset=0;
-  // Charger réserve depuis settings
-  try{
-    const rRes=await sb.from('settings').select('value').eq('key','apur_reserve').single();
-    if(rRes.data?.value!==undefined){
-      window._apurReserve=parseFloat(rRes.data.value)||0;
-      const inp=document.getElementById('apur-reserve-input');
-      if(inp&&!inp._userEdited)inp.value=window._apurReserve;
-    }
-  }catch(e){}
-  const piments={3:'🌶️🌶️🌶️',2:'🌶️🌶️',1:'🌶️',0:''};
-  const urgColors={3:'var(--red)',2:'var(--amb)',1:'#888',0:'var(--t2)'};
-  const moisNoms=['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
-  const now=new Date();
-
-  // Paye perso
-  let settingData=null;
-  try{const r=await sb.from('settings').select('value').eq('key','paye_perso').single();settingData=r.data;}catch(e){}
-  const payePerso=parseFloat(settingData?.value||0)||0;
-  const inp=document.getElementById('paye-perso-input');
-  if(inp&&!inp.value&&payePerso)inp.value=payePerso;
-
-  // Données depuis payables + debts + forecasts
   const safeQ=async(q)=>{try{const r=await q;return r.data||[];}catch(e){return[];}};
-  const[allPayables,allDebts,allForecasts,allReceivables]=await Promise.all([
-    safeQ(sb.from('payables').select('*').not('fournisseur','is',null).not('amount_ttc','is',null).in('company_id',['sas-living','sarl-guiraud','meulette','real-gains','spv-monikaza','perso']).order('due_date',{ascending:true})),
-    safeQ(sb.from('debts').select('*').in('status',['en_cours']).in('company_id',['sas-living','sarl-guiraud','meulette','real-gains','spv-monikaza','perso'])),
+  const now=new Date();
+  const yr=now.getFullYear(), mo=now.getMonth(), today=now.getDate();
+  const daysInMonth=new Date(yr,mo+1,0).getDate();
+  const mKey=`${yr}-${String(mo+1).padStart(2,'0')}`;
+  const mLabel=now.toLocaleDateString('fr-FR',{month:'long',year:'numeric'});
+
+  // Chargement données
+  const [debts,payables,forecasts,receivables,charges] = await Promise.all([
+    safeQ(sb.from('debts').select('*').eq('status','en_cours').neq('monthly_amount',0)),
+    safeQ(sb.from('payables').select('*').eq('status','a_payer')),
     safeQ(sb.from('cash_forecast').select('*')),
-    safeQ(sb.from('receivables').select('*').in('status',['envoyee','en_attente']))
+    safeQ(sb.from('receivables').select('*').in('status',['envoyee','en_attente'])),
+    safeQ(sb.from('recurring_charges').select('*').eq('status','actif'))
   ]);
+  const payeRes=await sb.from('settings').select('value').eq('key','paye_perso').single();
+  const payePerso=parseFloat(payeRes.data?.value||0);
 
-  // Stocker tous les payables pour les filtres
-  _apurAllPayables = allPayables;
-  // Détecter les doublons
-  const doublons = detectApurDoublons(allPayables.filter(p => p.status === 'a_payer'));
-  showApurDoublonAlert(doublons);
-  // Appliquer les filtres actifs (si déjà filtrés)
-  setTimeout(applyApurFilters, 100);
+  // Init état assigné (persistant session)
+  if(!window._apurAssigned) window._apurAssigned={};
+  window._apurDebts=debts;
+  window._apurPayables=payables;
+  window._apurCharges=charges;
 
-  // 3 mois : M-1+offset, M+offset, M+1+offset (mois courant au centre)
-  const offset=window._apurOffset||0;
-  const months=[];
-  for(let i=-1;i<=1;i++){
-    const d=new Date(now.getFullYear(),now.getMonth()+offset+i,1);
-    months.push({label:moisNoms[d.getMonth()]+' '+d.getFullYear(),key:d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'),idx:i,isCenter:i===0,isCurrent:offset===0&&i===0});
+  // Calculs
+  const soldeQonto=window._qontoData?.totalEur||0;
+  const rentreesForecast=forecasts.filter(f=>f.month_label===mKey).reduce((s,f)=>s+Number(f.amount||0)*Number(f.probability||100)/100,0);
+  const rentreesRec=receivables.reduce((s,r)=>s+Number(r.amount_ttc||0),0);
+  const totalEntrees=rentreesForecast+rentreesRec;
+
+  const prelev=charges.filter(c=>c.payment_day).sort((a,b)=>a.payment_day-b.payment_day);
+  const prelevTotal=prelev.reduce((s,c)=>s+Number(c.amount_ttc||0),0);
+  const prelevRestants=prelev.filter(c=>c.payment_day>today).reduce((s,c)=>s+Number(c.amount_ttc||0),0);
+  const nextPrelev=prelev.find(c=>c.payment_day>today);
+
+  const piments=debts.filter(d=>d.urgency_level===3&&d.company_id!=='perso');
+  const pimentsTotal=piments.reduce((s,d)=>s+Number(d.monthly_amount||0),0);
+  const dettesPerso=debts.filter(d=>d.company_id==='perso').reduce((s,d)=>s+Number(d.monthly_amount||0),0);
+  const factureSarl=payePerso+dettesPerso;
+  const stockDettes=debts.filter(d=>d.company_id!=='perso').reduce((s,d)=>s+Number(d.amount_remaining||d.monthly_amount||0),0);
+  const stockFact=payables.reduce((s,p)=>s+Number(p.amount_ttc||0),0);
+
+  const getAssignedTotal=()=>Object.values(window._apurAssigned).reduce((s,x)=>s+x.amount,0);
+  const getDispo=()=>soldeQonto+totalEntrees-pimentsTotal-prelevRestants-factureSarl-getAssignedTotal();
+
+  // === FRISE ===
+  const pct=d=>((d-1)/(daysInMonth-1)*96+2).toFixed(1)+'%';
+  const friseEl=document.getElementById('apur-frise');
+  if(friseEl){
+    friseEl.innerHTML='<div class="card" style="padding:12px 16px">'
+      +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">'
+      +'<div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--t2)">Prélèvements automatiques — '+mLabel+'</div>'
+      +'<div style="font-size:12px;font-weight:600;color:var(--amb);background:rgba(186,117,23,.12);padding:2px 10px;border-radius:10px">Total mois : '+Math.round(prelevTotal).toLocaleString('fr-FR')+' €</div>'
+      +'</div>'
+      +'<div style="position:relative;height:52px;background:var(--s2);border-radius:6px">'
+      +'<div style="position:absolute;top:50%;left:0;right:0;height:1px;background:var(--b1);transform:translateY(-50%)"></div>'
+      // Jours axe
+      +[1,5,10,15,20,25,daysInMonth].map(d=>'<div style="position:absolute;bottom:3px;left:'+pct(d)+';transform:translateX(-50%);font-size:9px;color:var(--t3)">'+d+'</div>').join('')
+      // Curseur aujourd'hui
+      +'<div style="position:absolute;top:0;bottom:0;width:2px;background:var(--acc);left:'+pct(today)+';transform:translateX(-50%)">'
+      +'<div style="position:absolute;top:-18px;left:50%;transform:translateX(-50%);font-size:9px;font-weight:600;color:var(--acc);background:var(--bg);padding:0 4px;border-radius:3px;white-space:nowrap">Auj. '+today+'</div>'
+      +'</div>'
+      // Marqueurs prélèvements
+      +prelev.map(c=>{
+        const past=c.payment_day<today;
+        const isToday=c.payment_day===today;
+        const isNext=nextPrelev&&c.id===nextPrelev.id;
+        const color=past?'var(--t3)':isNext||isToday?'var(--amb)':'var(--red)';
+        const sz=Number(c.amount_ttc||0)>1000?12:8;
+        return '<div title="'+c.fournisseur+' — '+Math.round(Number(c.amount_ttc||0)).toLocaleString('fr-FR')+'€ — j'+c.payment_day+'" style="position:absolute;top:50%;left:'+pct(c.payment_day)+';transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;gap:2px;cursor:default">'
+          +'<div style="width:'+sz+'px;height:'+sz+'px;border-radius:50%;background:'+color+';opacity:'+(past?0.35:1)+';'+(isNext?'border:2px solid var(--amb);':'')+';flex-shrink:0"></div>'
+          +'<div style="font-size:8px;color:'+color+';white-space:nowrap;font-weight:'+(isNext?'600':'400')+'">'+Math.round(Number(c.amount_ttc||0)).toLocaleString('fr-FR')+'€</div>'
+          +'</div>';
+      }).join('')
+      +'</div>'
+      +(nextPrelev?'<div style="margin-top:7px;font-size:11px;padding:5px 10px;background:rgba(186,117,23,.08);border:0.5px solid var(--amb);border-radius:6px;color:var(--amb)">Prochain : <strong>'+nextPrelev.fournisseur+' '+Math.round(Number(nextPrelev.amount_ttc||0)).toLocaleString('fr-FR')+'€</strong> le '+nextPrelev.payment_day+' — dans '+(nextPrelev.payment_day-today)+' jour(s). Garder cette somme disponible.</div>':'')
+      +'</div>';
   }
-  // Mettre à jour le label de navigation
-  const navLabel=document.getElementById('apurement-nav-label');
-  if(navLabel){
-    const centerD=new Date(now.getFullYear(),now.getMonth()+offset,1);
-    navLabel.textContent=moisNoms[centerD.getMonth()]+' '+centerD.getFullYear()+(offset===0?' (actuel)':'');
-  }
 
-  const main=document.getElementById('apurement-main');
-  if(!main){console.error('apurement-main div not found');return;}
-  console.log('loadApurement - data counts:',{payables:allPayables.length,debts:allDebts.length,forecasts:allForecasts.length,receivables:allReceivables.length,payePerso});
-  if(!allPayables.length&&!allDebts.length){
-    main.innerHTML='<div class="card" style="grid-column:1/-1;text-align:center;padding:2rem;color:var(--t2)"><div style="font-size:24px;margin-bottom:8px">📭</div><div>Aucune donnée trouvée</div><div style="font-size:12px;margin-top:8px">Dettes: '+allDebts.length+' · Factures: '+allPayables.length+'</div><div style="font-size:12px;color:var(--red);margin-top:4px">→ Attribue des 🌶️ à tes dettes dans CC & Dettes → Dettes</div></div>';
-    return;
-  }
+  // === RENDU COLONNES ===
+  window._apurRenderAll=function(){
+    const dispo=getDispo();
+    const at=getAssignedTotal();
+    const dispColor=dispo>0?'var(--grn)':'var(--red)';
+    const co={
+      'sarl-guiraud':'SARL GUIRAUD','sas-living':'SAS LIVING','meulette':'La Meulette',
+      'real-gains':'Real Gains','spv-monikaza':'Monikaza SPV','perso':'Perso','group':'Groupe'
+    };
 
-  // === COLONNE 1 : RÉCAP FINANCIER ===
-  const mKey=months[1]?.key||months[0].key; // mois central
-  const rentreesForecast=(allForecasts||[]).filter(f=>f.month_label===mKey).reduce((s,f)=>s+Number(f.amount||0)*Number(f.probability||100)/100,0);
-  const rentreesRec=(allReceivables||[]).filter(r=>r.due_date?.startsWith(mKey)).reduce((s,r)=>s+Number(r.amount_ttc||r.amount||0),0);
-  const totalRentrees=rentreesForecast+rentreesRec;
+    // COL 1 SITUATION
+    const col1='<div class="card" style="border-left:3px solid var(--acc);font-size:12px;position:sticky;top:0">'
+      +'<div style="font-size:13px;font-weight:700;margin-bottom:12px;color:var(--acc)">Situation '+mLabel+'</div>'
+      +'<div style="font-size:10px;color:var(--t2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px">Tréso actuelle</div>'
+      +'<div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="color:var(--t2)">Solde Qonto+Wise</span><span style="font-weight:600;color:var(--acc)">'+(soldeQonto>=0?'+':'')+Math.round(soldeQonto).toLocaleString('fr-FR')+' €</span></div>'
+      +'<div style="font-size:10px;color:var(--t2);text-transform:uppercase;letter-spacing:.5px;margin:8px 0 5px">Entrées prévues</div>'
+      +'<div style="display:flex;justify-content:space-between;margin-bottom:3px"><span style="color:var(--t2)">Prévisions / Trails</span><span style="color:var(--grn)">'+(rentreesForecast>0?'+'+Math.round(rentreesForecast).toLocaleString('fr-FR')+' €':'—')+'</span></div>'
+      +'<div style="display:flex;justify-content:space-between;margin-bottom:3px"><span style="color:var(--t2)">Factures émises</span><span style="color:var(--grn)">'+(rentreesRec>0?'+'+Math.round(rentreesRec).toLocaleString('fr-FR')+' €':'—')+'</span></div>'
+      +'<div style="display:flex;justify-content:space-between;font-weight:600;border-top:1px solid var(--b1);padding-top:5px;margin:3px 0 8px"><span>Total entrées</span><span style="color:var(--grn)">'+(totalEntrees>0?'+'+Math.round(totalEntrees).toLocaleString('fr-FR')+' €':'Non renseigné')+'</span></div>'
+      +'<div style="font-size:10px;color:var(--t2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px">Déductions ce mois</div>'
+      +'<div style="display:flex;justify-content:space-between;margin-bottom:3px"><span style="color:var(--t2)">🌶️🌶️🌶️ Piments</span><span style="color:var(--red)">−'+Math.round(pimentsTotal).toLocaleString('fr-FR')+' €</span></div>'
+      +'<div style="display:flex;justify-content:space-between;margin-bottom:3px"><span style="color:var(--t2)">🔄 Prélèvements restants</span><span style="color:var(--amb)">−'+Math.round(prelevRestants).toLocaleString('fr-FR')+' €</span></div>'
+      +'<div style="display:flex;justify-content:space-between;margin-bottom:3px"><span style="color:var(--t2)">🏛️ Fact. SARL Guiraud</span><span style="color:var(--red)">−'+Math.round(factureSarl).toLocaleString('fr-FR')+' €</span></div>'
+      +'<div style="display:flex;justify-content:space-between;margin-bottom:3px"><span style="color:var(--t2)">✅ Factures cochées</span><span id="sit-at" style="color:var(--red)">−'+Math.round(at).toLocaleString('fr-FR')+' €</span></div>'
+      +'<div style="padding:10px;border-radius:8px;border:2px solid '+dispColor+';text-align:center;margin:10px 0">'
+      +'<div style="font-size:9px;color:var(--t2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">Cash net disponible</div>'
+      +'<div id="sit-dispo" style="font-size:20px;font-weight:700;color:'+dispColor+'">'+(dispo>=0?'+':'')+Math.round(dispo).toLocaleString('fr-FR')+' €</div>'
+      +'</div>'
+      +'<div style="background:var(--s2);border-radius:6px;padding:8px 10px">'
+      +'<div style="font-size:9px;color:var(--t2);text-transform:uppercase;letter-spacing:.5px">Stock dettes totales</div>'
+      +'<div style="font-size:14px;font-weight:600;margin-top:2px">'+Math.round(stockDettes+stockFact).toLocaleString('fr-FR')+' €</div>'
+      +'<div style="font-size:10px;color:var(--t2)">'+Math.round(stockDettes).toLocaleString('fr-FR')+' € dettes · '+Math.round(stockFact).toLocaleString('fr-FR')+' € factures</div>'
+      +'</div>'
+      +'</div>';
 
-  // Facturation SARL Guiraud = paye perso + dettes perso actives ce mois
-  const centerD=new Date(now.getFullYear(),now.getMonth()+offset,1);
-  const cY=centerD.getFullYear(),cM2=centerD.getMonth();
-  const dettesPersoMois=(allDebts||[]).filter(d=>{
-    if(d.company_id!=='perso'||d.status!=='en_cours')return false;
-    if(d.start_date){const s=new Date(d.start_date);if(cY<s.getUTCFullYear()||(cY===s.getUTCFullYear()&&cM2<s.getUTCMonth()))return false;}
-    if(d.end_date){const e=new Date(d.end_date);if(cY>e.getUTCFullYear()||(cY===e.getUTCFullYear()&&cM2>e.getUTCMonth()))return false;}
-    return true;
-  }).reduce((s,d)=>s+Number(d.monthly_amount||0),0);
-  const factureSarl=payePerso+dettesPersoMois;
-
-  // Dettes critiques pro actives ce mois
-  const totalSortiesPro=(allDebts||[]).filter(d=>{
-    if(d.company_id==='perso'||d.urgency_level<3||d.status!=='en_cours')return false;
-    if(d.start_date){const s=new Date(d.start_date);if(cY<s.getUTCFullYear()||(cY===s.getUTCFullYear()&&cM2<s.getUTCMonth()))return false;}
-    if(d.end_date){const e=new Date(d.end_date);if(cY>e.getUTCFullYear()||(cY===e.getUTCFullYear()&&cM2>e.getUTCMonth()))return false;}
-    return true;
-  }).reduce((s,d)=>s+Number(d.monthly_amount||0),0);
-
-  const disponible=totalRentrees-factureSarl-totalSortiesPro;
-  window._disponibleFactures=disponible;
-  const dispColor=disponible>0?'var(--grn)':disponible===0?'var(--t2)':'var(--red)';
-
-  const totalDetteRest=(allDebts||[]).filter(d=>d.company_id!=='perso').reduce((s,d)=>s+Number(d.amount_remaining||d.amount_total||0),0);
-  const totalFactRest=(allPayables||[]).reduce((s,p)=>s+Number(p.amount_ttc||0),0);
-
-  const col1='<div class="card" style="border-left:3px solid var(--acc)">'
-    +'<div style="font-size:13px;font-weight:700;margin-bottom:14px;color:var(--acc)">Situation '+(months[1]?.label||'—')+'</div>'
-    +'<div style="margin-bottom:10px">'
-    +'<div style="font-size:10px;color:var(--t2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Entrées prévues</div>'
-    +'<div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px"><span>Prévisions / Trails</span><span style="font-family:monospace;color:var(--grn)">'+(rentreesForecast>0?'+'+Math.round(rentreesForecast).toLocaleString('fr-FR')+' €':'—')+'</span></div>'
-    +'<div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px"><span>Factures émises</span><span style="font-family:monospace;color:var(--grn)">'+(rentreesRec>0?'+'+Math.round(rentreesRec).toLocaleString('fr-FR')+' €':'—')+'</span></div>'
-    +'<div style="display:flex;justify-content:space-between;font-size:13px;font-weight:700;border-top:1px solid var(--b1);padding-top:6px;margin-top:4px"><span>Total entrées</span><span style="font-family:monospace;color:var(--grn)">'+(totalRentrees>0?'+'+Math.round(totalRentrees).toLocaleString('fr-FR')+' €':'Non renseigné')+'</span></div>'
-    +'</div>'
-    +'<div style="margin-bottom:10px">'
-    +'<div style="font-size:10px;color:var(--t2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Déductions prioritaires</div>'
-    +'<div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:2px"><span>🏛️ Fact. SARL Guiraud</span><span style="font-family:monospace;color:var(--red)">'+(factureSarl>0?'-'+Math.round(factureSarl).toLocaleString('fr-FR')+' €':'—')+'</span></div>'
-    +'<div style="font-size:10px;color:var(--t2);margin:0 0 4px 10px">'+(payePerso>0?'Paye: '+Math.round(payePerso).toLocaleString('fr-FR')+'€':'')
-    +(dettesPersoMois>0?' + Dettes perso: '+Math.round(dettesPersoMois).toLocaleString('fr-FR')+'€':'')+'</div>'
-    +'<div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px"><span>🌶️🌶️🌶️ Dettes critiques</span><span style="font-family:monospace;color:var(--red)">'+(totalSortiesPro>0?'-'+Math.round(totalSortiesPro).toLocaleString('fr-FR')+' €':'—')+'</span></div>'
-    +'</div>'
-    +'<div style="padding:12px;border-radius:8px;border:2px solid '+dispColor+';text-align:center;margin-bottom:14px">'
-    +'<div style="font-size:10px;color:var(--t2);margin-bottom:4px">DISPONIBLE FACTURES</div>'
-    +'<div style="font-size:10px;color:var(--t2);margin-bottom:2px">Réserve : '+(window._apurReserve>0?Math.round(window._apurReserve||0).toLocaleString("fr-FR")+" €":"Non paramétrée")+"</div>"
-    +'<div id="apur-dispo-montant" style="font-family:monospace;font-size:22px;font-weight:800;color:'+dispColor+'">'+((disponible-(window._apurReserve||0))>=0?'+':'')+Math.round(disponible-(window._apurReserve||0)).toLocaleString('fr-FR')+' €</div>'
-    +'</div>'
-    +'<div style="font-size:10px;color:var(--t2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Stock à apurer</div>'
-    +'<div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px"><span>Dettes en cours</span><span style="font-family:monospace;color:var(--red)">'+Math.round(totalDetteRest).toLocaleString('fr-FR')+' €</span></div>'
-    +'<div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px"><span>Factures à payer</span><span style="font-family:monospace;color:var(--amb)">'+Math.round(totalFactRest).toLocaleString('fr-FR')+' €</span></div>'
-    +'<div style="display:flex;justify-content:space-between;font-size:13px;font-weight:700;border-top:1px solid var(--b1);padding-top:6px;margin-top:4px"><span>TOTAL</span><span style="font-family:monospace;color:var(--red)">'+Math.round(totalDetteRest+totalFactRest).toLocaleString('fr-FR')+' €</span></div>'
-    +'</div>';
-
-  // === COLONNES 2-4 : M / M+1 / M+2 ===
-  const monthCols=months.map((m,idx)=>{
-    const borderColor=m.isCenter?'var(--red)':m.idx===-1?'var(--t2)':'var(--acc)';
-    const tag=m.isCurrent?'<span style="font-size:10px;background:var(--red);color:#fff;padding:2px 6px;border-radius:4px;margin-left:6px">CE MOIS</span>':(offset===0&&m.idx===-1?'<span style="font-size:10px;background:var(--t2);color:#fff;padding:2px 6px;border-radius:4px;margin-left:6px">PRÉCÉDENT</span>':'');
-
-    // Mélange factures + dettes pour ce mois, triées par priorité
-    const items=[];
-
-    // Factures à payer : due_date dans ce mois exact (basé sur m.idx + offset)
-    const mColStart=new Date(now.getFullYear(),now.getMonth()+offset+m.idx,1);
-    const mColEnd=new Date(now.getFullYear(),now.getMonth()+offset+m.idx+1,0);
-    const isCurrentCol=m.isCurrent; // Vrai seulement pour le mois calendaire en cours
-    const isLeftCol=m.idx===-1; // Colonne gauche = reçoit tous les retards
-    const factures=allPayables.filter(p=>{
-      if(!p.amount_ttc||Number(p.amount_ttc)<=0)return false;
-      if(!p.fournisseur||p.fournisseur==='null')return false;
-      if(!p.due_date)return m.isCenter; // sans date → colonne centrale seulement
-      const due=new Date(p.due_date);
-      const isOverdueItem=due<mColStart; // en retard par rapport à ce mois
-      // Colonne gauche : retards + son mois propre
-      if(isLeftCol) return due<=mColEnd;
-      // Colonne centre et droite : fenêtre exacte (pas de retards déjà dans gauche)
-      return due>=mColStart&&due<=mColEnd;
-    });
-    factures.forEach(p=>{
-      const isOverdue=p.due_date&&new Date(p.due_date)<now;
-      const bananes=Number(p.priority||0); // 0-3 bananes 🍌
-      const labelVal=String(p.fournisseur||'').trim();
-      const amountVal=parseFloat(p.amount_ttc);
-      if(!labelVal||labelVal==='null'||isNaN(amountVal)||amountVal<=0)return; // Skip toujours
-      items.push({
-        label:labelVal,
-        detail:p.objet||p.label||p.invoice_number||(p.due_date?'Éch. '+new Date(p.due_date).toLocaleDateString('fr-FR'):''),
-        amount:amountVal,
-        sortKey: isOverdue?0:1,
-        date:p.due_date||'9999',
-        urgency:bananes,
-        type:'facture',
-        overdue:isOverdue,
-        id:p.id,
-        priority:bananes
-      });
-    });
-
-    // Dettes récurrentes — filtrer par start_date/end_date pour ce mois exact
-    const mColD=new Date(now.getFullYear(),now.getMonth()+(offset||0)+m.idx,1);
-    const mColY=mColD.getFullYear(), mColM=mColD.getMonth();
-    allDebts.filter(d=>{
-      if(!d.monthly_amount||d.monthly_amount<=0)return false;
-      if(d.start_date){const s=new Date(d.start_date);if(mColY<s.getUTCFullYear()||(mColY===s.getUTCFullYear()&&mColM<s.getUTCMonth()))return false;}
-      if(d.end_date){const e=new Date(d.end_date);if(mColY>e.getUTCFullYear()||(mColY===e.getUTCFullYear()&&mColM>e.getUTCMonth()))return false;}
-      return true;
-    }).forEach(d=>{
-      items.push({
-        label:d.debiteur,
-        detail:d.nature+(d.payment_day?' — le '+d.payment_day:''),
-        amount:Number(d.monthly_amount||0),
-        sortKey:2,
-        date:'0000',
-        urgency:d.urgency_level||0,
-        type:'dette',
-        overdue:false,
-        id:d.id
-      });
-    });
-
-    // Tri : 1) dettes 🌶️ desc, 2) factures 🍌 critiiques avec dettes, 3) reste factures par date
-    const dettes=items.filter(i=>i.type==='dette').sort((a,b)=>b.urgency-a.urgency);
-    const factCrit=items.filter(i=>i.type==='facture'&&i.priority>=3).sort((a,b)=>b.priority-a.priority||a.date.localeCompare(b.date));
-    const factNorm=items.filter(i=>i.type==='facture'&&i.priority<3).sort((a,b)=>b.priority-a.priority||a.date.localeCompare(b.date));
-    items.splice(0,items.length,...dettes,...factCrit,...factNorm);
-
-    // Disponible ce mois pour recommandations
-    const rentM=(allForecasts||[]).filter(f=>f.month_label===m.key).reduce((s,f)=>s+Number(f.amount||0)*Number(f.probability||100)/100,0)
-      +(allReceivables||[]).filter(r=>r.due_date?.startsWith(m.key)).reduce((s,r)=>s+Number(r.amount_ttc||r.amount||0),0);
-    const dispM=Math.max(0,rentM-payePerso);
-    let restant=dispM;
-
-    const itemsHtml=items.map(item=>{
-      const pim=item.type==='dette'?piments[item.urgency]||'':'📅';
-      const col=item.type==='dette'?(urgColors[item.urgency]||'var(--t2)'):'var(--acc)';
-      const badge=item.type==='dette'
-        ?'<span style="font-size:9px;background:var(--red)20;color:var(--red);padding:1px 5px;border-radius:3px">DETTE</span>'
-        :item.overdue
-          ?'<span style="font-size:9px;background:var(--red);color:#fff;padding:1px 5px;border-radius:3px">EN RETARD</span>'
-          :'<span style="font-size:9px;background:var(--acc)20;color:var(--acc);padding:1px 5px;border-radius:3px">FACTURE</span>';
-      const payer=Math.min(item.amount,restant);
-      const pc=item.amount>0?Math.round(payer/item.amount*100):0;
-      restant=Math.max(0,restant-item.amount);
-      const barColor=pc===100?'var(--grn)':pc>50?'var(--amb)':'var(--red)';
-      return '<div style="padding:8px;background:var(--b2);border-radius:6px;margin-bottom:6px">'
-        +'<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:6px">'
-        +(item.doc_name?'<a href="#" onclick="openPayableDoc(\"'+item.id+'\",\"'+item.doc_name+'\")"+" style=\"font-size:13px;text-decoration:none\" title=\"Voir la facture\">📎</a>':'')
-      +'<div style="flex:1;min-width:0">'
-        +'<div style="font-size:11px;font-weight:600;display:flex;align-items:center;gap:4px;flex-wrap:wrap">'
-        +(pim?'<span>'+pim+'</span>':'')
-        +'<span style="color:'+col+'">'+item.label+'</span>'+badge+'</div>'
-        +(item.detail?'<div style="font-size:10px;color:var(--t2);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+item.detail+'</div>':'')
-        +'</div>'
-        +'<div style="text-align:right;flex-shrink:0">'
-        +'<div style="font-family:monospace;font-size:11px;font-weight:700;color:var(--red)">'+Math.round(item.amount).toLocaleString('fr-FR')+' €</div>'
-        +(payer>0?'<div style="font-size:9px;color:var(--grn)">Pay: '+Math.round(payer).toLocaleString('fr-FR')+' €</div>':'<div style="font-size:9px;color:var(--red)">En attente</div>')
-        +'</div></div>'
-        +'<div style="height:2px;background:var(--b1);border-radius:2px;margin-top:5px">'
-        +'<div style="height:2px;border-radius:2px;width:'+pc+'%;background:'+barColor+'"></div></div>'
+    // COL 2 MOIS
+    const assignedIds=Object.keys(window._apurAssigned);
+    const assignedCards=assignedIds.map(k=>{
+      const x=window._apurAssigned[k];
+      return '<div style="background:rgba(99,153,34,.08);border:0.5px solid var(--grn);border-radius:6px;padding:7px 10px;margin-bottom:5px;display:flex;justify-content:space-between;align-items:center;cursor:pointer" title="Cliquer pour retirer" onclick="apurUnassign(\''+k+'\')">'
+        +'<div><div style="font-size:12px;font-weight:500;color:var(--grn)">'+x.name+'</div><div style="font-size:10px;color:var(--t2)">'+x.sub+'</div></div>'
+        +'<div style="text-align:right"><div style="font-size:12px;font-weight:600;color:var(--grn)">'+Math.round(x.amount).toLocaleString('fr-FR')+' €</div>'
+        +'<div style="font-size:10px;color:var(--t2)">✕ retirer</div></div>'
         +'</div>';
     }).join('');
 
-    // Récupérer les items triés par type
-    const facturesItems=items.filter(i=>i.type==='facture');
-    const totalDettes=dettes.reduce((s,i)=>s+i.amount,0);
-    const totalFactures=facturesItems.reduce((s,i)=>s+i.amount,0);
-    const totalItems=totalDettes+totalFactures;
-    const mKeyCol=m.key;
+    const pimentsCards=piments.map(d=>'<div style="background:rgba(226,75,74,.06);border:0.5px solid var(--red);border-radius:6px;padding:7px 10px;margin-bottom:5px;display:flex;justify-content:space-between;align-items:center">'
+      +'<div><div style="font-size:12px;font-weight:500;color:var(--red)">'+d.debiteur+'</div><div style="font-size:10px;color:var(--t2)">'+(co[d.company_id]||d.company_id)+(d.notes?' — '+d.notes.substring(0,40):'')+'</div></div>'
+      +'<div style="font-size:13px;font-weight:700;color:var(--red)">'+Math.round(Number(d.monthly_amount||0)).toLocaleString('fr-FR')+' €</div>'
+      +'</div>').join('');
 
-    // detteItems sans barre de progression (déduites automatiquement)
-    const detteItems=dettes.map(d=>({...d,payer:0,pc:0}));
-    // factItems pour affichage avec checkbox
-    const factItems=facturesItems.map(f=>({...f,payer:0,pc:0}));
-    const allItems=[...detteItems,...factItems];
-
-    const renderItem=item=>{
-      const bananeIcons=['','🍌','🍌🍌','🍌🍌🍌'];
-      const pim=item.type==='dette'?piments[item.urgency]||'':(bananeIcons[item.priority||0]||'');
-      const col=item.type==='dette'?(urgColors[item.urgency]||'var(--t2)'):item.priority>=3?'#F39C12':item.priority>=2?'#E67E22':'var(--acc)';
-      const badge=item.type==='dette'
-        ?'<span style="font-size:9px;background:var(--red)20;color:var(--red);padding:1px 5px;border-radius:3px">DETTE</span>'
-        :item.overdue
-          ?'<span style="font-size:9px;background:var(--red);color:#fff;padding:1px 5px;border-radius:3px">EN RETARD</span>'
-          :item.priority>=3?'<span style="font-size:9px;background:#F39C1220;color:#F39C12;padding:1px 5px;border-radius:3px">🍌🍌🍌</span>'
-          :item.priority>=2?'<span style="font-size:9px;background:#E67E2220;color:#E67E22;padding:1px 5px;border-radius:3px">🍌🍌</span>'
-          :item.priority>=1?'<span style="font-size:9px;background:var(--acc)20;color:var(--acc);padding:1px 5px;border-radius:3px">🍌</span>'
-          :'<span style="font-size:9px;background:var(--b1);color:var(--t2);padding:1px 5px;border-radius:3px">FACTURE</span>';
-      const safeLabel=String(item.label||'').replace(/^null$/i,'').trim();
-      const safeAmount=isNaN(Number(item.amount))?0:Number(item.amount||0);
-      if(!safeLabel||safeAmount<=0) return '';
-      // Checkbox uniquement sur les factures
-      const cbId='cb-'+mKeyCol+'-'+(item.id||Math.random().toString(36).slice(2));
-      const cbHtml=item.type==='facture'
-        ?'<input type="checkbox" id="'+cbId+'" data-amount="'+safeAmount+'" data-mkey="'+mKeyCol+'" onchange="updateApurCheck(this)" style="width:16px;height:16px;cursor:pointer;flex-shrink:0;accent-color:var(--grn)">':'';
-      const payableId = item.type==='facture' ? (item.id||'') : '';
-      const payableAttr = payableId ? ' data-payable-id="'+payableId+'"' : '';
-      return '<div'+payableAttr+' style="padding:8px;background:var(--b2);border-radius:6px;margin-bottom:6px;display:flex;align-items:flex-start;gap:8px">'
-        +cbHtml
-        +'<div style="flex:1;min-width:0">'
-        +'<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:6px">'
-        +'<div style="flex:1;min-width:0"><div style="font-size:11px;font-weight:600;display:flex;align-items:center;gap:4px;flex-wrap:wrap">'
-        +(pim?'<span>'+pim+'</span>':'')
-        +'<span style="color:'+col+'">'+safeLabel+'</span>'+badge+'</div>'
-        +(item.detail?'<div style="font-size:10px;color:var(--t2);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+item.detail+'</div>':'')
-        +'</div>'
-        +'<div style="font-family:monospace;font-size:11px;font-weight:700;color:var(--red);flex-shrink:0">'+Math.round(safeAmount).toLocaleString('fr-FR')+' €</div>'
-        +'</div></div>'
+    const prelevCards=prelev.map(c=>{
+      const past=c.payment_day<today;
+      const isNext=nextPrelev&&c.id===nextPrelev.id;
+      const style=past?'opacity:.45;':'';
+      const border=isNext?'border:1px solid var(--amb);background:rgba(186,117,23,.06)':'border:0.5px solid var(--b1);background:var(--s2)';
+      return '<div style="'+border+';border-radius:6px;padding:6px 10px;margin-bottom:4px;display:flex;justify-content:space-between;align-items:center;'+style+'">'
+        +'<div><div style="font-size:12px;color:var(--t1)">'+(past?'<s>':'')+c.fournisseur+(past?'</s>':'')+' '+(past?'<span style="font-size:10px;color:var(--t3)">✓ passé</span>':(isNext?'<span style="font-size:10px;color:var(--amb)">⚠ dans '+(c.payment_day-today)+'j</span>':''))+'</div>'
+        +'<div style="font-size:10px;color:var(--t2)">Le '+c.payment_day+' · '+(co[c.company_id]||c.company_id)+'</div></div>'
+        +'<div style="font-size:12px;font-weight:600;color:'+(past?'var(--t3)':'var(--amb)')+'">'+Math.round(Number(c.amount_ttc||0)).toLocaleString('fr-FR')+' €</div>'
         +'</div>';
-    };
+    }).join('');
 
-    const detteHtml=detteItems.map(renderItem).join('');
-    const factHtml=factItems.map(renderItem).join('');
-
-    return '<div class="card" style="border-top:4px solid '+borderColor+'">'
-      +'<div style="font-size:13px;font-weight:700;margin-bottom:8px;text-transform:capitalize">'+m.label+tag+'</div>'
-      // Résumé rapide
-      +(totalItems>0?'<div style="font-size:10px;color:var(--t2);margin-bottom:10px;display:flex;gap:12px">'
-        +'<span>Dettes: <strong style="color:var(--red)">'+Math.round(totalDettes).toLocaleString('fr-FR')+' €</strong></span>'
-        +'<span>Factures: <strong style="color:var(--amb)">'+Math.round(totalFactures).toLocaleString('fr-FR')+' €</strong></span>'
-        +'<span>Dispo: <strong style="color:var(--grn)">'+(dispM>0?Math.round(dispM).toLocaleString('fr-FR')+' €':'—')+'</strong></span>'
-        +'</div>':'')
-      // Dettes 🌶️
-      +(detteHtml?'<div style="font-size:10px;font-weight:700;color:var(--red);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">🌶️ Dettes prioritaires</div>'+detteHtml:'')
-      // Factures avec cases à cocher
-      +(factHtml?'<div style="margin-top:10px">'
-        // Compteur sticky en haut — visible sans scroller
-        +'<div id="apur-check-total-'+m.key+'" style="position:sticky;top:0;z-index:5;padding:8px 10px;border-radius:8px;background:var(--s2);border:1px solid var(--b2);margin-bottom:8px;box-shadow:0 2px 8px rgba(0,0,0,.15)">'
-        +'<div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;font-weight:600">'
-        +'<span>✅ Sélectionné</span><span id="apur-check-sum-'+m.key+'" style="font-family:monospace">0 €</span>'
-        +'</div>'
-        +'<div style="display:flex;justify-content:space-between;font-size:11px;margin-top:3px">'
-        +'<span style="color:var(--t2)">Reste disponible</span>'
-        +'<span id="apur-check-reste-'+m.key+'" style="font-family:monospace;font-weight:700;color:var(--grn)">'+Math.round(disponible).toLocaleString('fr-FR')+' €</span>'
-        +'</div>'
-        +'<div id="apur-check-bar-'+m.key+'" style="height:5px;border-radius:3px;background:var(--b1);margin-top:5px">'
-        +'<div id="apur-check-bar-inner-'+m.key+'" style="height:5px;border-radius:3px;width:0%;background:var(--grn);transition:width .2s"></div>'
-        +'</div>'
-        +'</div>'
-        +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">'
-        +'<div style="font-size:10px;font-weight:700;color:var(--acc);text-transform:uppercase;letter-spacing:.5px">📅 Factures à payer</div>'
-        +'<div style="font-size:10px;color:var(--t2)">☑ cocher pour jongler</div>'
-        +'</div>'
-        +factHtml
-        +'</div>':'')
-      +(allItems.length===0?'<div style="font-size:11px;color:var(--t2);font-style:italic;padding:8px 0">Aucune échéance — attributs des 🌶️ à tes dettes dans CC & Dettes</div>':'')
+    const col2='<div style="display:flex;flex-direction:column;gap:0">'
+      +'<div class="card" style="border-top:3px solid var(--red);margin-bottom:10px;padding:12px">'
+      +'<div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.7px;color:var(--t2);margin-bottom:8px;display:flex;align-items:center;gap:6px"><span style="font-size:14px">🌶️</span> Piments — prioritaires</div>'
+      +pimentsCards
+      +(assignedCards?'<div style="height:1px;background:var(--b1);margin:8px 0"></div>'+assignedCards:'')
+      +(!assignedCards?'<div style="font-size:11px;color:var(--t3);text-align:center;padding:10px;border:0.5px dashed var(--b1);border-radius:6px">Cocher des factures à droite pour les affecter ici</div>':'')
+      +'</div>'
+      +'<div class="card" style="border-top:3px solid var(--amb);padding:12px">'
+      +'<div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.7px;color:var(--t2);margin-bottom:8px">🔄 Prélèvements automatiques</div>'
+      +prelevCards
+      +'<div style="background:var(--s2);border-radius:6px;padding:8px 10px;margin-top:8px">'
+      +'<div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:3px"><span style="color:var(--t2)">Solde Qonto</span><span style="color:var(--acc)">'+(soldeQonto>=0?'+':'')+Math.round(soldeQonto).toLocaleString('fr-FR')+' €</span></div>'
+      +'<div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:3px"><span style="color:var(--t2)">+ Entrées prévues</span><span style="color:var(--grn)">+'+Math.round(totalEntrees).toLocaleString('fr-FR')+' €</span></div>'
+      +'<div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:3px"><span style="color:var(--t2)">− Piments</span><span style="color:var(--red)">−'+Math.round(pimentsTotal).toLocaleString('fr-FR')+' €</span></div>'
+      +'<div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:3px"><span style="color:var(--t2)">− Prélèv. restants</span><span style="color:var(--amb)">−'+Math.round(prelevRestants).toLocaleString('fr-FR')+' €</span></div>'
+      +'<div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:3px"><span style="color:var(--t2)">− Fact. SARL Guiraud</span><span style="color:var(--red)">−'+Math.round(factureSarl).toLocaleString('fr-FR')+' €</span></div>'
+      +'<div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:3px"><span style="color:var(--t2)">− Factures cochées</span><span id="col2-at" style="color:var(--red)">−'+Math.round(at).toLocaleString('fr-FR')+' €</span></div>'
+      +'<div style="display:flex;justify-content:space-between;font-size:13px;font-weight:700;border-top:1px solid var(--b1);padding-top:6px;margin-top:4px"><span>Disponible net</span><span id="col2-dispo" style="color:'+dispColor+'">'+(dispo>=0?'+':'')+Math.round(dispo).toLocaleString('fr-FR')+' €</span></div>'
+      +'</div>'
+      +'</div>'
       +'</div>';
+
+    // COL 3 BACKLOG
+    const col3=renderBacklog(document.getElementById('apur-search')?.value||'',document.getElementById('apur-f-prio')?.value||'',document.getElementById('apur-f-co')?.value||'');
+
+    const main=document.getElementById('apurement-main');
+    if(main) main.innerHTML=col1+col2+col3;
+  };
+
+  window._apurRenderAll();
+}
+
+function renderBacklog(search,prio,societe){
+  const debts=window._apurDebts||[];
+  const payables=window._apurPayables||[];
+  const assigned=window._apurAssigned||{};
+  const co={'sarl-guiraud':'SARL GUIRAUD','sas-living':'SAS LIVING','meulette':'La Meulette','real-gains':'Real Gains','spv-monikaza':'Monikaza','perso':'Perso','group':'Groupe'};
+  const prios=['','🌶️','🌶️🌶️','🌶️🌶️🌶️'];
+
+  const q=search.toLowerCase();
+
+  // Dettes non-critiques non-assignées
+  const debtItems=debts.filter(d=>{
+    if(d.company_id==='perso'||d.urgency_level===3) return false;
+    if(assigned['d_'+d.id]) return false;
+    if(q&&!d.debiteur?.toLowerCase().includes(q)) return false;
+    if(prio&&String(d.urgency_level||0)!==prio) return false;
+    if(societe&&d.company_id!==societe) return false;
+    return true;
   });
 
-  main.innerHTML=col1+monthCols.join('');
+  // Factures non-assignées
+  const payItems=payables.filter(p=>{
+    if(assigned['p_'+p.id]) return false;
+    if(q&&!p.fournisseur?.toLowerCase().includes(q)) return false;
+    if(societe&&p.company_id!==societe) return false;
+    return true;
+  });
+
+  // Combiner et trier
+  const items=[
+    ...debtItems.map(d=>({id:'d_'+d.id,name:d.debiteur,sub:(co[d.company_id]||d.company_id)+(d.notes?' · '+d.notes.substring(0,30):''),amount:Number(d.monthly_amount||0),prio:d.urgency_level||0,date:null,type:'dette'})),
+    ...payItems.map(p=>({id:'p_'+p.id,name:p.fournisseur,sub:(co[p.company_id]||p.company_id)+(p.invoice_ref?' · '+p.invoice_ref:''),amount:Number(p.amount_ttc||0),prio:0,date:p.due_date,type:'facture'}))
+  ].sort((a,b)=>b.prio-a.prio||(a.date&&b.date?new Date(a.date)-new Date(b.date):0));
+
+  const cards=items.map(x=>{
+    const isOverdue=x.date&&new Date(x.date)<new Date();
+    return '<div onclick="apurAssign(\''+x.id+'\')" style="background:var(--s2);border:0.5px solid var(--b1);border-radius:6px;padding:7px 10px;margin-bottom:5px;cursor:pointer;transition:border-color .12s" onmouseover="this.style.borderColor=\'var(--acc)\'" onmouseout="this.style.borderColor=\'var(--b1)\'">'
+      +'<div style="display:flex;align-items:flex-start;gap:8px">'
+      +'<div style="width:14px;height:14px;border-radius:3px;border:1.5px solid var(--b2);flex-shrink:0;margin-top:1px;display:flex;align-items:center;justify-content:center"></div>'
+      +'<div style="flex:1;min-width:0">'
+      +'<div style="font-size:12px;font-weight:500;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+x.name+'</div>'
+      +'<div style="font-size:10px;color:var(--t2)">'+x.sub+'</div>'
+      +'</div>'
+      +'<div style="text-align:right;flex-shrink:0">'
+      +'<div style="font-size:12px;font-weight:600;color:'+(isOverdue?'var(--red)':'var(--t1)')+'">'+Math.round(x.amount).toLocaleString('fr-FR')+' €</div>'
+      +(x.date?'<div style="font-size:10px;color:'+(isOverdue?'var(--red)':'var(--t2)')+'">'+x.date+'</div>':x.prio?'<div style="font-size:10px">'+prios[x.prio]+'</div>':'')
+      +'</div>'
+      +'</div>'
+      +'</div>';
+  }).join('');
+
+  return '<div class="card" style="border-top:3px solid var(--acc);padding:0;overflow:hidden;display:flex;flex-direction:column;max-height:70vh">'
+    +'<div style="padding:10px 12px;border-bottom:0.5px solid var(--b1);display:flex;align-items:center;justify-content:space-between;flex-shrink:0">'
+    +'<div style="font-size:12px;font-weight:600">Factures à affecter</div>'
+    +'<div style="font-size:10px;padding:2px 8px;border-radius:8px;background:var(--aif);color:var(--acc)">'+items.length+' éléments</div>'
+    +'</div>'
+    +'<div id="apur-backlog-list" style="overflow-y:auto;flex:1;padding:8px 10px">'+cards+'</div>'
+    +'</div>';
 }
+
+function apurAssign(id){
+  const debts=window._apurDebts||[];
+  const payables=window._apurPayables||[];
+  let item=null;
+  if(id.startsWith('d_')){
+    const d=debts.find(x=>x.id===id.slice(2));
+    if(d) item={id,name:d.debiteur,sub:d.company_id,amount:Number(d.monthly_amount||0)};
+  } else {
+    const p=payables.find(x=>x.id===id.slice(2));
+    if(p) item={id,name:p.fournisseur,sub:p.invoice_ref||p.company_id,amount:Number(p.amount_ttc||0)};
+  }
+  if(item){window._apurAssigned[id]=item;window._apurRenderAll&&window._apurRenderAll();}
+}
+
+function apurUnassign(id){
+  delete window._apurAssigned[id];
+  window._apurRenderAll&&window._apurRenderAll();
+}
+
+function apurFilterBacklog(search){
+  const prio=document.getElementById('apur-f-prio')?.value||'';
+  const societe=document.getElementById('apur-f-co')?.value||'';
+  const col3=renderBacklog(search||'',prio,societe);
+  const main=document.getElementById('apurement-main');
+  if(main&&main.children[2]) main.children[2].outerHTML=col3;
+}
+
 
 function showOptim(){
   document.getElementById('tb-title').textContent='Optimisation rémunération';
