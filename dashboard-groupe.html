@@ -3899,9 +3899,8 @@ async function loadClotureRecues(mois) {
     var co = companies[ci];
     list.innerHTML = '<div style="text-align:center;padding:1rem;color:var(--t2);font-size:12px"><span class="spin"></span> Chargement ' + co.label + ' (' + (ci+1) + '/' + companies.length + ')...</div>';
     try {
-      var iban = ibanMap[co.id] || '';
+      // Pas d'IBAN passé — la fonction récupère le compte actif via /organization
       var url = '/api/qonto-sync?action=transactions&account=' + co.account + '&per_page=50';
-      if (iban) url += '&iban=' + encodeURIComponent(iban); // IBAN direct évite l'appel /organization
       var res = await fetch(url);
       if (!res.ok) throw new Error('HTTP ' + res.status);
       var data = await res.json();
