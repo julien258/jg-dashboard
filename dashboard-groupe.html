@@ -3885,12 +3885,12 @@ async function loadClotureRecues(mois) {
     { id: 'spv-monikaza', label: 'Monikaza SPV',  account: 'MONIKAZA', societe: 'monikaza' },
   ];
 
-  // Récupérer les slugs depuis _qontoData (déjà chargé au démarrage)
+  // Récupérer les IBANs depuis _qontoData (déjà chargé au démarrage)
   var qData = window._qontoData || {};
-  var slugMap = {};
+  var ibanMap = {};
   (qData.accounts || []).forEach(function(acc) {
-    var firstSlug = (acc.bank_accounts || [])[0]?.slug || '';
-    slugMap[acc.companyId] = firstSlug;
+    var firstIban = (acc.bank_accounts || [])[0]?.iban || '';
+    ibanMap[acc.companyId] = firstIban;
   });
 
   // Appels séquentiels avec slug direct (évite l'appel /organization)
@@ -3899,9 +3899,9 @@ async function loadClotureRecues(mois) {
     var co = companies[ci];
     list.innerHTML = '<div style="text-align:center;padding:1rem;color:var(--t2);font-size:12px"><span class="spin"></span> Chargement ' + co.label + ' (' + (ci+1) + '/' + companies.length + ')...</div>';
     try {
-      var slug = slugMap[co.id] || '';
+      var iban = ibanMap[co.id] || '';
       var url = '/api/qonto-sync?action=transactions&account=' + co.account + '&per_page=50';
-      if (slug) url += '&iban=' + slug; // passer le slug directement évite 1 appel API
+      if (iban) url += '&iban=' + encodeURIComponent(iban); // IBAN direct évite l'appel /organization
       var res = await fetch(url);
       if (!res.ok) throw new Error('HTTP ' + res.status);
       var data = await res.json();
