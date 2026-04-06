@@ -78,12 +78,12 @@ export default async (req, context) => {
   }
 
   try {
-    // Récupérer les comptes actifs (balance > 0 en priorité)
+    // Récupérer tous les comptes de la société
     const orgData = await qontoFetch(creds.login, creds.secret, '/organization');
-    const allAccounts = orgData.organization?.bank_accounts || [];
-    
-    const activeAccounts = allAccounts.filter(ba => (ba.balance_cents || 0) > 0);
-    const toQuery = (activeAccounts.length > 0 ? activeAccounts : allAccounts.slice(0, 1));
+    const toQuery = orgData.organization?.bank_accounts || [];
+    if (!toQuery.length) {
+      return Response.json({ ok: false, error: 'Aucun compte bancaire trouvé' }, { status: 404 });
+    }
 
     // Fetcher les transactions pour chaque compte actif
     const allTx = [];
