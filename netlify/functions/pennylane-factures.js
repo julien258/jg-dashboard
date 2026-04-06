@@ -43,19 +43,19 @@ export default async (req) => {
 
       // Filtrer par mois côté JS
       const factures = liste
-        .filter(f => (f.date || f.invoice_date || '').substring(0, 7) === mois)
+        .filter(f => (f.date || '').substring(0, 7) === mois)
         .map(f => ({
         id: f.id,
         numero: f.invoice_number || f.label || f.id,
-        client: f.customer?.name || f.customer_name || f.billing_name || '—',
-        montant_ht: parseFloat(f.amount_without_tax || f.amount_ht || 0),
-        montant_ttc: parseFloat(f.amount || f.total || 0),
-        date: f.date || f.invoice_date || null,
+        client: f.customer?.name || f.customer?.company_name || f.customer_name || '—',
+        montant_ht: parseFloat(f.currency_amount_before_tax || f.amount_without_tax || 0),
+        montant_ttc: parseFloat(f.currency_amount || f.amount || 0),
+        date: f.date || null,
         echeance: f.deadline || f.due_date || null,
         statut: f.status || '—',
-        paye: ['paid', 'paye', 'closed'].includes((f.status || '').toLowerCase()),
-        pdf_url: f.pdf_url || f.file_url || null,
-        pennylane_url: `https://app.pennylane.com/invoices/${f.id}`,
+        paye: ['paid', 'closed'].includes((f.status || '').toLowerCase()),
+        pdf_url: f.public_file_url || f.pdf_url || null,
+        pennylane_url: `https://app.pennylane.com/fr/company/invoices/${f.id}`,
       }));
 
       return {
