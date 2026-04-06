@@ -4044,8 +4044,11 @@ async function loadCloture() {
         // Relevés manuels requis
         (acc.extraDocs || []).forEach(function(doc) {
           var uploaded = acc.gedDocs && acc.gedDocs.some(function(d) {
-            return (d.nom || '').toLowerCase().includes(doc.toLowerCase()) ||
-                   (d.type_doc || '').toLowerCase().includes(doc.toLowerCase());
+            var fname = (d.file_name || d.nom || '').toLowerCase();
+            var dtype = (d.doc_type || d.type_doc || '').toLowerCase();
+            var docL = doc.toLowerCase();
+            return fname.includes(docL) || dtype.includes(docL) ||
+                   fname.includes('releve') || dtype.includes('releve_bancaire');
           });
           docsHtml += '<div style="display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:0.5px solid var(--b1)">' +
             '<span style="color:' + (uploaded ? 'var(--grn)' : 'var(--red)') + '">' + (uploaded ? '✅' : '❌') + '</span>' +

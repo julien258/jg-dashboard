@@ -173,12 +173,29 @@ async function getTransactionCount(login, secret, mois) {
 // Vérifie les documents uploadés dans la GED pour ce mois
 async function getGedDocuments(companyId, mois) {
   try {
+    // Calculer début et fin du mois
+    const dateFrom = mois + '-01';
+    const year = parseInt(mois.split('-')[0]);
+    const month = parseInt(mois.split('-')[1]);
+    const nextMonth = month === 12 ? '01' : String(month + 1).padStart(2, '0');
+    const nextYear = month === 12 ? year + 1 : year;
+    const dateTo = `${nextYear}-${nextMonth}-01`;
+
+    // Chercher par doc_date OU par nom de fichier contenant le mois
     const data = await sbFetch(
-      `/ged_documents?company_id=eq.${companyId}&mois=eq.${mois}&select=id,nom,type_doc,uploaded_at`
+      `/ged_documents?company_id=eq.${companyId}&or=(doc_date.gte.${dateFrom},doc_date.lt.${dateTo})&select=id,nom,file_name,doc_type,doc_date,uploaded_at`
     );
     return data || [];
   } catch(e) {
-    return [];
+    // Fallback : essayer sans filtre de date (cherche les relevés récents)
+    try {
+      const data = await sbFetch(
+        `/ged_documents?company_id=eq.${companyId}&doc_type=eq.releve_bancaire&order=created_at.desc&limit=10&select=id,nom,file_name,doc_type,doc_date,uploaded_at`
+      );
+      return data || [];
+    } catch(e2) {
+      return [];
+    }
   }
 }
 
