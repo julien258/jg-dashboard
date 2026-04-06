@@ -10546,42 +10546,44 @@ async function loadAlertes(){
 }
 
 async function loadGrpKpis(){
-  const safeQ=async(q)=>{try{const r=await q;return r.data||[];}catch(e){return[];}};
   try{
-    // ── TRÉSO PRÉVISIONNELLE : Factures en attente - Dettes mensuelles ──
-    const [debts, receivables, contracts] = await Promise.all([
-      safeQ(sb.from('debts').select('monthly_amount').eq('status','en_cours').neq('monthly_amount',0)),
-      safeQ(sb.from('receivables').select('amount_ttc').in('status',['envoyee','en_attente'])),
-      safeQ(sb.from('contracts').select('amount').not('status','eq','termine'))
-    ]);
-    const dettesMensuelles = debts.reduce((s,d)=>s+Number(d.monthly_amount||0),0);
-    const aEncaisser = receivables.reduce((s,r)=>s+Number(r.amount_ttc||0),0);
-    const pipeline = contracts.reduce((s,c)=>s+Number(c.amount||0),0);
-    const tresoPrevi = aEncaisser - dettesMensuelles;
+    // Trésorerie depuis bank_accounts_pro
+    const{data:comptes}=await sb.from('bank_accounts_pro').select('company_id,type_compte,solde');
+    const tresoTotale=(comptes||[]).reduce((s,c)=>c.type_compte==='pret'?s-Number(c.solde||0):s+Number(c.solde||0),0);
     const elT=document.getElementById('grp-treso-total');
-    if(elT){
-      elT.textContent=(tresoPrevi>=0?'+':'')+Math.round(tresoPrevi).toLocaleString('fr-FR')+' €';
-      elT.style.color=tresoPrevi>=0?'var(--grn)':'var(--red)';
-      elT.title='A encaisser: +'+Math.round(aEncaisser).toLocaleString('fr-FR')+'EUR | Dettes/mois: -'+Math.round(dettesMensuelles).toLocaleString('fr-FR')+'EUR';
-    }
-    const elTS=elT?.closest('.kc')?.querySelector('.ks');
-    if(elTS)elTS.textContent='Encours - Dettes recurrentes/mois';
+    if(elT)elT.textContent=Math.round(tresoTotale).toLocaleString('fr-FR')+' €';
 
-    // ── PIPELINE ──
-    const pipEl=document.getElementById('grp-pipeline');
-    if(pipEl)pipEl.textContent=pipeline>=1000000?(pipeline/1000000).toFixed(1)+' M€':Math.round(pipeline/1000)+'k€';
-
-    // ── CC INTER-SOCIETES ──
-    const cc=await safeQ(sb.from('interco_balances').select('*'));
-    const ccNet=cc.reduce((s,c)=>s+Number(c.amount||c.balance||0),0);
+    // CC inter-sociétés
+    const{data:cc}=await sb.from('interco_balances').select('*');
+    const ccNet=(cc||[]).reduce((s,c)=>s+Number(c.amount||c.balance||0),0);
     const ccEl=document.getElementById('grp-cc-net');
     if(ccEl){ccEl.textContent=(ccNet>=0?'+':'')+Math.round(ccNet).toLocaleString('fr-FR')+' €';ccEl.style.color=ccNet>=0?'var(--grn)':'var(--red)';}
+
+    // CC tableau
     const ccTbody=document.getElementById('grp-cc-tbody');
     if(ccTbody){
       const cN={'meulette':'La Meulette','sarl-guiraud':'SARL Guiraud','sas-living':'SAS Living','real-gains':'RG/Monikaza','spv-monikaza':'SPV Monikaza'};
-      if(!cc.length){ccTbody.innerHTML='<tr><td colspan="5" style="text-align:center;color:var(--t2);padding:1rem">Aucun CC</td></tr>';}
-      else{ccTbody.innerHTML=cc.map(c=>{const bal=Number(c.amount||c.balance||0);const de=cN[c.company_id]||c.company_id||'—';const vers=cN[c.counterpart]||c.counterpart_name||c.counterpart||'—';return '<tr><td>'+de+'</td><td>'+vers+'</td><td class="'+(bal>=0?'np':'nn')+' mo">'+(bal>=0?'+ ':'-')+Math.abs(Math.round(bal)).toLocaleString('fr-FR')+' €</td><td><span class="badge '+(bal>=0?'bg':'br')+'">'+(bal>=0?'Créditeur':'Débiteur')+'</span></td><td style="font-size:12px;color:var(--t2)">'+(c.label||'—')+'</td></tr>';}).join('');}
+      if(!(cc?.length)){
+        ccTbody.innerHTML='<tr><td colspan="5" style="text-align:center;color:var(--t2);padding:1rem">Aucun CC — saisir dans CC & Dettes</td></tr>';
+      } else {
+        ccTbody.innerHTML=cc.map(c=>{
+          const bal=Number(c.amount||c.balance||0);
+          const de=cN[c.company_id]||c.company_id||'—';
+          const vers=cN[c.counterpart]||c.counterpart_name||c.counterpart||'—';
+          return '<tr><td>'+de+'</td><td>'+vers+'</td><td class="'+(bal>=0?'np':'nn')+' mo">'+(bal>=0?'+ ':'-')+Math.abs(Math.round(bal)).toLocaleString('fr-FR')+' €</td><td><span class="badge '+(bal>=0?'bg':'br')+'">'+(bal>=0?'Créditeur':'Débiteur')+'</span></td><td style="font-size:12px;color:var(--t2)">'+(c.label||'—')+'</td></tr>';
+        }).join('');
+      }
     }
+
+    // Pipeline
+    const{data:contracts}=await sb.from('contracts').select('amount').not('status','eq','termine');
+    const pipeline=(contracts||[]).reduce((s,c)=>s+Number(c.amount||0),0);
+    const pipEl=document.getElementById('grp-pipeline');
+    if(pipEl)pipEl.textContent=pipeline>=1000000?(pipeline/1000000).toFixed(1)+' M€':Math.round(pipeline/1000)+'k€';
+
+    // Graphique tréso par banque
+    if(comptes?.length)renderTresoBanqueChart(comptes);
+
   } catch(e){console.warn('loadGrpKpis error:',e.message);}
 }
 function renderTresoBanqueChart(comptes){
