@@ -64,7 +64,13 @@ export default async (req) => {
         total_ht: factures.reduce((s, f) => s + f.montant_ht, 0),
         total_ttc: factures.reduce((s, f) => s + f.montant_ttc, 0),
         nb_payees: factures.filter(f => f.paye).length,
-        error: null
+        error: null,
+        _debug: {
+          mois_recu: mois,
+          total_avant_filtre: liste.length,
+          dates_disponibles: liste.slice(0, 5).map(f => f.date || f.invoice_date || 'AUCUNE'),
+          cle_data: Object.keys(data).join(','),
+        }
       };
     } catch(e) {
       return { ...soc, factures: [], total_ht: 0, total_ttc: 0, error: e.message };
