@@ -3868,21 +3868,19 @@ async function loadClotureRecues(mois) {
   list.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--t2)"><span class="spin"></span> Chargement des transactions...</div>';
 
   var companies = [
-    { id: 'sarl-guiraud', label: 'SARL GUIRAUD', account: 'GUIRAUD' },
-    { id: 'sas-living',   label: 'SAS LIVING',   account: 'LIVING' },
-    { id: 'meulette',     label: 'La Meulette',   account: 'MEULETTE' },
-    { id: 'real-gains',   label: 'Real Gains',    account: 'REAL_GAINS' },
-    { id: 'spv-monikaza', label: 'Monikaza SPV',  account: 'MONIKAZA' },
+    { id: 'sarl-guiraud', label: 'SARL GUIRAUD', account: 'GUIRAUD', societe: 'sarl' },
+    { id: 'sas-living',   label: 'SAS LIVING',   account: 'LIVING',  societe: 'living' },
+    { id: 'meulette',     label: 'La Meulette',   account: 'MEULETTE', societe: 'meulette' },
+    { id: 'real-gains',   label: 'Real Gains',    account: 'REAL_GAINS', societe: 'real-gains' },
+    { id: 'spv-monikaza', label: 'Monikaza SPV',  account: 'MONIKAZA', societe: 'monikaza' },
   ];
 
-  // Charger toutes les transactions en parallèle
   var results = await Promise.allSettled(companies.map(function(co) {
     return fetch('/api/qonto-sync?action=transactions&account=' + co.account + '&per_page=100&status=completed')
       .then(function(r) { return r.json(); })
       .then(function(data) {
         var txs = (data.transactions || []).filter(function(t) {
-          var d = (t.settled_at || t.emitted_at || '').substring(0, 7);
-          return d === mois && t.side === 'debit';
+          return (t.settled_at || t.emitted_at || '').substring(0, 7) === mois && t.side === 'debit';
         });
         return { ...co, transactions: txs, error: null };
       });
@@ -3897,43 +3895,71 @@ async function loadClotureRecues(mois) {
     var statusColor = missing.length > 0 ? 'var(--amb)' : 'var(--grn)';
     var statusIcon = missing.length > 0 ? '⚠️' : '✅';
 
-    html += '<div class="card" style="padding:0;overflow:hidden">';
-    // Ligne société cliquable
-    html += '<div onclick="toggleRecues(\'' + co.id + '\')" style="display:flex;align-items:center;gap:12px;padding:12px 16px;cursor:pointer;border-left:3px solid ' + statusColor + ';user-select:none">';
-    html += '<span id="recues-arrow-' + co.id + '" style="font-size:12px;color:var(--t2);transition:transform .2s">▶</span>';
+    html += '<div class="card" style="padding:0;overflow:hidden;margin-bottom:4px">';
+    // En-tête société cliquable
+    html += '<div onclick="toggleRecues(\'' + co.id + '\')" style="display:flex;align-items:center;gap:12px;padding:12px 16px;cursor:pointer;border-left:4px solid ' + statusColor + ';user-select:none">';
+    html += '<span id="recues-arrow-' + co.id + '" style="font-size:11px;color:var(--t2);transition:transform .2s;width:12px">▶</span>';
     html += '<span style="font-weight:600;font-size:14px">' + statusIcon + ' ' + co.label + '</span>';
-    html += '<span style="font-size:12px;color:var(--t2);margin-left:auto">' + txs.length + ' dépenses · ' + Math.round(total).toLocaleString('fr-FR') + ' €</span>';
-    if (missing.length > 0) html += '<span style="font-size:11px;background:rgba(243,156,18,.15);color:var(--amb);padding:2px 8px;border-radius:10px">' + missing.length + ' sans pièce</span>';
+    html += '<span style="font-size:12px;color:var(--t2);margin-left:auto">' + txs.length + ' dépenses · −' + Math.round(total).toLocaleString('fr-FR') + ' €</span>';
+    if (missing.length > 0) {
+      html += '<span style="font-size:11px;background:rgba(243,156,18,.15);color:var(--amb);padding:3px 10px;border-radius:10px;font-weight:500">' + missing.length + ' facture(s) manquante(s)</span>';
+    } else {
+      html += '<span style="font-size:11px;color:var(--grn)">Complet</span>';
+    }
     html += '</div>';
 
     // Panneau dépliable
     html += '<div id="recues-panel-' + co.id + '" style="display:none;border-top:1px solid var(--b1)">';
+
     if (co.error) {
       html += '<div style="padding:12px;color:var(--red);font-size:12px">❌ ' + co.error + '</div>';
     } else if (txs.length === 0) {
-      html += '<div style="padding:12px;color:var(--t2);font-size:12px;text-align:center">Aucune dépense ce mois</div>';
+      html += '<div style="padding:16px;color:var(--t2);font-size:12px;text-align:center">Aucune dépense enregistrée ce mois</div>';
     } else {
+      // Barre de recherche auto pour les manquants
+      if (missing.length > 0) {
+        html += '<div style="padding:8px 16px;background:rgba(243,156,18,.05);border-bottom:1px solid var(--b1);display:flex;align-items:center;gap:10px">';
+        html += '<span style="font-size:12px;color:var(--amb)">⚠ ' + missing.length + ' facture(s) manquante(s)</span>';
+        html += '<button onclick="searchAllMissingMails(\'' + co.id + '\')" style="margin-left:auto;font-size:11px;padding:4px 12px;border:1px solid var(--amb);border-radius:4px;background:none;cursor:pointer;color:var(--amb)">📧 Rechercher toutes dans les mails</button>';
+        html += '</div>';
+      }
+
       html += '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">';
-      html += '<thead><tr style="background:var(--bg2)"><th style="padding:8px 12px;text-align:left;font-weight:500;color:var(--t2)">Date</th><th style="padding:8px;text-align:left;font-weight:500;color:var(--t2)">Libellé</th><th style="padding:8px;text-align:left;font-weight:500;color:var(--t2)">Catégorie</th><th style="padding:8px;text-align:right;font-weight:500;color:var(--t2)">Montant</th><th style="padding:8px;text-align:center;font-weight:500;color:var(--t2)">Pièce</th><th style="padding:8px"></th></tr></thead>';
-      html += '<tbody>';
-      txs.forEach(function(t) {
+      html += '<thead><tr style="background:var(--bg2)">';
+      ['Date','Libellé','Catégorie','Montant','Pièce Qonto','Actions'].forEach(function(h, idx) {
+        var align = idx === 3 ? 'right' : idx === 4 ? 'center' : 'left';
+        html += '<th style="padding:8px ' + (idx===0?'12px':'8px') + ';text-align:' + align + ';font-weight:500;color:var(--t2);white-space:nowrap">' + h + '</th>';
+      });
+      html += '</tr></thead><tbody>';
+
+      txs.forEach(function(t, idx) {
         var f = detectFournisseur(t.label);
         var hasAtt = t.has_attachments;
         var amt = Number(t.amount || 0).toFixed(2).replace('.', ',');
         var date = (t.settled_at || t.emitted_at || '').substring(0, 10);
-        html += '<tr style="border-top:1px solid var(--b1);' + (!hasAtt ? 'background:rgba(243,156,18,.05)' : '') + '">';
-        html += '<td style="padding:7px 12px;color:var(--t2)">' + date + '</td>';
-        html += '<td style="padding:7px 8px;max-width:250px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (t.label || '—') + '</td>';
-        html += '<td style="padding:7px 8px;color:var(--t2)">' + (t.category || '—') + '</td>';
-        html += '<td style="padding:7px 8px;text-align:right;font-weight:500;color:var(--red)">−' + amt + ' €</td>';
-        html += '<td style="padding:7px 8px;text-align:center">' + (hasAtt ? '<span style="color:var(--grn)">✅</span>' : '<span style="color:var(--amb)">⚠️</span>') + '</td>';
+        var txId = t.id || ('tx-' + idx);
+        var safeLabel = (t.label || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+        var rowId = 'tx-row-' + co.id + '-' + idx;
+        var resultId = 'tx-result-' + co.id + '-' + idx;
+
+        html += '<tr id="' + rowId + '" style="border-top:1px solid var(--b1)' + (!hasAtt ? ';background:rgba(243,156,18,.04)' : '') + '">';
+        html += '<td style="padding:7px 12px;color:var(--t2);white-space:nowrap">' + date + '</td>';
+        html += '<td style="padding:7px 8px;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + safeLabel + '">' + (t.label || '—') + '</td>';
+        html += '<td style="padding:7px 8px;color:var(--t2);font-size:11px">' + (t.category || '—') + '</td>';
+        html += '<td style="padding:7px 8px;text-align:right;font-weight:600;color:var(--red);white-space:nowrap">−' + amt + ' €</td>';
+        html += '<td style="padding:7px 8px;text-align:center">';
+        html += hasAtt ? '<span style="color:var(--grn)" title="Justificatif dans Qonto">✅</span>' : '<span style="color:var(--amb)" title="Pas de justificatif Qonto">⚠️</span>';
+        html += '</td>';
         html += '<td style="padding:7px 8px;white-space:nowrap">';
         if (!hasAtt) {
-          if (f) html += '<a href="' + f.url + '" target="_blank" style="font-size:10px;padding:2px 6px;border:1px solid var(--b1);border-radius:3px;text-decoration:none;color:var(--t1);margin-right:4px">🌐 ' + f.label + '</a>';
-          html += '<button onclick="searchMailForTx(\'' + (t.label||'').replace(/'/g,"\\'") + '\')" style="font-size:10px;padding:2px 6px;border:1px solid var(--b1);border-radius:3px;background:none;cursor:pointer;color:var(--t1)">📧</button>';
+          if (f) html += '<a href="' + f.url + '" target="_blank" style="font-size:10px;padding:2px 6px;border:1px solid var(--b1);border-radius:3px;text-decoration:none;color:var(--t1);margin-right:4px" title="Portail ' + f.label + '">🌐 ' + f.label + '</a>';
+          html += '<button id="btn-mail-' + resultId + '" onclick="searchMailForTransaction(\'' + resultId + '\',\'' + safeLabel + '\',\'' + amt + '\',\'' + co.societe + '\')" style="font-size:10px;padding:2px 6px;border:1px solid var(--b1);border-radius:3px;background:none;cursor:pointer;color:var(--acc)">📧 Mails</button>';
         }
         html += '</td></tr>';
+        // Ligne résultat Gmail (cachée par défaut)
+        html += '<tr id="' + resultId + '" style="display:none"><td colspan="6" style="padding:0 12px 8px 12px"><div id="' + resultId + '-content" style="background:var(--bg2);border-radius:6px;padding:8px;font-size:11px"></div></td></tr>';
       });
+
       html += '</tbody></table></div>';
     }
     html += '</div></div>';
@@ -3947,7 +3973,6 @@ function toggleRecues(companyId) {
   var arrow = document.getElementById('recues-arrow-' + companyId);
   if (!panel) return;
   var isOpen = panel.style.display !== 'none';
-  // Fermer tous les autres
   document.querySelectorAll('[id^="recues-panel-"]').forEach(function(p) { p.style.display = 'none'; });
   document.querySelectorAll('[id^="recues-arrow-"]').forEach(function(a) { a.style.transform = ''; });
   if (!isOpen) {
@@ -3955,6 +3980,82 @@ function toggleRecues(companyId) {
     if (arrow) arrow.style.transform = 'rotate(90deg)';
   }
 }
+
+async function searchMailForTransaction(resultId, label, amount, societe) {
+  var btn = document.getElementById('btn-mail-' + resultId);
+  var resultRow = document.getElementById(resultId);
+  var resultContent = document.getElementById(resultId + '-content');
+  if (!resultRow || !resultContent) return;
+
+  // Préparer la requête Gmail
+  var words = label.split(/[\s\/\-_]+/).filter(function(w) { return w.length > 3; }).slice(0, 3);
+  var query = words.join(' ');
+
+  if (btn) { btn.textContent = '⏳'; btn.disabled = true; }
+  resultRow.style.display = '';
+  resultContent.innerHTML = '<span class="spin"></span> Recherche dans les mails pour "' + query + '"...';
+
+  try {
+    var res = await fetch('/api/gmail-sync?action=list&societe=' + societe + '&q=' + encodeURIComponent(query) + '&max=5');
+    var data = await res.json();
+    var mails = data.mails || data.messages || [];
+
+    if (mails.length === 0) {
+      resultContent.innerHTML = '<span style="color:var(--t2)">📭 Aucun mail trouvé pour "' + query + '"</span>';
+    } else {
+      var html = '<div style="margin-bottom:6px;font-weight:500;color:var(--t1)">' + mails.length + ' mail(s) trouvé(s) :</div>';
+      mails.forEach(function(m) {
+        var from = m.from || m.expediteur || '?';
+        var subject = m.subject || m.objet || '(sans objet)';
+        var date = (m.date || m.received_at || '').substring(0, 10);
+        var hasAttach = m.has_attachment || m.pieces_jointes > 0;
+        html += '<div style="display:flex;align-items:center;gap:8px;padding:4px 0;border-top:1px solid var(--b1)">';
+        html += '<div style="flex:1;overflow:hidden">';
+        html += '<div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--t1)">' + subject + '</div>';
+        html += '<div style="color:var(--t2);font-size:10px">' + from + ' · ' + date + (hasAttach ? ' · 📎' : '') + '</div>';
+        html += '</div>';
+        if (hasAttach) {
+          html += '<button onclick="archiverMailGED(\'' + (m.id||'') + '\',\'' + societe + '\')" style="font-size:10px;padding:2px 8px;border:1px solid var(--grn);border-radius:3px;background:none;cursor:pointer;color:var(--grn);white-space:nowrap">⬆ Archiver</button>';
+        }
+        html += '</div>';
+      });
+      resultContent.innerHTML = html;
+    }
+    if (btn) { btn.textContent = '📧 Mails'; btn.disabled = false; }
+  } catch(e) {
+    resultContent.innerHTML = '<span style="color:var(--red)">❌ ' + e.message + '</span>';
+    if (btn) { btn.textContent = '📧 Mails'; btn.disabled = false; }
+  }
+}
+
+async function searchAllMissingMails(companyId) {
+  // Déclencher la recherche Gmail pour toutes les lignes sans pièce de cette société
+  var panel = document.getElementById('recues-panel-' + companyId);
+  if (!panel) return;
+  var btns = panel.querySelectorAll('[id^="btn-mail-"]');
+  for (var i = 0; i < btns.length; i++) {
+    var btn = btns[i];
+    if (!btn.disabled) btn.click();
+    await new Promise(function(r) { setTimeout(r, 300); }); // éviter le rate limit Gmail
+  }
+}
+
+async function archiverMailGED(mailId, societe) {
+  if (!mailId) { toast('❌ ID mail manquant'); return; }
+  toast('⏳ Archivage en cours...');
+  try {
+    var res = await fetch('/api/gmail-sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'archive_to_ged', mail_id: mailId, societe, doc_type: 'facture_recue' })
+    });
+    var data = await res.json();
+    toast(data.ok ? '✅ Mail archivé dans la GED' : '❌ ' + (data.error || 'Erreur'));
+  } catch(e) {
+    toast('❌ ' + e.message);
+  }
+}
+
 
 async function loadClotureEmises(mois) {
   var list = document.getElementById('cloture-emises-list');
