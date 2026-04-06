@@ -163,6 +163,7 @@
     <button class="gbtn" onclick="showOptim()"><span>⚖️</span> Optim. rémunération</button>
     <button class="gbtn" onclick="showApurement()"><span>🚨</span> Apurement dettes</button>
     <button class="gbtn" onclick="showMgmtFees()"><span>🏛️</span> Fact. GUIRAUD→LIVING</button>
+    <button class="gbtn" onclick="showCloture()"><span>📅</span> Clôture mensuelle</button>
     <button class="gbtn" onclick="showGED()"><span>📂</span> GED Documents</button>
     <button class="gbtn" onclick="showMail()" id="btn-mail"><span>📧</span> Mails</button>
     <button class="gbtn" id="btn-contentieux" onclick="showContentieux()"><span>⚖️</span> Contentieux</button>
@@ -1759,6 +1760,33 @@
 
     <!-- Log -->
     <div id="mf-log" style="font-size:12px;color:var(--t2);min-height:24px;margin-top:.5rem"></div>
+  </div>
+
+  <!-- CLÔTURE MENSUELLE -->
+  <div class="pv cnt" id="v-cloture">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem;flex-wrap:wrap;gap:8px">
+      <div>
+        <div style="font-size:20px;font-weight:600">📅 Clôture mensuelle</div>
+        <div style="font-size:12px;color:var(--t2);margin-top:2px">Relevés · Justificatifs · Transmission comptable</div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <select id="cloture-mois-sel" style="font-size:12px" onchange="loadCloture()">
+          <option value="2026-03" selected>Mars 2026</option>
+          <option value="2026-02">Février 2026</option>
+          <option value="2026-01">Janvier 2026</option>
+        </select>
+        <button class="btn btn-g btn-sm" onclick="loadCloture()">↺ Rafraîchir</button>
+      </div>
+    </div>
+
+    <!-- Résumé -->
+    <div id="cloture-summary" style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:1.5rem"></div>
+
+    <!-- Checklist par société -->
+    <div id="cloture-checklist" style="display:flex;flex-direction:column;gap:12px"></div>
+
+    <!-- Log -->
+    <div id="cloture-log" style="font-size:12px;color:var(--t2);margin-top:1rem;min-height:20px"></div>
   </div>
 
   <!-- GED — GESTION ÉLECTRONIQUE DE DOCUMENTS -->
@@ -3939,6 +3967,141 @@ function tvaRenseignerCollectee() {
 }
 // ─────────────────────────────────────────────────────────────────────────────
 
+
+async // ─── CLÔTURE MENSUELLE ────────────────────────────────────────────────────
+function showCloture() {
+  setViews('v-cloture');
+  document.getElementById('ptabs').style.display = 'none';
+  document.getElementById('tb-title').textContent = 'Clôture mensuelle';
+  document.getElementById('tb-sub').textContent = 'Relevés · Justificatifs · Transmission comptable';
+  loadCloture();
+}
+
+async function loadCloture() {
+  var sel = document.getElementById('cloture-mois-sel');
+  var mois = sel ? sel.value : '2026-03';
+  var summary = document.getElementById('cloture-summary');
+  var checklist = document.getElementById('cloture-checklist');
+  var log = document.getElementById('cloture-log');
+
+  if (summary) summary.innerHTML = '<div style="grid-column:1/-1;color:var(--t2);font-size:12px"><span class="spin"></span> Chargement de la checklist...</div>';
+  if (checklist) checklist.innerHTML = '';
+  if (log) log.textContent = '';
+
+  try {
+    var res = await fetch('/api/cloture-mensuelle?mois=' + mois + '&action=checklist');
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    var data = await res.json();
+    if (!data.ok) throw new Error(data.error);
+
+    var s = data.summary;
+    var moisLabel = data.moisLabel || mois;
+
+    // KPIs
+    if (summary) {
+      summary.innerHTML =
+        '<div class="kc" style="border-left:3px solid var(--grn)">' +
+          '<div class="kl">Sociétés prêtes</div>' +
+          '<div class="kv" style="color:var(--grn)">' + s.societesReady + '/' + s.societesTotal + '</div>' +
+          '<div class="ks">Dossiers complets</div>' +
+        '</div>' +
+        '<div class="kc" style="border-left:3px solid ' + (s.totalMissingDocs > 0 ? 'var(--red)' : 'var(--grn)') + '">' +
+          '<div class="kl">Relevés manuels manquants</div>' +
+          '<div class="kv" style="color:' + (s.totalMissingDocs > 0 ? 'var(--red)' : 'var(--grn)') + '">' + s.totalMissingDocs + '</div>' +
+          '<div class="ks">CA / BPOC à uploader</div>' +
+        '</div>' +
+        '<div class="kc" style="border-left:3px solid ' + (s.totalMissingAttachments > 0 ? 'var(--amb)' : 'var(--grn)') + '">' +
+          '<div class="kl">Justificatifs manquants</div>' +
+          '<div class="kv" style="color:' + (s.totalMissingAttachments > 0 ? 'var(--amb)' : 'var(--grn)') + '">' + s.totalMissingAttachments + '</div>' +
+          '<div class="ks">Transactions sans pièce</div>' +
+        '</div>' +
+        '<div class="kc" style="border-left:3px solid ' + (s.allReady ? 'var(--grn)' : 'var(--amb)') + '">' +
+          '<div class="kl">Statut global</div>' +
+          '<div class="kv" style="font-size:14px;color:' + (s.allReady ? 'var(--grn)' : 'var(--amb)') + '">' + (s.allReady ? '✅ Prêt à envoyer' : '⏳ En cours') + '</div>' +
+          '<div class="ks">' + moisLabel + '</div>' +
+        '</div>';
+    }
+
+    // Checklist par société
+    if (checklist) {
+      checklist.innerHTML = (data.checklist || []).map(function(acc) {
+        var tx = acc.txCount || {};
+        var hasMissingDocs = acc.missingDocs && acc.missingDocs.length > 0;
+        var hasMissingAtt = tx.missing_attachments > 0;
+        var statusColor = (hasMissingDocs || hasMissingAtt) ? 'var(--amb)' : 'var(--grn)';
+        var statusIcon = (hasMissingDocs || hasMissingAtt) ? '⚠️' : '✅';
+
+        var docsHtml = '';
+        // Relevé Qonto
+        docsHtml += '<div style="display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:0.5px solid var(--b1)">' +
+          '<span style="color:var(--grn)">✅</span>' +
+          '<span style="font-size:12px">Relevé Qonto</span>' +
+          (acc.statements && acc.statements.length > 0
+            ? '<a href="' + acc.statements[0].url + '" target="_blank" style="font-size:11px;color:var(--acc);margin-left:auto">↗ Télécharger</a>'
+            : '<span style="font-size:11px;color:var(--t2);margin-left:auto">Généré en début de mois</span>') +
+        '</div>';
+
+        // Relevés manuels requis
+        (acc.extraDocs || []).forEach(function(doc) {
+          var uploaded = acc.gedDocs && acc.gedDocs.some(function(d) {
+            return (d.nom || '').toLowerCase().includes(doc.toLowerCase()) ||
+                   (d.type_doc || '').toLowerCase().includes(doc.toLowerCase());
+          });
+          docsHtml += '<div style="display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:0.5px solid var(--b1)">' +
+            '<span style="color:' + (uploaded ? 'var(--grn)' : 'var(--red)') + '">' + (uploaded ? '✅' : '❌') + '</span>' +
+            '<span style="font-size:12px">Relevé ' + doc + '</span>' +
+            '<button onclick="clotureUploadDoc(\'' + acc.companyId + '\',\'' + doc + '\',\'' + mois + '\')" style="margin-left:auto;font-size:11px;padding:2px 8px;border:1px solid var(--b1);border-radius:4px;background:none;cursor:pointer;color:var(--t1)">' +
+            (uploaded ? '↺ Remplacer' : '⬆ Uploader') + '</button>' +
+          '</div>';
+        });
+
+        // Justificatifs Qonto
+        if (tx.total !== undefined) {
+          docsHtml += '<div style="display:flex;align-items:center;gap:8px;padding:4px 0">' +
+            '<span style="color:' + (hasMissingAtt ? 'var(--amb)' : 'var(--grn)') + '">' + (hasMissingAtt ? '⚠️' : '✅') + '</span>' +
+            '<span style="font-size:12px">Justificatifs Qonto (' + tx.total + ' tx)</span>' +
+            (hasMissingAtt
+              ? '<button onclick="showMissingAttachments(\'' + acc.companyId + '\',\'' + mois + '\')" style="margin-left:auto;font-size:11px;padding:2px 8px;border:1px solid var(--amb);border-radius:4px;background:none;cursor:pointer;color:var(--amb)">' + tx.missing_attachments + ' manquant(s)</button>'
+              : '<span style="font-size:11px;color:var(--t2);margin-left:auto">Complet</span>') +
+          '</div>';
+        }
+
+        return '<div class="card" style="border-left:3px solid ' + statusColor + ';padding:14px">' +
+          '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">' +
+            '<div style="font-weight:600;font-size:14px">' + statusIcon + ' ' + acc.label + '</div>' +
+            (tx.total !== undefined ? '<span style="font-size:11px;color:var(--t2)">' + tx.credit + ' entrées · ' + tx.debit + ' sorties</span>' : '') +
+          '</div>' +
+          '<div>' + docsHtml + '</div>' +
+        '</div>';
+      }).join('');
+    }
+
+    if (log) log.textContent = 'Dernière mise à jour : ' + new Date().toLocaleTimeString('fr-FR');
+
+  } catch(e) {
+    if (summary) summary.innerHTML = '<div style="grid-column:1/-1;color:var(--red);padding:1rem">❌ Erreur : ' + e.message + '</div>';
+    if (log) log.textContent = 'Erreur : ' + e.message;
+  }
+}
+
+async function showMissingAttachments(companyId, mois) {
+  var accMap = { 'sarl-guiraud': 'GUIRAUD', 'sas-living': 'LIVING', 'meulette': 'MEULETTE', 'real-gains': 'REAL_GAINS', 'spv-monikaza': 'MONIKAZA' };
+  var account = accMap[companyId] || companyId.toUpperCase();
+  window.open('/api/cloture-mensuelle?mois=' + mois + '&action=missing&account=' + account, '_blank');
+}
+
+function clotureUploadDoc(companyId, typeDoc, mois) {
+  // Redirige vers la GED avec les bons paramètres pré-remplis
+  showGED();
+  setTimeout(function() {
+    var compSel = document.getElementById('ged-upload-company');
+    if (compSel) compSel.value = companyId;
+    var catSel = document.getElementById('ged-upload-category');
+    if (catSel) catSel.value = 'releve_bancaire';
+    toast('Uploadez votre relevé ' + typeDoc + ' pour ' + companyId);
+  }, 500);
+}
+// ─────────────────────────────────────────────────────────────────────────────
 
 async function showMgmtFees() {
   setViews('v-mgmtfees');
