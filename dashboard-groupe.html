@@ -10906,7 +10906,7 @@ async function loadTodos(containerId,companyId){
         +'</div>'
       +'</div>'
       +'<div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0">'
-        +'<select onchange="updateTodoStatus(\''+t.id+'\',\''+(t.status||'a_faire')+'\',\''+containerId+'\',\''+companyId+'\')" style="font-size:10px;padding:3px 6px;border-radius:6px;border:1px solid '+statusColor[st]+';color:'+statusColor[st]+';background:var(--s2);cursor:pointer">'
+        +'<select onchange="updateTodoStatus(\''+t.id+'\',this.value,\''+containerId+'\',\''+companyId+'\')" style="font-size:10px;padding:3px 6px;border-radius:6px;border:1px solid '+statusColor[st]+';color:'+statusColor[st]+';background:var(--s2);cursor:pointer">'
           +Object.entries(statusLabel).map(([v,l])=>'<option value="'+v+'"'+(st===v?' selected':'')+'>'+l+'</option>').join('')
         +'</select>'
         +'<div style="width:8px;height:8px;border-radius:50%;background:'+prioColor[pr]+'" title="Priorité '+pr+'"></div>'
