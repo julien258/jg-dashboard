@@ -134,7 +134,7 @@ export default async (req, context) => {
         ok: true, account: acc.label, companyId: acc.companyId,
         transactions,
         missing_attachments: transactions.filter(t => t.side === 'debit' && !t.has_attachments).length,
-        meta: txData.meta || {}
+        meta: {}
       });
     }
 
