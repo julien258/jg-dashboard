@@ -3826,6 +3826,14 @@ async function loadQonto() {
     var tresoEl = document.getElementById('grp-treso-total');
     if (tresoEl && totalEur) tresoEl.textContent = Math.round(totalEur).toLocaleString('fr-FR') + ' €';
     window._qontoData = data;
+    // Mettre à jour le KPI tréso consolidée avec le total Qonto
+    const tresoEl = document.getElementById('grp-treso-total');
+    if(tresoEl && totalEur !== undefined) {
+      tresoEl.textContent = Math.round(totalEur).toLocaleString('fr-FR') + ' €';
+      tresoEl.style.color = totalEur >= 0 ? 'var(--grn)' : 'var(--red)';
+      const subEl = tresoEl.closest('.kc')?.querySelector('.ks');
+      if(subEl) subEl.textContent = 'Soldes Qonto temps réel';
+    }
   } catch(e) {
     if (grid) grid.innerHTML = '<div style="grid-column:1/-1;color:var(--red);font-size:12px;padding:.5rem">❌ Qonto: ' + (e.message || 'Erreur') + '</div>';
   }
@@ -10540,38 +10548,8 @@ async function loadAlertes(){
 }
 
 async function loadGrpKpis(){
+  const safeQ=async(q)=>{try{const r=await q;return r.data||[];}catch(e){return[];}};
   try{
-    // Trésorerie : soldes Qonto temps réel (via _qontoData si dispo) + Supabase fallback
-    let tresoTotale = 0;
-    if(window._qontoData?.totalEur !== undefined){
-      tresoTotale = window._qontoData.totalEur;
-    } else {
-      const{data:comptes}=await sb.from('bank_accounts_pro').select('company_id,type_compte,solde').eq('source','qonto');
-      tresoTotale=(comptes||[]).reduce((s,c)=>s+Number(c.solde||0),0);
-    }
-
-    // Factures émises impayées (receivables Pennylane)
-    const{data:impayes}=await sb.from('receivables').select('amount_ttc,amount').in('status',['envoyee','en_attente']).limit(50);
-    const totalImpayes=(impayes||[]).reduce((s,r)=>s+Number(r.amount_ttc||r.amount||0),0);
-
-    // Dettes critiques ce mois (urgency_level >= 2)
-    const{data:dettesMois}=await sb.from('debts').select('monthly_amount').eq('status','en_cours').gte('urgency_level',2).neq('monthly_amount',0);
-    const totalDettesMois=(dettesMois||[]).reduce((s,d)=>s+Number(d.monthly_amount||0),0);
-
-    // Position nette = Tréso + A encaisser - A payer critique
-    const positionNette = tresoTotale + totalImpayes - totalDettesMois;
-
-    const elT=document.getElementById('grp-treso-total');
-    if(elT){
-      elT.textContent=Math.round(positionNette).toLocaleString('fr-FR')+' €';
-      elT.style.color = positionNette >= 0 ? 'var(--grn)' : 'var(--red)';
-      // Tooltip avec le détail
-      elT.title = `Qonto: ${Math.round(tresoTotale).toLocaleString('fr-FR')}€ | À encaisser: +${Math.round(totalImpayes).toLocaleString('fr-FR')}€ | Dettes critiques: -${Math.round(totalDettesMois).toLocaleString('fr-FR')}€`;
-    }
-    // Mettre à jour le sous-titre
-    const elS = elT?.closest('.kc')?.querySelector('.ks');
-    if(elS) elS.textContent = 'Qonto + Encours - Dettes critiques';
-
     // CC inter-sociétés
     const{data:cc}=await sb.from('interco_balances').select('*');
     const ccNet=(cc||[]).reduce((s,c)=>s+Number(c.amount||c.balance||0),0);
