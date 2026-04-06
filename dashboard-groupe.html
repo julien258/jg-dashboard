@@ -3823,15 +3823,13 @@ async function loadQonto() {
     }
     if (grid) grid.innerHTML = html || '<div style="color:var(--t2)">Aucun compte</div>';
     if (totalEl) { totalEl.textContent = Math.round(totalEur).toLocaleString('fr-FR') + ' €'; totalEl.style.color = totalEur >= 0 ? 'var(--grn)' : 'var(--red)'; }
-    var tresoEl = document.getElementById('grp-treso-total');
-    if (tresoEl && totalEur) tresoEl.textContent = Math.round(totalEur).toLocaleString('fr-FR') + ' €';
     window._qontoData = data;
     // Mettre à jour le KPI tréso consolidée avec le total Qonto
-    const tresoEl = document.getElementById('grp-treso-total');
+    var tresoEl = document.getElementById('grp-treso-total');
     if(tresoEl && totalEur !== undefined) {
       tresoEl.textContent = Math.round(totalEur).toLocaleString('fr-FR') + ' €';
       tresoEl.style.color = totalEur >= 0 ? 'var(--grn)' : 'var(--red)';
-      const subEl = tresoEl.closest('.kc')?.querySelector('.ks');
+      var subEl = tresoEl.closest('.kc')?.querySelector('.ks');
       if(subEl) subEl.textContent = 'Soldes Qonto temps réel';
     }
   } catch(e) {
