@@ -10541,11 +10541,36 @@ async function loadAlertes(){
 
 async function loadGrpKpis(){
   try{
-    // Trésorerie depuis bank_accounts_pro
-    const{data:comptes}=await sb.from('bank_accounts_pro').select('company_id,type_compte,solde');
-    const tresoTotale=(comptes||[]).reduce((s,c)=>c.type_compte==='pret'?s-Number(c.solde||0):s+Number(c.solde||0),0);
+    // Trésorerie : soldes Qonto temps réel (via _qontoData si dispo) + Supabase fallback
+    let tresoTotale = 0;
+    if(window._qontoData?.totalEur !== undefined){
+      tresoTotale = window._qontoData.totalEur;
+    } else {
+      const{data:comptes}=await sb.from('bank_accounts_pro').select('company_id,type_compte,solde').eq('source','qonto');
+      tresoTotale=(comptes||[]).reduce((s,c)=>s+Number(c.solde||0),0);
+    }
+
+    // Factures émises impayées (receivables Pennylane)
+    const{data:impayes}=await sb.from('receivables').select('amount_ttc,amount').in('status',['envoyee','en_attente']).limit(50);
+    const totalImpayes=(impayes||[]).reduce((s,r)=>s+Number(r.amount_ttc||r.amount||0),0);
+
+    // Dettes critiques ce mois (urgency_level >= 2)
+    const{data:dettesMois}=await sb.from('debts').select('monthly_amount').eq('status','en_cours').gte('urgency_level',2).neq('monthly_amount',0);
+    const totalDettesMois=(dettesMois||[]).reduce((s,d)=>s+Number(d.monthly_amount||0),0);
+
+    // Position nette = Tréso + A encaisser - A payer critique
+    const positionNette = tresoTotale + totalImpayes - totalDettesMois;
+
     const elT=document.getElementById('grp-treso-total');
-    if(elT)elT.textContent=Math.round(tresoTotale).toLocaleString('fr-FR')+' €';
+    if(elT){
+      elT.textContent=Math.round(positionNette).toLocaleString('fr-FR')+' €';
+      elT.style.color = positionNette >= 0 ? 'var(--grn)' : 'var(--red)';
+      // Tooltip avec le détail
+      elT.title = `Qonto: ${Math.round(tresoTotale).toLocaleString('fr-FR')}€ | À encaisser: +${Math.round(totalImpayes).toLocaleString('fr-FR')}€ | Dettes critiques: -${Math.round(totalDettesMois).toLocaleString('fr-FR')}€`;
+    }
+    // Mettre à jour le sous-titre
+    const elS = elT?.closest('.kc')?.querySelector('.ks');
+    if(elS) elS.textContent = 'Qonto + Encours - Dettes critiques';
 
     // CC inter-sociétés
     const{data:cc}=await sb.from('interco_balances').select('*');
