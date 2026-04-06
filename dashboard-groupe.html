@@ -3787,6 +3787,10 @@ async function syncQontoAccounts(silent = false) {
     if (!silent) {
       toast(data.message || 'Sync Qonto terminée');
       await loadQonto();
+      await loadGrpKpis(); // Mettre à jour la tréso consolidée
+    } else {
+      // Silencieux : recharger les KPIs en arrière-plan
+      loadGrpKpis();
     }
     return data;
   } catch(e) {
