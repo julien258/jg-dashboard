@@ -1,7 +1,7 @@
 // qonto-sync.js — Proxy API Qonto multi-comptes
 
 const QONTO_BASE = 'https://thirdparty.qonto.com/v2';
-const TIMEOUT_MS = 8000;
+const TIMEOUT_MS = 5000;
 
 const ACCOUNTS = [
   { envKey: 'QONTO_GUIRAUD',    label: 'SARL GUIRAUD',  companyId: 'sarl-guiraud' },
