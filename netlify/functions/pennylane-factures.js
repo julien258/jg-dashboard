@@ -35,13 +35,16 @@ export default async (req) => {
     if (!token) return { ...soc, factures: [], error: 'Token manquant', total: 0 };
 
     try {
-      // Récupérer les factures du mois — filtre par date
+      // Pennylane ne supporte pas de filtre de date direct — on récupère les 100 dernières et on filtre
       const data = await fetchPennylane(token,
-        `/customer_invoices?per_page=100&sort=-date&filter[date_from]=${dateFrom}&filter[date_to]=${dateTo}`
+        `/customer_invoices?per_page=100&sort=-date`
       );
       const liste = data.invoices || data.customer_invoices || data.items || (Array.isArray(data) ? data : []);
 
-      const factures = liste.map(f => ({
+      // Filtrer par mois côté JS
+      const factures = liste
+        .filter(f => (f.date || f.invoice_date || '').substring(0, 7) === mois)
+        .map(f => ({
         id: f.id,
         numero: f.invoice_number || f.label || f.id,
         client: f.customer?.name || f.customer_name || f.billing_name || '—',
