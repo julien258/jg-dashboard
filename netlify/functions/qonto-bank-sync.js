@@ -86,6 +86,8 @@ async function sbFetch(path, opts = {}) {
 
 // Upsert/suppression générique pour une liste de comptes
 async function syncAccounts({ companyId, source, accounts, dryRun }) {
+  // Sécurité : si aucun compte reçu (erreur API probable), ne pas supprimer
+  if (accounts.length === 0) return { created: 0, updated: 0, deleted: 0 };
   // accounts = [{ iban, bic, balance, name, currency, external_ref }]
   const existing = await sbFetch(
     `/bank_accounts_pro?company_id=eq.${companyId}&source=eq.${source}&select=id,iban,external_ref`
