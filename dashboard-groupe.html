@@ -3900,7 +3900,7 @@ async function loadClotureRecues(mois) {
     list.innerHTML = '<div style="text-align:center;padding:1rem;color:var(--t2);font-size:12px"><span class="spin"></span> Chargement ' + co.label + ' (' + (ci+1) + '/' + companies.length + ')...</div>';
     try {
       // Pas d'IBAN passé — la fonction récupère le compte actif via /organization
-      var url = '/api/qonto-sync?action=transactions&account=' + co.account + '&per_page=50';
+      var url = '/api/qonto-transactions?account=' + co.account + '&per_page=50';
       var res = await fetch(url);
       if (!res.ok) throw new Error('HTTP ' + res.status);
       var data = await res.json();
