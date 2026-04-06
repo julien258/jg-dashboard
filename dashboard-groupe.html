@@ -3885,23 +3885,33 @@ async function loadClotureRecues(mois) {
     { id: 'spv-monikaza', label: 'Monikaza SPV',  account: 'MONIKAZA', societe: 'monikaza' },
   ];
 
-  // Appels séquentiels pour éviter le rate limiting Qonto
+  // Récupérer les slugs depuis _qontoData (déjà chargé au démarrage)
+  var qData = window._qontoData || {};
+  var slugMap = {};
+  (qData.accounts || []).forEach(function(acc) {
+    var firstSlug = (acc.bank_accounts || [])[0]?.slug || '';
+    slugMap[acc.companyId] = firstSlug;
+  });
+
+  // Appels séquentiels avec slug direct (évite l'appel /organization)
   var results = [];
   for (var ci = 0; ci < companies.length; ci++) {
     var co = companies[ci];
+    list.innerHTML = '<div style="text-align:center;padding:1rem;color:var(--t2);font-size:12px"><span class="spin"></span> Chargement ' + co.label + ' (' + (ci+1) + '/' + companies.length + ')...</div>';
     try {
-      var res = await fetch('/api/qonto-sync?action=transactions&account=' + co.account + '&per_page=50&status=completed');
+      var slug = slugMap[co.id] || '';
+      var url = '/api/qonto-sync?action=transactions&account=' + co.account + '&per_page=50';
+      if (slug) url += '&iban=' + slug; // passer le slug directement évite 1 appel API
+      var res = await fetch(url);
       if (!res.ok) throw new Error('HTTP ' + res.status);
       var data = await res.json();
       var txs = (data.transactions || []).filter(function(t) {
         return (t.settled_at || t.emitted_at || '').substring(0, 7) === mois && t.side === 'debit';
       });
-      results.push({ status: 'fulfilled', value: { ...co, transactions: txs, error: null } });
+      results.push({ status: 'fulfilled', value: Object.assign({}, co, { transactions: txs, error: null }) });
     } catch(e) {
-      results.push({ status: 'fulfilled', value: { ...co, transactions: [], error: e.message } });
+      results.push({ status: 'fulfilled', value: Object.assign({}, co, { transactions: [], error: e.message }) });
     }
-    // Mise à jour progressive — afficher au fur et à mesure
-    if (ci === 0) list.innerHTML = '<div style="text-align:center;padding:1rem;color:var(--t2);font-size:12px"><span class="spin"></span> ' + (ci+1) + '/' + companies.length + ' comptes chargés...</div>';
   }
 
   var html = '';
