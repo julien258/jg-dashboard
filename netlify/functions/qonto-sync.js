@@ -99,18 +99,30 @@ export default async (req, context) => {
       const perPage = url.searchParams.get('per_page') || '30';
       const status = url.searchParams.get('status') || 'completed';
 
-      // Utiliser l'IBAN fourni directement (évite l'appel /organization)
-      let slug = url.searchParams.get('iban');
-      if (!slug) {
-        const orgData = await qontoFetch(creds.login, creds.secret, '/organization');
-        slug = orgData.organization?.bank_accounts?.[0]?.iban; // IBAN, pas slug
-        if (!slug) return Response.json({ ok: false, error: 'Aucun IBAN trouvé' }, { status: 404 });
+      // Récupérer TOUS les IBANs de la société (pas juste le premier)
+      const orgData = await qontoFetch(creds.login, creds.secret, '/organization');
+      const bankAccounts = orgData.organization?.bank_accounts || [];
+      if (!bankAccounts.length) return Response.json({ ok: false, error: 'Aucun compte bancaire' }, { status: 404 });
+
+      // Fetcher les transactions de chaque compte et merger
+      const allTxRaw = [];
+      for (const ba of bankAccounts) {
+        if (!ba.iban) continue;
+        try {
+          const params = new URLSearchParams({ iban: ba.iban, status, current_page: 1, per_page: perPage, sort_by: 'settled_at:desc' });
+          const txData = await qontoFetch(creds.login, creds.secret, `/transactions?${params}`);
+          allTxRaw.push(...(txData.transactions || []));
+        } catch(e) {
+          // continuer si un compte échoue
+        }
       }
 
-      const params = new URLSearchParams({ iban: slug, status, current_page: 1, per_page: perPage, sort_by: 'settled_at:desc' });
-      const txData = await qontoFetch(creds.login, creds.secret, `/transactions?${params}`);
-
-      const transactions = (txData.transactions || []).map(t => ({
+      // Trier par date décroissante et dédupliquer
+      const seen = new Set();
+      const transactions = allTxRaw
+        .filter(t => { if (seen.has(t.transaction_id)) return false; seen.add(t.transaction_id); return true; })
+        .sort((a, b) => new Date(b.settled_at || b.emitted_at) - new Date(a.settled_at || a.emitted_at))
+        .map(t => ({
         id: t.transaction_id,
         amount: t.amount,
         currency: t.currency,
