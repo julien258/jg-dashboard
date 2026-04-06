@@ -3962,47 +3962,73 @@ async function loadClotureEmises(mois) {
   list.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--t2)"><span class="spin"></span> Chargement des factures émises...</div>';
 
   try {
-    var res = await fetch('/api/pennylane-sync');
+    var res = await fetch('/api/pennylane-factures?mois=' + mois);
     var data = await res.json();
     if (!data.ok) throw new Error(data.error);
 
-    var moisLabel = mois === '2026-03' ? 'mars 2026' : mois;
+    var moisLabel = mois === '2026-03' ? 'mars 2026' : mois === '2026-02' ? 'février 2026' : mois === '2026-01' ? 'janvier 2026' : mois;
     var html = '';
+    var totalGeneral = 0;
 
     (data.societes || []).forEach(function(soc) {
-      var factures = (soc.factures || []).filter(function(f) {
-        return (f.date || f.invoice_date || '').substring(0, 7) === mois;
-      });
-      var total = factures.reduce(function(s, f) { return s + Number(f.amount || f.total || 0); }, 0);
-      var label = soc.key === 'living' ? 'SAS LIVING' : soc.key === 'sarl' ? 'SARL GUIRAUD' : soc.key === 'meulette' ? 'La Meulette' : soc.key;
+      var factures = soc.factures || [];
+      var total = soc.total_ttc || 0;
+      totalGeneral += total;
+      var hasFact = factures.length > 0;
+      var statusColor = hasFact ? 'var(--grn)' : 'var(--b1)';
+      var statusIcon = hasFact ? '✅' : '—';
 
-      html += '<div class="card" style="border-left:3px solid ' + (factures.length > 0 ? 'var(--grn)' : 'var(--b1)') + ';padding:14px">';
-      html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:' + (factures.length > 0 ? '10px' : '0') + '">';
-      html += '<span style="font-weight:600;font-size:14px">' + (factures.length > 0 ? '✅' : '—') + ' ' + label + '</span>';
-      html += '<span style="font-size:12px;color:var(--t2)">' + factures.length + ' facture(s) · ' + Math.round(total).toLocaleString('fr-FR') + ' €</span>';
+      html += '<div class="card" style="border-left:3px solid ' + statusColor + ';padding:14px">';
+      html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:' + (hasFact ? '10px' : '0') + '">';
+      html += '<span style="font-weight:600;font-size:14px">' + statusIcon + ' ' + soc.label + '</span>';
+      html += '<span style="font-size:12px;color:var(--t2)">' + factures.length + ' facture(s) · ';
+      html += Math.round(total).toLocaleString('fr-FR') + ' € TTC</span>';
       html += '</div>';
 
-      if (factures.length > 0) {
-        factures.forEach(function(f) {
-          var amt = Number(f.amount || f.total || 0).toFixed(2).replace('.', ',');
-          var num = f.invoice_number || f.number || '—';
-          var client = f.customer_name || f.client || '—';
-          var date = (f.date || f.invoice_date || '').substring(0, 10);
-          html += '<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-top:1px solid var(--b1);font-size:12px">';
-          html += '<span style="color:var(--t2)">' + date + '</span>';
-          html += '<span style="font-weight:500">' + num + '</span>';
-          html += '<span style="color:var(--t2);flex:1">' + client + '</span>';
-          html += '<span style="font-weight:600;color:var(--grn)">+' + amt + ' €</span>';
-          if (f.url || f.pdf_url) html += '<a href="' + (f.url || f.pdf_url) + '" target="_blank" style="font-size:11px;color:var(--acc)">↗ PDF</a>';
-          html += '</div>';
-        });
-      } else {
+      if (soc.error) {
+        html += '<div style="font-size:12px;color:var(--red)">❌ ' + soc.error + '</div>';
+      } else if (!hasFact) {
         html += '<div style="font-size:12px;color:var(--t2)">Aucune facture émise en ' + moisLabel + '</div>';
+      } else {
+        html += '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">';
+        html += '<thead><tr style="background:var(--bg2)">';
+        html += '<th style="padding:7px 10px;text-align:left;font-weight:500;color:var(--t2)">N°</th>';
+        html += '<th style="padding:7px 8px;text-align:left;font-weight:500;color:var(--t2)">Client</th>';
+        html += '<th style="padding:7px 8px;text-align:left;font-weight:500;color:var(--t2)">Date</th>';
+        html += '<th style="padding:7px 8px;text-align:right;font-weight:500;color:var(--t2)">HT</th>';
+        html += '<th style="padding:7px 8px;text-align:right;font-weight:500;color:var(--t2)">TTC</th>';
+        html += '<th style="padding:7px 8px;text-align:center;font-weight:500;color:var(--t2)">Statut</th>';
+        html += '<th style="padding:7px 8px"></th>';
+        html += '</tr></thead><tbody>';
+
+        factures.forEach(function(f) {
+          var ht = Number(f.montant_ht || 0).toFixed(2).replace('.', ',');
+          var ttc = Number(f.montant_ttc || 0).toFixed(2).replace('.', ',');
+          var statutColor = f.paye ? 'var(--grn)' : 'var(--amb)';
+          var statutLabel = f.paye ? 'Payée' : 'En attente';
+          html += '<tr style="border-top:1px solid var(--b1)">';
+          html += '<td style="padding:7px 10px;font-weight:500">' + (f.numero || '—') + '</td>';
+          html += '<td style="padding:7px 8px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (f.client || '—') + '</td>';
+          html += '<td style="padding:7px 8px;color:var(--t2)">' + (f.date || '—').substring(0, 10) + '</td>';
+          html += '<td style="padding:7px 8px;text-align:right">' + ht + ' €</td>';
+          html += '<td style="padding:7px 8px;text-align:right;font-weight:600;color:var(--grn)">+' + ttc + ' €</td>';
+          html += '<td style="padding:7px 8px;text-align:center"><span style="font-size:11px;color:' + statutColor + '">' + statutLabel + '</span></td>';
+          html += '<td style="padding:7px 8px">';
+          html += '<a href="' + f.pennylane_url + '" target="_blank" style="font-size:11px;color:var(--acc)">↗ Pennylane</a>';
+          if (f.pdf_url) html += ' <a href="' + f.pdf_url + '" target="_blank" style="font-size:11px;color:var(--t2)">PDF</a>';
+          html += '</td></tr>';
+        });
+        html += '</tbody></table></div>';
       }
       html += '</div>';
     });
 
-    list.innerHTML = html || '<div style="padding:2rem;text-align:center;color:var(--t2)">Aucune donnée Pennylane disponible</div>';
+    // Total général
+    if (totalGeneral > 0) {
+      html += '<div style="text-align:right;padding:10px 4px;font-size:14px;font-weight:600;color:var(--grn)">Total groupe : +' + Math.round(totalGeneral).toLocaleString('fr-FR') + ' € TTC</div>';
+    }
+
+    list.innerHTML = html || '<div style="padding:2rem;text-align:center;color:var(--t2)">Aucune donnée disponible</div>';
   } catch(e) {
     list.innerHTML = '<div style="color:var(--red);padding:1rem">❌ ' + e.message + '</div>';
   }
