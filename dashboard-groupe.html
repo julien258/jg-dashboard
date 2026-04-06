@@ -5973,7 +5973,7 @@ async function loadApurement(){
   const safeQ=async(q)=>{try{const r=await q;return r.data||[];}catch(e){return[];}};
   const[allPayables,allDebts,allForecasts,allReceivables]=await Promise.all([
     safeQ(sb.from('payables').select('*').not('fournisseur','is',null).not('amount_ttc','is',null).in('company_id',['sas-living','sarl-guiraud','meulette','real-gains','spv-monikaza','perso']).order('due_date',{ascending:true})),
-    safeQ(sb.from('debts').select('*').in('status',['en_cours']).in('company_id',['sas-living','sarl-guiraud','meulette','real-gains','spv-monikaza','perso']).order('urgency_level',{ascending:false})),
+    safeQ(sb.from('debts').select('*').in('status',['en_cours']).in('company_id',['sas-living','sarl-guiraud','meulette','real-gains','spv-monikaza','perso'])),
     safeQ(sb.from('cash_forecast').select('*')),
     safeQ(sb.from('receivables').select('*').in('status',['envoyee','en_attente']))
   ]);
