@@ -9,11 +9,14 @@ const TIMEOUT_MS = 10000;
 
 const ACCOUNTS = [
   { envKey: 'QONTO_GUIRAUD',    companyId: 'sarl-guiraud',  label: 'SARL GUIRAUD',
-    extraDocs: ['CA Aquitaine'] },
+    extraDocs: [{ label: 'CA Aquitaine', keys: ['credit-agricole', 'cr-dit-agricole', 'ca-aquitaine', 'credit agricole'] }] },
   { envKey: 'QONTO_LIVING',     companyId: 'sas-living',    label: 'SAS LIVING',
     extraDocs: [] },
   { envKey: 'QONTO_MEULETTE',   companyId: 'meulette',      label: 'La Meulette',
-    extraDocs: ['CA Aquitaine', 'BPOC'] },
+    extraDocs: [
+      { label: 'CA Aquitaine', keys: ['credit-agricole', 'cr-dit-agricole', 'ca-aquitaine', 'credit agricole'] },
+      { label: 'Banque Populaire', keys: ['banque-populaire', 'banque populaire', 'bpoc', 'bp-occ'] },
+    ] },
   { envKey: 'QONTO_REAL_GAINS', companyId: 'real-gains',    label: 'Real Gains',
     extraDocs: [] },
   { envKey: 'QONTO_MONIKAZA',   companyId: 'spv-monikaza',  label: 'Monikaza SPV',
@@ -173,29 +176,46 @@ async function getTransactionCount(login, secret, mois) {
 // Vérifie les documents uploadés dans la GED pour ce mois
 async function getGedDocuments(companyId, mois) {
   try {
-    // Calculer début et fin du mois
+    // Fenêtre élargie : du 1er du mois au 15 du mois suivant
+    // (les relevés arrivent souvent début du mois suivant)
     const dateFrom = mois + '-01';
     const year = parseInt(mois.split('-')[0]);
     const month = parseInt(mois.split('-')[1]);
     const nextMonth = month === 12 ? '01' : String(month + 1).padStart(2, '0');
     const nextYear = month === 12 ? year + 1 : year;
-    const dateTo = `${nextYear}-${nextMonth}-01`;
+    const dateTo = `${nextYear}-${nextMonth}-15`;
 
-    // Chercher par doc_date OU par nom de fichier contenant le mois
+    // Récupérer tous les relevés de cette société (doc_type=releve)
     const data = await sbFetch(
-      `/ged_documents?company_id=eq.${companyId}&or=(doc_date.gte.${dateFrom},doc_date.lt.${dateTo})&select=id,nom,file_name,doc_type,doc_date,uploaded_at`
+      `/ged_documents?company_id=eq.${companyId}&doc_type=eq.releve&select=id,file_name,doc_type,doc_date,created_at`
     );
-    return data || [];
+
+    // Filtrer : doc_date dans la fenêtre OU nom de fichier contenant le mois
+    const moisNoms = {
+      '01': ['janvier', 'jan'],
+      '02': ['fevrier', 'fev', 'feb'],
+      '03': ['mars', 'mar'],
+      '04': ['avril', 'avr', 'apr'],
+      '05': ['mai', 'may'],
+      '06': ['juin', 'jun'],
+      '07': ['juillet', 'jul'],
+      '08': ['aout', 'aug'],
+      '09': ['septembre', 'sep'],
+      '10': ['octobre', 'oct'],
+      '11': ['novembre', 'nov'],
+      '12': ['decembre', 'dec'],
+    };
+    const moisKeys = moisNoms[String(month).padStart(2, '0')] || [];
+    const moisStr = mois.replace('-', '-'); // ex: 2026-03
+
+    return (data || []).filter(d => {
+      const fname = (d.file_name || '').toLowerCase();
+      const dateOk = d.doc_date && d.doc_date >= dateFrom && d.doc_date <= dateTo;
+      const nameOk = fname.includes(moisStr) || moisKeys.some(k => fname.includes(k));
+      return dateOk || nameOk;
+    });
   } catch(e) {
-    // Fallback : essayer sans filtre de date (cherche les relevés récents)
-    try {
-      const data = await sbFetch(
-        `/ged_documents?company_id=eq.${companyId}&doc_type=eq.releve_bancaire&order=created_at.desc&limit=10&select=id,nom,file_name,doc_type,doc_date,uploaded_at`
-      );
-      return data || [];
-    } catch(e2) {
-      return [];
-    }
+    return [];
   }
 }
 
@@ -222,12 +242,13 @@ export default async (req) => {
         ]);
 
         const gedDocsData = gedDocs.status === 'fulfilled' ? gedDocs.value : [];
-        const gedTypes = gedDocsData.map(d => d.type_doc || d.nom || '');
+        const gedFileNames = gedDocsData.map(d => (d.file_name || '').toLowerCase());
 
         // Vérifie quels documents manuels manquent encore
-        const missingDocs = acc.extraDocs.filter(doc =>
-          !gedTypes.some(t => t.toLowerCase().includes(doc.toLowerCase()))
-        );
+        const missingDocs = acc.extraDocs.filter(doc => {
+          const keys = doc.keys || [doc.toLowerCase()];
+          return !gedFileNames.some(fname => keys.some(k => fname.includes(k)));
+        }).map(doc => doc.label || doc);
 
         return {
           ...acc,

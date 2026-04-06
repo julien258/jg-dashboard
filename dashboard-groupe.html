@@ -4043,16 +4043,17 @@ async function loadCloture() {
 
         // Relevés manuels requis
         (acc.extraDocs || []).forEach(function(doc) {
+          var docLabel = typeof doc === 'object' ? doc.label : doc;
+          var docKeys = typeof doc === 'object' ? doc.keys : [doc.toLowerCase()];
           var uploaded = acc.gedDocs && acc.gedDocs.some(function(d) {
             var fname = (d.file_name || d.nom || '').toLowerCase();
-            var dtype = (d.doc_type || d.type_doc || '').toLowerCase();
-            var docL = doc.toLowerCase();
-            return fname.includes(docL) || dtype.includes(docL) ||
-                   fname.includes('releve') || dtype.includes('releve_bancaire');
+            var dtype = (d.doc_type || '').toLowerCase();
+            return docKeys.some(function(k) { return fname.includes(k); }) ||
+                   dtype === 'releve';
           });
           docsHtml += '<div style="display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:0.5px solid var(--b1)">' +
             '<span style="color:' + (uploaded ? 'var(--grn)' : 'var(--red)') + '">' + (uploaded ? '✅' : '❌') + '</span>' +
-            '<span style="font-size:12px">Relevé ' + doc + '</span>' +
+            '<span style="font-size:12px">Relevé ' + docLabel + '</span>' +
             '<button onclick="clotureUploadDoc(\'' + acc.companyId + '\',\'' + doc + '\',\'' + mois + '\')" style="margin-left:auto;font-size:11px;padding:2px 8px;border:1px solid var(--b1);border-radius:4px;background:none;cursor:pointer;color:var(--t1)">' +
             (uploaded ? '↺ Remplacer' : '⬆ Uploader') + '</button>' +
           '</div>';
