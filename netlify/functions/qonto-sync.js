@@ -196,4 +196,4 @@ export default async (req, context) => {
   }
 };
 
-export const config = { path: '/api/qonto-sync', timeout: 26 };
+export const config = { path: '/api/qonto-sync' };
