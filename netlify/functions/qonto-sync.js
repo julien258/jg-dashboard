@@ -99,9 +99,13 @@ export default async (req, context) => {
       const perPage = url.searchParams.get('per_page') || '30';
       const status = url.searchParams.get('status') || 'completed';
 
-      const orgData = await qontoFetch(creds.login, creds.secret, '/organization');
-      const slug = orgData.organization?.bank_accounts?.[0]?.slug;
-      if (!slug) return Response.json({ ok: false, error: 'Aucun compte bancaire' }, { status: 404 });
+      // Utiliser le slug fourni directement si disponible (évite l'appel /organization)
+      let slug = url.searchParams.get('iban');
+      if (!slug) {
+        const orgData = await qontoFetch(creds.login, creds.secret, '/organization');
+        slug = orgData.organization?.bank_accounts?.[0]?.slug;
+        if (!slug) return Response.json({ ok: false, error: 'Aucun compte bancaire' }, { status: 404 });
+      }
 
       const params = new URLSearchParams({ bank_account_slug: slug, status, current_page: 1, per_page: perPage, sort_by: 'settled_at:desc' });
       const txData = await qontoFetch(creds.login, creds.secret, `/transactions?${params}`);
@@ -190,4 +194,4 @@ export default async (req, context) => {
   }
 };
 
-export const config = { path: '/api/qonto-sync' };
+export const config = { path: '/api/qonto-sync', timeout: 26 };
