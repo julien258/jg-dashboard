@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Assistant Visio — JG</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0f1117;color:#e8eaf0;min-height:100vh;display:flex;flex-direction:column}
+  header{padding:12px 20px;background:#1a1d27;border-bottom:1px solid #2a2d3a;display:flex;align-items:center;gap:16px}
+  .logo{font-size:14px;font-weight:600;color:#7b8cde;letter-spacing:.5px}
+  .status-dot{width:8px;height:8px;border-radius:50%;background:#3d4050;margin-left:auto}
+  .status-dot.listening{background:#4caf8a;animation:pulse 1.5s infinite}
+  .status-txt{font-size:12px;color:#6b7280}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+  main{flex:1;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:auto 1fr auto;gap:1px;background:#2a2d3a;overflow:hidden}
+  .panel{background:#0f1117;padding:16px;overflow-y:auto;display:flex;flex-direction:column;gap:10px}
+  .panel-header{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:#4b5563;padding-bottom:8px;border-bottom:1px solid #1e2130;flex-shrink:0}
+  .panel-header span{float:right;font-weight:400;text-transform:none;letter-spacing:0;font-size:11px}
+  .transcript-box{font-size:14px;line-height:1.7;color:#9ca3af;flex:1}
+  .transcript-box .interim{color:#4b5563;font-style:italic}
+  .transcript-box .final{color:#d1d5db}
+  .translation-box{font-size:15px;line-height:1.7;color:#e8eaf0;flex:1}
+  .translation-entry{padding:10px 12px;background:#1a1d27;border-radius:8px;border-left:3px solid #7b8cde;font-size:14px;line-height:1.6}
+  .translation-entry .ts{font-size:11px;color:#4b5563;margin-bottom:4px}
+  .suggestions-panel{grid-column:1/-1;background:#0f1117;padding:14px 16px;border-top:1px solid #2a2d3a;display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap;min-height:80px}
+  .suggestions-label{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:#4b5563;margin-right:4px;white-space:nowrap;padding-top:8px}
+  .suggestion-btn{background:#1a1d27;border:1px solid #2a2d3a;color:#c5cae9;font-size:13px;padding:7px 14px;border-radius:20px;cursor:pointer;transition:all .15s;line-height:1.4;text-align:left}
+  .suggestion-btn:hover{background:#252840;border-color:#7b8cde;color:#e8eaf0}
+  .suggestion-btn.copied{border-color:#4caf8a;color:#4caf8a}
+  footer{padding:12px 20px;background:#1a1d27;border-top:1px solid #2a2d3a;display:flex;gap:10px;align-items:center}
+  .btn{padding:9px 20px;border-radius:8px;font-size:14px;font-weight:500;cursor:pointer;border:none;transition:all .15s}
+  .btn-primary{background:#7b8cde;color:#fff}
+  .btn-primary:hover{background:#6979cc}
+  .btn-primary.active{background:#e05a6a}
+  .btn-primary.active:hover{background:#c94a59}
+  .btn-secondary{background:#1a1d27;color:#9ca3af;border:1px solid #2a2d3a}
+  .btn-secondary:hover{background:#252840;color:#e8eaf0}
+  .btn-secondary:disabled{opacity:.4;cursor:not-allowed}
+  .btn-cr{background:#1a2a1a;color:#4caf8a;border:1px solid #2a3d2a}
+  .btn-cr:hover{background:#1f3d1f}
+  .btn-cr:disabled{opacity:.4;cursor:not-allowed}
+  .spacer{flex:1}
+  .loading-dots::after{content:'';animation:dots 1.2s infinite}
+  @keyframes dots{0%{content:''}33%{content:'.'}66%{content:'..'}100%{content:'...'}}
+  .cr-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:100;align-items:center;justify-content:center;padding:20px}
+  .cr-modal.open{display:flex}
+  .cr-content{background:#1a1d27;border:1px solid #2a2d3a;border-radius:12px;max-width:720px;width:100%;max-height:85vh;display:flex;flex-direction:column}
+  .cr-header{padding:16px 20px;border-bottom:1px solid #2a2d3a;display:flex;align-items:center;gap:10px}
+  .cr-header h2{font-size:16px;font-weight:600;color:#e8eaf0;flex:1}
+  .cr-body{padding:20px;overflow-y:auto;flex:1;font-size:14px;line-height:1.8;color:#d1d5db;white-space:pre-wrap}
+  .cr-footer{padding:12px 20px;border-top:1px solid #2a2d3a;display:flex;gap:10px}
+  .empty-state{color:#2a2d3a;font-size:13px;text-align:center;margin-top:40px}
+  .lang-badge{font-size:10px;padding:2px 8px;border-radius:10px;background:#1e2130;color:#6b7280;border:1px solid #2a2d3a}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Assistant Visio JG</div>
+  <span class="lang-badge">EN → FR</span>
+  <div class="status-dot" id="dot"></div>
+  <div class="status-txt" id="status-txt">Prêt</div>
+</header>
+
+<main>
+  <div class="panel" id="panel-en">
+    <div class="panel-header">Transcription <span>Anglais</span></div>
+    <div class="transcript-box" id="transcript">
+      <div class="empty-state">La transcription apparaîtra ici...</div>
+    </div>
+  </div>
+
+  <div class="panel" id="panel-fr">
+    <div class="panel-header">Traduction <span>Français</span></div>
+    <div class="translation-box" id="translation">
+      <div class="empty-state">La traduction apparaîtra ici...</div>
+    </div>
+  </div>
+
+  <div class="suggestions-panel" id="suggestions-panel">
+    <div class="suggestions-label">Suggestions</div>
+    <div id="suggestions-empty" style="font-size:13px;color:#2a2d3a;padding-top:8px">Les suggestions de réponse apparaîtront ici...</div>
+  </div>
+</main>
+
+<footer>
+  <button class="btn btn-primary" id="btn-main" onclick="toggleListening()">Démarrer</button>
+  <button class="btn btn-secondary" id="btn-clear" onclick="clearAll()" disabled>Effacer</button>
+  <div class="spacer"></div>
+  <button class="btn btn-cr" id="btn-cr" onclick="generateCR()" disabled>Générer compte rendu</button>
+</footer>
+
+<div class="cr-modal" id="cr-modal">
+  <div class="cr-content">
+    <div class="cr-header">
+      <h2>Compte rendu de visio</h2>
+      <button class="btn btn-secondary" onclick="copyCR()" style="font-size:12px;padding:6px 14px">Copier</button>
+      <button class="btn btn-secondary" onclick="closeCR()" style="font-size:12px;padding:6px 14px">Fermer</button>
+    </div>
+    <div class="cr-body" id="cr-body"></div>
+    <div class="cr-footer">
+      <span style="font-size:12px;color:#4b5563">Généré par Claude — relire avant envoi</span>
+    </div>
+  </div>
+</div>
+
+<script>
+const PROXY = '/api/claude-proxy';
+const SYSTEM = `Tu es l'assistant de Julien GUIRAUD, président de SAS LIVING (Toulouse).
+Julien est en visioconférence avec des interlocuteurs anglophones.
+Contexte métier : dette privée, financement d'entreprise, LLD automobile, CGW/Manhattan PCM, Real Gains, structurations internationales, Luxembourg, Dubai.
+Glossaire courant : waterfall, LTV, covenant, mezzanine, senior/junior tranche, IRR, NAV, bullet repayment, drawdown, committed facility, origination fee, OID, PIK interest, springing covenant, DSCR, fund admin, placement agent, non-circumvention, PPSA, NDA, LOI, term sheet, side letter.`;
+
+let recognition = null;
+let isListening = false;
+let finalTranscript = '';
+let interimTranscript = '';
+let fullHistory = [];
+let silenceTimer = null;
+let pendingText = '';
+let isProcessing = false;
+let hasContent = false;
+
+function setupRecognition() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) { alert('Chrome requis pour la reconnaissance vocale.'); return false; }
+  recognition = new SR();
+  recognition.lang = 'en-US';
+  recognition.continuous = true;
+  recognition.interimResults = true;
+  recognition.maxAlternatives = 1;
+
+  recognition.onresult = (e) => {
+    interimTranscript = '';
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      const t = e.results[i][0].transcript;
+      if (e.results[i].isFinal) {
+        finalTranscript += t + ' ';
+        pendingText += t + ' ';
+        resetSilenceTimer();
+      } else {
+        interimTranscript += t;
+      }
+    }
+    renderTranscript();
+  };
+
+  recognition.onend = () => {
+    if (isListening) recognition.start();
+  };
+
+  recognition.onerror = (e) => {
+    if (e.error === 'no-speech') return;
+    console.warn('Speech error:', e.error);
+  };
+  return true;
+}
+
+function resetSilenceTimer() {
+  clearTimeout(silenceTimer);
+  silenceTimer = setTimeout(() => {
+    if (pendingText.trim().length > 8 && !isProcessing) {
+      processSegment(pendingText.trim());
+      pendingText = '';
+    }
+  }, 2500);
+}
+
+function renderTranscript() {
+  const el = document.getElementById('transcript');
+  const finals = fullHistory.map(h => `<span class="final">${h.en}</span>`).join(' ');
+  const current = finalTranscript ? `<span class="final">${finalTranscript}</span>` : '';
+  const interim = interimTranscript ? `<span class="interim"> ${interimTranscript}</span>` : '';
+  el.innerHTML = (finals + ' ' + current + interim) || '<div class="empty-state">La transcription apparaîtra ici...</div>';
+  el.scrollTop = el.scrollHeight;
+}
+
+async function processSegment(text) {
+  if (!text || isProcessing) return;
+  isProcessing = true;
+  hasContent = true;
+  setStatus('Traduction...', true);
+
+  const now = new Date().toLocaleTimeString('fr-FR', {hour:'2-digit', minute:'2-digit'});
+  const histContext = fullHistory.slice(-4).map(h => `EN: ${h.en}\nFR: ${h.fr}`).join('\n\n');
+
+  try {
+    const res = await fetch(PROXY, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        max_tokens: 600,
+        system: SYSTEM,
+        messages: [{role:'user', content:
+`Contexte des échanges précédents:
+${histContext || 'Premier échange'}
+
+Nouveau segment à analyser:
+"${text}"
+
+Réponds UNIQUEMENT en JSON valide sans markdown:
+{
+  "traduction": "traduction française naturelle et précise",
+  "suggestions": [
+    "suggestion de réponse en anglais 1",
+    "suggestion de réponse en anglais 2",
+    "suggestion de réponse en anglais 3"
+  ]
+}`
+        }]
+      })
+    });
+
+    const data = await res.json();
+    const raw = data?.content?.[0]?.text || '{}';
+    const clean = raw.replace(/```json|```/g,'').trim();
+    const parsed = JSON.parse(clean);
+
+    const entry = { en: text, fr: parsed.traduction || text, time: now };
+    fullHistory.push(entry);
+    finalTranscript = '';
+
+    renderTranscript();
+    renderTranslation(entry);
+    renderSuggestions(parsed.suggestions || []);
+
+    document.getElementById('btn-clear').disabled = false;
+    document.getElementById('btn-cr').disabled = false;
+
+  } catch(e) {
+    console.error('Process error:', e);
+  }
+
+  isProcessing = false;
+  setStatus('En écoute', true);
+}
+
+function renderTranslation(entry) {
+  const el = document.getElementById('translation');
+  const isEmpty = el.querySelector('.empty-state');
+  if (isEmpty) el.innerHTML = '';
+  const div = document.createElement('div');
+  div.className = 'translation-entry';
+  div.innerHTML = `<div class="ts">${entry.time}</div>${escHtml(entry.fr)}`;
+  el.appendChild(div);
+  el.scrollTop = el.scrollHeight;
+}
+
+function renderSuggestions(suggestions) {
+  const panel = document.getElementById('suggestions-panel');
+  const empty = document.getElementById('suggestions-empty');
+  if (empty) empty.remove();
+  const existing = panel.querySelectorAll('.suggestion-btn');
+  existing.forEach(b => b.remove());
+  suggestions.forEach(s => {
+    const btn = document.createElement('button');
+    btn.className = 'suggestion-btn';
+    btn.textContent = s;
+    btn.onclick = () => {
+      navigator.clipboard.writeText(s).catch(()=>{});
+      btn.classList.add('copied');
+      btn.textContent = '✓ Copié';
+      setTimeout(() => { btn.classList.remove('copied'); btn.textContent = s; }, 1500);
+    };
+    panel.appendChild(btn);
+  });
+}
+
+function toggleListening() {
+  if (!isListening) {
+    if (!recognition && !setupRecognition()) return;
+    recognition.start();
+    isListening = true;
+    document.getElementById('btn-main').textContent = 'Arrêter';
+    document.getElementById('btn-main').classList.add('active');
+    document.getElementById('dot').classList.add('listening');
+    setStatus('En écoute', true);
+  } else {
+    recognition.stop();
+    isListening = false;
+    clearTimeout(silenceTimer);
+    if (pendingText.trim().length > 8) processSegment(pendingText.trim());
+    pendingText = '';
+    document.getElementById('btn-main').textContent = 'Reprendre';
+    document.getElementById('btn-main').classList.remove('active');
+    document.getElementById('dot').classList.remove('listening');
+    setStatus('En pause', false);
+  }
+}
+
+function setStatus(txt, active) {
+  document.getElementById('status-txt').textContent = txt;
+  if (active) document.getElementById('dot').classList.add('listening');
+}
+
+async function generateCR() {
+  if (!fullHistory.length) return;
+  const modal = document.getElementById('cr-modal');
+  const body = document.getElementById('cr-body');
+  modal.classList.add('open');
+  body.textContent = 'Génération du compte rendu';
+  body.classList.add('loading-dots');
+
+  const transcript = fullHistory.map(h => `[${h.time}] ${h.en}`).join('\n');
+  try {
+    const res = await fetch(PROXY, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        max_tokens: 1500,
+        system: SYSTEM,
+        messages: [{role:'user', content:
+`Voici la transcription complète d'une visioconférence en anglais de Julien GUIRAUD:
+
+${transcript}
+
+Rédige un compte rendu professionnel en français avec:
+1. DATE ET CONTEXTE (date du jour, participants si mentionnés)
+2. RÉSUMÉ EXÉCUTIF (3-4 phrases)
+3. POINTS ABORDÉS (par thème, avec sous-points)
+4. DÉCISIONS PRISES
+5. ACTIONS À SUIVRE (avec responsable si identifiable)
+6. POINTS EN SUSPENS
+
+Sois précis, professionnel, et conserve les termes techniques financiers en anglais entre parenthèses quand pertinent.`
+        }]
+      })
+    });
+    const data = await res.json();
+    body.classList.remove('loading-dots');
+    body.textContent = data?.content?.[0]?.text || 'Erreur de génération.';
+  } catch(e) {
+    body.classList.remove('loading-dots');
+    body.textContent = 'Erreur: ' + e.message;
+  }
+}
+
+function closeCR() { document.getElementById('cr-modal').classList.remove('open'); }
+
+function copyCR() {
+  const txt = document.getElementById('cr-body').textContent;
+  navigator.clipboard.writeText(txt).catch(()=>{});
+}
+
+function clearAll() {
+  finalTranscript = '';
+  interimTranscript = '';
+  pendingText = '';
+  fullHistory = [];
+  hasContent = false;
+  document.getElementById('transcript').innerHTML = '<div class="empty-state">La transcription apparaîtra ici...</div>';
+  document.getElementById('translation').innerHTML = '<div class="empty-state">La traduction apparaîtra ici...</div>';
+  const panel = document.getElementById('suggestions-panel');
+  panel.querySelectorAll('.suggestion-btn').forEach(b=>b.remove());
+  if (!document.getElementById('suggestions-empty')) {
+    const d = document.createElement('div');
+    d.id = 'suggestions-empty';
+    d.style.cssText = 'font-size:13px;color:#2a2d3a;padding-top:8px';
+    d.textContent = 'Les suggestions de réponse apparaîtront ici...';
+    panel.appendChild(d);
+  }
+  document.getElementById('btn-clear').disabled = true;
+  document.getElementById('btn-cr').disabled = true;
+}
+
+function escHtml(s) {
+  return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+</script>
+</body>
+</html>
