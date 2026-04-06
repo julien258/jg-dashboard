@@ -66,6 +66,8 @@
     .ptabs{background:var(--s1);border-bottom:1px solid var(--b1);box-shadow:0 1px 3px rgba(0,0,0,.06);padding:0 2rem;display:flex;gap:0}
     .ptab{padding:12px 18px;font-size:13px;color:var(--t2);cursor:pointer;border-bottom:2px solid transparent;transition:all .15s;background:none;border-left:none;border-right:none;border-top:none;font-family:'Inter',sans-serif}
     .ptab:hover{color:var(--t1)}.ptab.active{color:var(--acc);border-bottom-color:var(--acc)}
+    .ctab{padding:9px 16px;font-size:12px;color:var(--t2);cursor:pointer;border:none;border-bottom:2px solid transparent;background:none;font-family:'Inter',sans-serif;transition:all .15s;margin-bottom:-1px}
+    .ctab:hover{color:var(--t1)}.ctab-active{color:var(--acc);border-bottom-color:var(--acc);font-weight:500}
     .cnt{padding:1.5rem 2rem;flex:1;min-width:0;overflow-x:hidden}
     .kr{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:1.5rem}
     .kc{background:var(--s1);border:1px solid var(--b1);border-radius:10px;padding:14px 16px}
@@ -1764,10 +1766,10 @@
 
   <!-- CLÔTURE MENSUELLE -->
   <div class="pv cnt" id="v-cloture">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem;flex-wrap:wrap;gap:8px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;flex-wrap:wrap;gap:8px">
       <div>
         <div style="font-size:20px;font-weight:600">📅 Clôture mensuelle</div>
-        <div style="font-size:12px;color:var(--t2);margin-top:2px">Relevés · Justificatifs · Transmission comptable</div>
+        <div style="font-size:12px;color:var(--t2);margin-top:2px">Relevés · Factures reçues · Factures émises · Transmission comptable</div>
       </div>
       <div style="display:flex;gap:8px;align-items:center">
         <select id="cloture-mois-sel" style="font-size:12px" onchange="loadCloture()">
@@ -1778,14 +1780,17 @@
         <button class="btn btn-g btn-sm" onclick="loadCloture()">↺ Rafraîchir</button>
       </div>
     </div>
-
-    <!-- Résumé -->
-    <div id="cloture-summary" style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:1.5rem"></div>
-
-    <!-- Checklist par société -->
-    <div id="cloture-checklist" style="display:flex;flex-direction:column;gap:12px"></div>
-
-    <!-- Log -->
+    <div id="cloture-summary" style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:1.25rem"></div>
+    <div style="display:flex;gap:0;margin-bottom:1rem;border-bottom:1px solid var(--b1)">
+      <button id="ctab-releves" class="ctab ctab-active" onclick="switchClotureTab('releves')">📄 Relevés</button>
+      <button id="ctab-recues"  class="ctab" onclick="switchClotureTab('recues')">📥 Factures reçues</button>
+      <button id="ctab-emises"  class="ctab" onclick="switchClotureTab('emises')">📤 Factures émises</button>
+      <button id="ctab-docs"    class="ctab" onclick="switchClotureTab('docs')">📁 Documents &amp; Transmission</button>
+    </div>
+    <div id="cpanel-releves" class="cpanel"><div id="cloture-checklist" style="display:flex;flex-direction:column;gap:10px"></div></div>
+    <div id="cpanel-recues"  class="cpanel" style="display:none"><div id="cloture-recues-list" style="display:flex;flex-direction:column;gap:6px"></div></div>
+    <div id="cpanel-emises"  class="cpanel" style="display:none"><div id="cloture-emises-list" style="display:flex;flex-direction:column;gap:6px"></div></div>
+    <div id="cpanel-docs"    class="cpanel" style="display:none"><div id="cloture-docs-list"></div></div>
     <div id="cloture-log" style="font-size:12px;color:var(--t2);margin-top:1rem;min-height:20px"></div>
   </div>
 
@@ -3834,6 +3839,260 @@ async function showQontoDetail(companyId) {
   var account = envMap[companyId] || companyId.toUpperCase();
   // Ouvrir dans un nouvel onglet pour ne pas quitter le dashboard
   window.open('/api/qonto-sync?action=transactions&account=' + account, '_blank');
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
+// ─── CLÔTURE MENSUELLE — ONGLETS ──────────────────────────────────────────
+function switchClotureTab(tab) {
+  ['releves','recues','emises','docs'].forEach(function(t) {
+    var btn = document.getElementById('ctab-' + t);
+    var panel = document.getElementById('cpanel-' + t);
+    if (btn) { btn.classList.remove('ctab-active'); }
+    if (panel) panel.style.display = 'none';
+  });
+  var activeBtn = document.getElementById('ctab-' + tab);
+  var activePanel = document.getElementById('cpanel-' + tab);
+  if (activeBtn) activeBtn.classList.add('ctab-active');
+  if (activePanel) activePanel.style.display = '';
+
+  var sel = document.getElementById('cloture-mois-sel');
+  var mois = sel ? sel.value : '2026-03';
+  if (tab === 'recues') loadClotureRecues(mois);
+  else if (tab === 'emises') loadClotureEmises(mois);
+  else if (tab === 'docs') loadClotureDocsTransmission(mois);
+}
+
+async function loadClotureRecues(mois) {
+  var list = document.getElementById('cloture-recues-list');
+  if (!list) return;
+  list.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--t2)"><span class="spin"></span> Chargement des transactions...</div>';
+
+  var companies = [
+    { id: 'sarl-guiraud', label: 'SARL GUIRAUD', account: 'GUIRAUD' },
+    { id: 'sas-living',   label: 'SAS LIVING',   account: 'LIVING' },
+    { id: 'meulette',     label: 'La Meulette',   account: 'MEULETTE' },
+    { id: 'real-gains',   label: 'Real Gains',    account: 'REAL_GAINS' },
+    { id: 'spv-monikaza', label: 'Monikaza SPV',  account: 'MONIKAZA' },
+  ];
+
+  // Charger toutes les transactions en parallèle
+  var results = await Promise.allSettled(companies.map(function(co) {
+    return fetch('/api/qonto-sync?action=transactions&account=' + co.account + '&per_page=100&status=completed')
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        var txs = (data.transactions || []).filter(function(t) {
+          var d = (t.settled_at || t.emitted_at || '').substring(0, 7);
+          return d === mois && t.side === 'debit';
+        });
+        return { ...co, transactions: txs, error: null };
+      });
+  }));
+
+  var html = '';
+  results.forEach(function(r, i) {
+    var co = r.status === 'fulfilled' ? r.value : { ...companies[i], transactions: [], error: r.reason?.message };
+    var txs = co.transactions || [];
+    var missing = txs.filter(function(t) { return !t.has_attachments; });
+    var total = txs.reduce(function(s, t) { return s + Number(t.amount || 0); }, 0);
+    var statusColor = missing.length > 0 ? 'var(--amb)' : 'var(--grn)';
+    var statusIcon = missing.length > 0 ? '⚠️' : '✅';
+
+    html += '<div class="card" style="padding:0;overflow:hidden">';
+    // Ligne société cliquable
+    html += '<div onclick="toggleRecues(\'' + co.id + '\')" style="display:flex;align-items:center;gap:12px;padding:12px 16px;cursor:pointer;border-left:3px solid ' + statusColor + ';user-select:none">';
+    html += '<span id="recues-arrow-' + co.id + '" style="font-size:12px;color:var(--t2);transition:transform .2s">▶</span>';
+    html += '<span style="font-weight:600;font-size:14px">' + statusIcon + ' ' + co.label + '</span>';
+    html += '<span style="font-size:12px;color:var(--t2);margin-left:auto">' + txs.length + ' dépenses · ' + Math.round(total).toLocaleString('fr-FR') + ' €</span>';
+    if (missing.length > 0) html += '<span style="font-size:11px;background:rgba(243,156,18,.15);color:var(--amb);padding:2px 8px;border-radius:10px">' + missing.length + ' sans pièce</span>';
+    html += '</div>';
+
+    // Panneau dépliable
+    html += '<div id="recues-panel-' + co.id + '" style="display:none;border-top:1px solid var(--b1)">';
+    if (co.error) {
+      html += '<div style="padding:12px;color:var(--red);font-size:12px">❌ ' + co.error + '</div>';
+    } else if (txs.length === 0) {
+      html += '<div style="padding:12px;color:var(--t2);font-size:12px;text-align:center">Aucune dépense ce mois</div>';
+    } else {
+      html += '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">';
+      html += '<thead><tr style="background:var(--bg2)"><th style="padding:8px 12px;text-align:left;font-weight:500;color:var(--t2)">Date</th><th style="padding:8px;text-align:left;font-weight:500;color:var(--t2)">Libellé</th><th style="padding:8px;text-align:left;font-weight:500;color:var(--t2)">Catégorie</th><th style="padding:8px;text-align:right;font-weight:500;color:var(--t2)">Montant</th><th style="padding:8px;text-align:center;font-weight:500;color:var(--t2)">Pièce</th><th style="padding:8px"></th></tr></thead>';
+      html += '<tbody>';
+      txs.forEach(function(t) {
+        var f = detectFournisseur(t.label);
+        var hasAtt = t.has_attachments;
+        var amt = Number(t.amount || 0).toFixed(2).replace('.', ',');
+        var date = (t.settled_at || t.emitted_at || '').substring(0, 10);
+        html += '<tr style="border-top:1px solid var(--b1);' + (!hasAtt ? 'background:rgba(243,156,18,.05)' : '') + '">';
+        html += '<td style="padding:7px 12px;color:var(--t2)">' + date + '</td>';
+        html += '<td style="padding:7px 8px;max-width:250px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (t.label || '—') + '</td>';
+        html += '<td style="padding:7px 8px;color:var(--t2)">' + (t.category || '—') + '</td>';
+        html += '<td style="padding:7px 8px;text-align:right;font-weight:500;color:var(--red)">−' + amt + ' €</td>';
+        html += '<td style="padding:7px 8px;text-align:center">' + (hasAtt ? '<span style="color:var(--grn)">✅</span>' : '<span style="color:var(--amb)">⚠️</span>') + '</td>';
+        html += '<td style="padding:7px 8px;white-space:nowrap">';
+        if (!hasAtt) {
+          if (f) html += '<a href="' + f.url + '" target="_blank" style="font-size:10px;padding:2px 6px;border:1px solid var(--b1);border-radius:3px;text-decoration:none;color:var(--t1);margin-right:4px">🌐 ' + f.label + '</a>';
+          html += '<button onclick="searchMailForTx(\'' + (t.label||'').replace(/'/g,"\\'") + '\')" style="font-size:10px;padding:2px 6px;border:1px solid var(--b1);border-radius:3px;background:none;cursor:pointer;color:var(--t1)">📧</button>';
+        }
+        html += '</td></tr>';
+      });
+      html += '</tbody></table></div>';
+    }
+    html += '</div></div>';
+  });
+
+  list.innerHTML = html;
+}
+
+function toggleRecues(companyId) {
+  var panel = document.getElementById('recues-panel-' + companyId);
+  var arrow = document.getElementById('recues-arrow-' + companyId);
+  if (!panel) return;
+  var isOpen = panel.style.display !== 'none';
+  // Fermer tous les autres
+  document.querySelectorAll('[id^="recues-panel-"]').forEach(function(p) { p.style.display = 'none'; });
+  document.querySelectorAll('[id^="recues-arrow-"]').forEach(function(a) { a.style.transform = ''; });
+  if (!isOpen) {
+    panel.style.display = '';
+    if (arrow) arrow.style.transform = 'rotate(90deg)';
+  }
+}
+
+async function loadClotureEmises(mois) {
+  var list = document.getElementById('cloture-emises-list');
+  if (!list) return;
+  list.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--t2)"><span class="spin"></span> Chargement des factures émises...</div>';
+
+  try {
+    var res = await fetch('/api/pennylane-sync');
+    var data = await res.json();
+    if (!data.ok) throw new Error(data.error);
+
+    var moisLabel = mois === '2026-03' ? 'mars 2026' : mois;
+    var html = '';
+
+    (data.societes || []).forEach(function(soc) {
+      var factures = (soc.factures || []).filter(function(f) {
+        return (f.date || f.invoice_date || '').substring(0, 7) === mois;
+      });
+      var total = factures.reduce(function(s, f) { return s + Number(f.amount || f.total || 0); }, 0);
+      var label = soc.key === 'living' ? 'SAS LIVING' : soc.key === 'sarl' ? 'SARL GUIRAUD' : soc.key === 'meulette' ? 'La Meulette' : soc.key;
+
+      html += '<div class="card" style="border-left:3px solid ' + (factures.length > 0 ? 'var(--grn)' : 'var(--b1)') + ';padding:14px">';
+      html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:' + (factures.length > 0 ? '10px' : '0') + '">';
+      html += '<span style="font-weight:600;font-size:14px">' + (factures.length > 0 ? '✅' : '—') + ' ' + label + '</span>';
+      html += '<span style="font-size:12px;color:var(--t2)">' + factures.length + ' facture(s) · ' + Math.round(total).toLocaleString('fr-FR') + ' €</span>';
+      html += '</div>';
+
+      if (factures.length > 0) {
+        factures.forEach(function(f) {
+          var amt = Number(f.amount || f.total || 0).toFixed(2).replace('.', ',');
+          var num = f.invoice_number || f.number || '—';
+          var client = f.customer_name || f.client || '—';
+          var date = (f.date || f.invoice_date || '').substring(0, 10);
+          html += '<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-top:1px solid var(--b1);font-size:12px">';
+          html += '<span style="color:var(--t2)">' + date + '</span>';
+          html += '<span style="font-weight:500">' + num + '</span>';
+          html += '<span style="color:var(--t2);flex:1">' + client + '</span>';
+          html += '<span style="font-weight:600;color:var(--grn)">+' + amt + ' €</span>';
+          if (f.url || f.pdf_url) html += '<a href="' + (f.url || f.pdf_url) + '" target="_blank" style="font-size:11px;color:var(--acc)">↗ PDF</a>';
+          html += '</div>';
+        });
+      } else {
+        html += '<div style="font-size:12px;color:var(--t2)">Aucune facture émise en ' + moisLabel + '</div>';
+      }
+      html += '</div>';
+    });
+
+    list.innerHTML = html || '<div style="padding:2rem;text-align:center;color:var(--t2)">Aucune donnée Pennylane disponible</div>';
+  } catch(e) {
+    list.innerHTML = '<div style="color:var(--red);padding:1rem">❌ ' + e.message + '</div>';
+  }
+}
+
+async function loadClotureDocsTransmission(mois) {
+  var list = document.getElementById('cloture-docs-list');
+  if (!list) return;
+
+  // Charger les documents GED du mois
+  try {
+    var { data: docs } = await sb.from('ged_documents')
+      .select('id,company_id,doc_type,file_name,doc_date,drive_url')
+      .gte('doc_date', mois + '-01')
+      .lte('doc_date', mois + '-31')
+      .order('doc_type');
+
+    var { data: conventions } = await sb.from('ged_documents')
+      .select('id,company_id,doc_type,file_name,drive_url')
+      .eq('doc_type', 'convention')
+      .order('created_at', { ascending: false })
+      .limit(20);
+
+    var { data: contrats } = await sb.from('ged_documents')
+      .select('id,company_id,doc_type,file_name,drive_url')
+      .eq('doc_type', 'contrat')
+      .gte('doc_date', mois + '-01')
+      .lte('doc_date', mois + '-31');
+
+    var allDocs = docs || [];
+    var allConventions = conventions || [];
+    var allContrats = contrats || [];
+
+    var releves = allDocs.filter(function(d) { return d.doc_type === 'releve'; });
+    var facturesRecues = allDocs.filter(function(d) { return d.doc_type === 'facture_recue' || d.doc_type === 'facture'; });
+
+    var html = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">';
+
+    // Relevés
+    html += renderDocsSection('📄 Relevés bancaires', releves, 'var(--grn)');
+    // Conventions intra-groupe
+    html += renderDocsSection('🤝 Conventions intra-groupe', allConventions, 'var(--acc)');
+    // Factures reçues GED
+    html += renderDocsSection('📥 Factures reçues archivées', facturesRecues, 'var(--amb)');
+    // Contrats du mois
+    html += renderDocsSection('📋 Contrats & accords du mois', allContrats, 'var(--acc)');
+
+    html += '</div>';
+
+    // Bouton transmission
+    html += '<div class="card" style="margin-top:12px;padding:16px;border-left:3px solid var(--acc)">';
+    html += '<div style="font-weight:600;margin-bottom:12px">📤 Transmission au comptable</div>';
+    html += '<div style="font-size:12px;color:var(--t2);margin-bottom:12px">' + (releves.length + facturesRecues.length + allConventions.length) + ' documents prêts à transmettre</div>';
+    html += '<div style="display:flex;gap:8px;flex-wrap:wrap">';
+    html += '<button class="btn btn-p btn-sm" onclick="envoyerAuComptable(\'' + mois + '\')">📧 Envoyer par mail au comptable</button>';
+    html += '<button class="btn btn-g btn-sm" style="opacity:.5;cursor:not-allowed" title="Disponible après connexion iSuite">🏢 Déposer sur iSuite Expert</button>';
+    html += '</div></div>';
+
+    list.innerHTML = html;
+  } catch(e) {
+    list.innerHTML = '<div style="color:var(--red);padding:1rem">❌ ' + e.message + '</div>';
+  }
+}
+
+function renderDocsSection(titre, docs, color) {
+  var html = '<div class="card" style="padding:14px;border-left:3px solid ' + color + '">';
+  html += '<div style="font-weight:600;font-size:13px;margin-bottom:10px">' + titre + ' <span style="font-weight:400;color:var(--t2);font-size:12px">(' + docs.length + ')</span></div>';
+  if (docs.length === 0) {
+    html += '<div style="font-size:12px;color:var(--t2)">Aucun document</div>';
+  } else {
+    docs.slice(0, 10).forEach(function(d) {
+      var name = (d.file_name || '').replace(/_/g, ' ').substring(0, 50);
+      html += '<div style="display:flex;align-items:center;gap:8px;padding:4px 0;border-top:1px solid var(--b1);font-size:11px">';
+      html += '<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + name + '</span>';
+      if (d.drive_url) html += '<a href="' + d.drive_url + '" target="_blank" style="color:var(--acc);font-size:10px">↗</a>';
+      html += '</div>';
+    });
+    if (docs.length > 10) html += '<div style="font-size:11px;color:var(--t2);padding-top:4px">+ ' + (docs.length - 10) + ' autres...</div>';
+  }
+  html += '</div>';
+  return html;
+}
+
+async function envoyerAuComptable(mois) {
+  toast('📧 Préparation du mail au comptable...');
+  // TODO : générer mail avec liste des documents en pièces jointes
+  // Pour l'instant : ouvrir le module mail avec brouillon pré-rempli
+  setTimeout(function() {
+    toast('✅ Fonctionnalité en cours de déploiement — utilisez l\'onglet Mail pour l\'instant');
+  }, 1500);
 }
 // ─────────────────────────────────────────────────────────────────────────────
 
