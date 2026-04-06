@@ -1,4 +1,4 @@
-// qonto-sync.js — Proxy API Qonto multi-comptes
+// qonto-sync v2 - qonto-sync.js — Proxy API Qonto multi-comptes
 
 const QONTO_BASE = 'https://thirdparty.qonto.com/v2';
 const TIMEOUT_MS = 5000;
