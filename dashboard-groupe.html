@@ -3885,16 +3885,24 @@ async function loadClotureRecues(mois) {
     { id: 'spv-monikaza', label: 'Monikaza SPV',  account: 'MONIKAZA', societe: 'monikaza' },
   ];
 
-  var results = await Promise.allSettled(companies.map(function(co) {
-    return fetch('/api/qonto-sync?action=transactions&account=' + co.account + '&per_page=100&status=completed')
-      .then(function(r) { return r.json(); })
-      .then(function(data) {
-        var txs = (data.transactions || []).filter(function(t) {
-          return (t.settled_at || t.emitted_at || '').substring(0, 7) === mois && t.side === 'debit';
-        });
-        return { ...co, transactions: txs, error: null };
+  // Appels séquentiels pour éviter le rate limiting Qonto
+  var results = [];
+  for (var ci = 0; ci < companies.length; ci++) {
+    var co = companies[ci];
+    try {
+      var res = await fetch('/api/qonto-sync?action=transactions&account=' + co.account + '&per_page=50&status=completed');
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      var data = await res.json();
+      var txs = (data.transactions || []).filter(function(t) {
+        return (t.settled_at || t.emitted_at || '').substring(0, 7) === mois && t.side === 'debit';
       });
-  }));
+      results.push({ status: 'fulfilled', value: { ...co, transactions: txs, error: null } });
+    } catch(e) {
+      results.push({ status: 'fulfilled', value: { ...co, transactions: [], error: e.message } });
+    }
+    // Mise à jour progressive — afficher au fur et à mesure
+    if (ci === 0) list.innerHTML = '<div style="text-align:center;padding:1rem;color:var(--t2);font-size:12px"><span class="spin"></span> ' + (ci+1) + '/' + companies.length + ' comptes chargés...</div>';
+  }
 
   var html = '';
   results.forEach(function(r, i) {
