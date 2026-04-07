@@ -372,9 +372,20 @@ async function sendToDashboard(){
     }
     const fn='CR_'+inter.replace(/[^a-zA-Z0-9]/g,'_')+'_'+today+'.txt';
     const fc='COMPTE RENDU\nDate: '+today+' à '+heure+'\nInterlocuteur: '+inter+'\nSociété: '+soc+'\n\n'+crText;
-    const blob=new Blob([fc],{type:'text/plain'});
-    const fd=new FormData(); fd.append('file',blob,fn); fd.append('societe',soc); fd.append('doc_type','compte_rendu'); fd.append('subfolder','Réunions CRM/'+inter);
-    try{await fetch('/api/ged-upload',{method:'POST',body:fd});}catch(e){}
+    // Convertir en base64 pour ged-upload
+    const b64=btoa(unescape(encodeURIComponent(fc)));
+    try{await fetch('/api/ged-upload',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        base64:b64,
+        fileName:fn,
+        companyId:soc,
+        docType:'compte_rendu',
+        subfolder:'Réunions CRM/'+inter,
+        skipOcr:true
+      })
+    });}catch(e){}
     sts.textContent='✅ '+ok+' tâche(s) créée(s) · CR sauvegardé dans Drive';
     sts.style.color='#4caf8a'; btn.textContent='✓ Envoyé'; btn.style.background='#1a2a1a';
   }catch(e){sts.textContent='❌ '+e.message;sts.style.color='#e05a6a';btn.disabled=false;btn.textContent='Envoyer au dashboard + Drive';}

@@ -95,7 +95,8 @@ async function uploadToDrive(accessToken, folderId, fileName, base64Content) {
 
   // Multipart upload
   const metaPart = `${delimiter}Content-Type: application/json\r\n\r\n${metadata}`;
-  const filePart = `${delimiter}Content-Type: application/pdf\r\nContent-Transfer-Encoding: base64\r\n\r\n${base64Content}${closeDelimiter}`;
+  const mimeType = fileName?.endsWith('.txt') ? 'text/plain' : 'application/pdf';
+  const filePart = `${delimiter}Content-Type: ${mimeType}\r\nContent-Transfer-Encoding: base64\r\n\r\n${base64Content}${closeDelimiter}`;
   const body = metaPart + filePart;
 
   const uploadRes = await fetch(`${DRIVE_UPLOAD}&fields=id,webViewLink`, {
@@ -176,11 +177,11 @@ export default async (req) => {
 
   try {
     const body = await req.json();
-    const { base64, fileName, companyId = 'sas-living', docType, dossier } = body;
+    const { base64, fileName, companyId = 'sas-living', docType, dossier, skipOcr, subfolder } = body;
     if (!base64) return new Response(JSON.stringify({ error: 'base64 requis' }), { status: 400, headers: H });
 
-    // 1. OCR extraction
-    const ocr = await ocrExtract(base64, fileName);
+    // 1. OCR extraction (skippée pour les CR texte)
+    const ocr = skipOcr ? null : await ocrExtract(base64, fileName);
 
     // 2. Nom normalisé
     const normalizedName = buildFileName(ocr, companyId, fileName);
@@ -194,6 +195,7 @@ export default async (req) => {
     let driveUrl = null;
     let driveFileId = null;
     let driveError = null;
+    const subfolderParam = body.subfolder || null;
     const rootId = DRIVE_ROOTS[finalCompany];
 
     if (rootId) {
@@ -202,9 +204,9 @@ export default async (req) => {
         const subFolderName = TYPE_FOLDER[finalType] || 'Comptabilité';
         const subFolderId = await findOrCreateFolder(accessToken, rootId, subFolderName);
         let targetFolderId;
-        if (finalType === 'compte_rendu' && body.subfolder) {
+        if (finalType === 'compte_rendu' && subfolderParam) {
           // CR réunion : sous-dossier par interlocuteur (ex: "Réunions CRM/Yacine MAL")
-          const parts = body.subfolder.split('/').filter(Boolean);
+          const parts = subfolderParam.split('/').filter(Boolean);
           targetFolderId = subFolderId;
           for (const part of parts.slice(1)) { // skip "Réunions CRM" déjà créé
             targetFolderId = await findOrCreateFolder(accessToken, targetFolderId, part);
