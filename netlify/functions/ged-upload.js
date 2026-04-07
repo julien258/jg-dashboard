@@ -14,23 +14,28 @@ const DRIVE_ROOTS = {
   'meulette':     '1NVNUOHHbYlcUVgCAbjMkFbdCgRBeqGqa',
   'real-gains':   '17enGaylIk0B0Y3DHhYssG4ZDc9etvKzW',
   'spv-monikaza': '1kGqZq5XGPo0FKqXDQWmd_elyhhAngYIQ',
-  'perso':        null, // pas de Drive dédié
+  'perso':        null,
 };
 
 // Mapping type document → sous-dossier Drive
+// Ces noms doivent correspondre EXACTEMENT aux dossiers créés dans chaque Drive société
 const TYPE_FOLDER = {
-  'recouvrement': 'Juridique',
-  'juridique':    'Juridique',
-  'fiscal':       'Comptabilité',
-  'social':       'Comptabilité',
-  'facture_recue':'Comptabilité',
-  'facture_emise':'Comptabilité',
-  'releve':       'Banque',
-  'contrat':      'Juridique',
-  'assurance':    'Juridique',
-  'recommande':   'Juridique',
-  'compte_rendu': 'Réunions CRM',
-  'autre':        'Comptabilité',
+  // Comptabilité
+  'facture_recue':  'Comptabilité',
+  'facture_emise':  'Comptabilité',
+  'fiscal':         'Comptabilité',
+  'social':         'Comptabilité',
+  'autre':          'Comptabilité',
+  // Banque
+  'releve':         'Banque',
+  // Juridique
+  'juridique':      'Juridique',
+  'recouvrement':   'Juridique',
+  'contrat':        'Juridique',
+  'assurance':      'Juridique',
+  'recommande':     'Juridique',
+  // Réunions
+  'compte_rendu':   'Réunions CRM',
 };
 
 const COMPANY_LABEL = {

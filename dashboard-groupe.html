@@ -4264,6 +4264,71 @@ function renderDocsSection(titre, docs, color) {
   return html;
 }
 
+async function gedDeposerReleve(input, societe, mois) {
+  const file = input.files[0];
+  if (!file) return;
+  const label = input.closest('label');
+  if (label) { label.textContent = '⏳...'; label.style.color = 'var(--amb)'; }
+  try {
+    const base64 = await new Promise((res, rej) => {
+      const r = new FileReader();
+      r.onload = () => res(r.result.split(',')[1]);
+      r.onerror = rej;
+      r.readAsDataURL(file);
+    });
+    const resp = await fetch('/api/ged-cloture', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        mois,
+        societe,
+        type: 'releve',
+        fichiers: [{ nom: file.name, base64, mime: 'application/pdf' }]
+      })
+    });
+    const data = await resp.json();
+    if (data.ok && data.deposited > 0) {
+      if (label) { label.textContent = '✅ Déposé'; label.style.color = 'var(--grn)'; label.style.border = '1px solid var(--grn)'; }
+      toast('✅ Relevé déposé dans Drive → ' + data.folder);
+    } else {
+      throw new Error(data.results?.[0]?.error || data.error || 'Erreur inconnue');
+    }
+  } catch(e) {
+    if (label) { label.textContent = '❌ Erreur'; label.style.color = 'var(--red)'; }
+    toast('❌ ' + e.message);
+  }
+}
+
+async function gedDeposerFichier(input, societe, mois, type) {
+  const files = Array.from(input.files || []);
+  if (!files.length) return;
+  const btn = input.closest('button') || input.closest('label');
+  if (btn) btn.textContent = '⏳ Dépôt en cours...';
+  try {
+    const fichiers = await Promise.all(files.map(async f => {
+      const base64 = await new Promise((res, rej) => {
+        const r = new FileReader(); r.onload = () => res(r.result.split(',')[1]); r.onerror = rej; r.readAsDataURL(f);
+      });
+      return { nom: f.name, base64, mime: f.type || 'application/pdf' };
+    }));
+    const resp = await fetch('/api/ged-cloture', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mois, societe, type, fichiers })
+    });
+    const data = await resp.json();
+    if (data.ok) {
+      toast('✅ ' + data.deposited + '/' + data.total + ' fichier(s) déposé(s) dans Drive → ' + data.folder);
+      if (btn) btn.textContent = '✅ ' + data.deposited + ' déposé(s)';
+    } else {
+      throw new Error(data.error || 'Erreur');
+    }
+  } catch(e) {
+    if (btn) btn.textContent = '❌ Erreur';
+    toast('❌ ' + e.message);
+  }
+}
+
 async function envoyerAuComptable(mois) {
   toast('📧 Préparation du mail au comptable...');
   // TODO : générer mail avec liste des documents en pièces jointes
@@ -4473,9 +4538,12 @@ async function loadCloture() {
         docsHtml += '<div style="display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:0.5px solid var(--b1)">' +
           '<span style="color:var(--grn)">✅</span>' +
           '<span style="font-size:12px">Relevé Qonto</span>' +
+          '<div style="margin-left:auto;display:flex;gap:6px">' +
           (acc.statements && acc.statements.length > 0
-            ? '<a href="' + acc.statements[0].url + '" target="_blank" style="font-size:11px;color:var(--acc);margin-left:auto">↗ Télécharger</a>'
-            : '<span style="font-size:11px;color:var(--t2);margin-left:auto">Généré en début de mois</span>') +
+            ? '<a href="' + acc.statements[0].url + '" target="_blank" style="font-size:11px;color:var(--acc)">↗ Télécharger</a>'
+            : '<span style="font-size:11px;color:var(--t2)">Généré en début de mois</span>') +
+          '<label style="font-size:11px;color:var(--acc);cursor:pointer;padding:2px 8px;border:1px solid var(--acc);border-radius:4px">📤 Drive<input type="file" accept=".pdf" style="display:none" onchange="gedDeposerReleve(this,\'' + acc.company_id + '\',\'' + mois + '\')"></label>' +
+          '</div>' +
         '</div>';
 
         // Relevés manuels requis
