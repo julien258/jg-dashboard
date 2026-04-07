@@ -179,6 +179,7 @@
     <div class="tb-r"><div class="db" id="today"></div><div class="ab" id="alert-badge" style="display:none"></div></div>
   </div>
   <div class="ptabs" id="ptabs" style="display:none">
+    <button class="ptab" onclick="showPane('flux')">📊 Flux tréso</button>
     <button class="ptab active" onclick="showPane('kpi')">KPI & Bilan</button>
     <button class="ptab" onclick="showPane('cc')">CC & Dettes</button>
     <button class="ptab" onclick="showPane('dettes')">💸 Dettes</button>
@@ -220,6 +221,47 @@
 
   <!-- COMPANY VIEW -->
   <div class="pv cnt" id="v-company">
+    <!-- FLUX TRÉSO PAR SOCIÉTÉ -->
+    <div class="tp" id="p-flux">
+      <!-- Indicateur encaissé réel -->
+      <div id="co-encaisse-bar" style="display:none;margin-bottom:1rem;padding:10px 14px;background:var(--s2);border-radius:8px;border-left:3px solid var(--grn);display:flex;align-items:center;gap:16px">
+        <div><div style="font-size:10px;color:var(--t2);text-transform:uppercase;letter-spacing:.5px">Encaissé réel ce mois</div><div style="font-size:18px;font-weight:600;color:var(--grn)" id="co-encaisse-val">—</div></div>
+        <div style="width:1px;height:32px;background:var(--b1)"></div>
+        <div><div style="font-size:10px;color:var(--t2);text-transform:uppercase;letter-spacing:.5px">Prévu ce mois</div><div style="font-size:18px;font-weight:600;color:var(--acc)" id="co-encaisse-prevu">—</div></div>
+        <div style="width:1px;height:32px;background:var(--b1)"></div>
+        <div><div style="font-size:10px;color:var(--t2);text-transform:uppercase;letter-spacing:.5px">Delta</div><div style="font-size:18px;font-weight:600" id="co-encaisse-delta">—</div></div>
+        <div style="margin-left:auto;font-size:11px;color:var(--t3)" id="co-encaisse-date"></div>
+      </div>
+      <!-- Graphique 1 : Entrées/Sorties 12 mois -->
+      <div class="card mb">
+        <div class="card-t">Flux de trésorerie — 12 mois glissants</div>
+        <div style="position:relative;height:300px"><canvas id="coFluxChart"></canvas></div>
+        <div style="display:flex;gap:10px;margin-top:8px;flex-wrap:wrap;font-size:11px;color:var(--t2)" id="co-flux-legend"></div>
+      </div>
+      <!-- Graphique 2 : Pilotage des sorties -->
+      <div class="card mb">
+        <div class="card-t">Pilotage des sorties — détail par catégorie</div>
+        <div style="position:relative;height:260px"><canvas id="coSortiesChart"></canvas></div>
+      </div>
+      <!-- Graphique 3 : Tréso cumulée -->
+      <div class="card mb">
+        <div class="card-t">Trésorerie cumulée — solde net mois par mois</div>
+        <div style="position:relative;height:180px"><canvas id="coCumulChart"></canvas></div>
+      </div>
+      <!-- Tableau récap -->
+      <div class="card">
+        <div class="card-t">Détail mensuel</div>
+        <div style="max-height:280px;overflow-y:auto">
+          <table>
+            <thead style="position:sticky;top:0;background:var(--s1);z-index:1">
+              <tr><th>Mois</th><th style="text-align:right;color:var(--grn)">Entrées</th><th style="text-align:right;color:var(--red)">Sorties</th><th style="text-align:right">Solde mois</th><th style="text-align:right;color:var(--acc)">Cumulé</th><th>Statut</th></tr>
+            </thead>
+            <tbody id="co-flux-table"></tbody>
+          </table>
+        </div>
+      </div>
+    </div><!-- fin p-flux -->
+
     <!-- KPI -->
     <div class="tp active" id="p-kpi">
       <div id="co-kpis" class="kr"></div>
@@ -8708,7 +8750,7 @@ function showPane(n){
   document.querySelectorAll('.ptab').forEach(t=>t.classList.remove('active'));
   const pane=document.getElementById('p-'+n);
   if(pane){pane.classList.add('active');pane.style.display='block';}
-  ['kpi','cc','dettes','pipeline','comptes','docs','todo'].forEach((t,i)=>{
+  ['flux','kpi','cc','dettes','pipeline','comptes','docs','todo'].forEach((t,i)=>{
     if(t===n)document.querySelectorAll('.ptab')[i]?.classList.add('active');
   });
   if(n==='docs')loadDocs();
@@ -8716,11 +8758,170 @@ function showPane(n){
   if(n==='cc')loadCCBalances();
   if(n==='dettes')loadCoDettes();
   if(n==='pipeline')loadCoPipeline();
+  if(n==='flux')loadCoFlux(curCo?.id);
   if(n==='comptes'){
     const el=document.getElementById('comptes-co-name');
     if(el)el.textContent=curCo?.name||'';
     loadComptes();
     renderCoPennylane();
+  }
+}
+
+async function loadCoFlux(coId){
+  if(!coId)return;
+  const safeQ=async(q)=>{try{const r=await q;return r.data||[];}catch(e){return[];}};
+  const now=new Date();
+  const months=[],labels=[],mNoms=['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
+  for(let i=0;i<12;i++){const d=new Date(now.getFullYear(),now.getMonth()+i,1);months.push(d);labels.push(mNoms[d.getMonth()]+' '+d.getFullYear().toString().slice(2));}
+
+  const [contracts,debts,payables,receivables,charges] = await Promise.all([
+    safeQ(sb.from('contracts').select('*').eq('billing_company_id',coId).not('status','eq','termine')),
+    safeQ(sb.from('debts').select('*').eq('company_id',coId).eq('status','en_cours').neq('monthly_amount',0)),
+    safeQ(sb.from('payables').select('*').eq('company_id',coId).eq('status','a_payer')),
+    safeQ(sb.from('receivables').select('*').eq('company_id',coId).not('status','eq','payee')),
+    safeQ(sb.from('recurring_charges').select('*').eq('company_id',coId).eq('status','actif'))
+  ]);
+
+  // Entrées : contrats + receivables
+  const entrees=new Array(12).fill(0);
+  contracts.forEach(c=>{
+    const com=Number(c.commission_amount||0);
+    const freq={monthly:1,quarterly:3,semi_annual:6,annual:12}[c.recurrence]||0;
+    if(freq>0){
+      months.forEach((m,i)=>{
+        const startRef=c.payment_expected_date||c.signed_date;
+        if(startRef){const s=new Date(startRef);if(m<new Date(s.getFullYear(),s.getMonth(),1))return;}
+        const diffM=startRef?((m.getFullYear()-new Date(startRef).getFullYear())*12+(m.getMonth()-new Date(startRef).getMonth())):0;
+        if(freq===1||diffM%freq===0)entrees[i]+=com;
+      });
+    } else {
+      const dateRef=c.payment_expected_date||c.signed_date;
+      if(dateRef){const sd=new Date(dateRef);months.forEach((m,i)=>{if(m.getMonth()===sd.getMonth()&&m.getFullYear()===sd.getFullYear())entrees[i]+=com;});}
+    }
+  });
+  receivables.forEach(r=>{
+    if(!r.due_date)return;
+    const dd=new Date(r.due_date);
+    months.forEach((m,i)=>{if(m.getMonth()===dd.getMonth()&&m.getFullYear()===dd.getFullYear())entrees[i]+=Number(r.amount_ttc||0);});
+  });
+
+  // Sorties par catégorie
+  const catUrssaf=new Array(12).fill(0),catImpots=new Array(12).fill(0);
+  const catDettesF=new Array(12).fill(0),catCharges=new Array(12).fill(0),catFourn=new Array(12).fill(0);
+  const sorties=new Array(12).fill(0);
+
+  debts.forEach(d=>{
+    const freq={monthly:1,quarterly:3,annual:12}[d.frequency]||0;
+    const mt=Number(d.monthly_amount||0); if(!freq||!mt)return;
+    const nat=(d.nature||d.debiteur||'').toLowerCase();
+    const isU=nat.includes('urssaf')||nat.includes('cotis');
+    const isI=nat.includes('ir ')||nat.includes('impôt')||nat.includes('dgfip')||nat.includes('is ');
+    const isF=nat.includes('leasing')||nat.includes('crédit')||nat.includes('credit');
+    months.forEach((m,i)=>{
+      const mY=m.getFullYear(),mM=m.getMonth();
+      if(d.start_date){const s=new Date(d.start_date);if(mY<s.getUTCFullYear()||(mY===s.getUTCFullYear()&&mM<s.getUTCMonth()))return;}
+      if(d.end_date){const e=new Date(d.end_date);if(mY>e.getUTCFullYear()||(mY===e.getUTCFullYear()&&mM>e.getUTCMonth()))return;}
+      const sM=d.start_date?new Date(d.start_date).getUTCMonth():0;
+      if(!(freq===1||(freq===3&&(mM-sM+12)%3===0)||(freq===12&&mM===sM)))return;
+      if(isU)catUrssaf[i]+=mt; else if(isI)catImpots[i]+=mt; else if(isF)catDettesF[i]+=mt; else catDettesF[i]+=mt;
+      sorties[i]+=mt;
+    });
+  });
+  charges.forEach(c=>{
+    const freq={monthly:1,quarterly:3,annual:12}[c.frequency]||1;
+    const mt=Number(c.amount_ttc||0); if(!mt)return;
+    months.forEach((m,i)=>{
+      const mY=m.getFullYear(),mM=m.getMonth();
+      if(c.start_date){const s=new Date(c.start_date);if(mY<s.getUTCFullYear()||(mY===s.getUTCFullYear()&&mM<s.getUTCMonth()))return;}
+      if(c.end_date){const e=new Date(c.end_date);if(mY>e.getUTCFullYear()||(mY===e.getUTCFullYear()&&mM>e.getUTCMonth()))return;}
+      const sM=c.start_date?new Date(c.start_date).getUTCMonth():0;
+      if(freq===1||(freq===3&&(mM-sM+12)%3===0)||(freq===12&&mM===sM)){catCharges[i]+=mt;sorties[i]+=mt;}
+    });
+  });
+  payables.forEach(p=>{
+    if(!p.due_date)return;
+    const dd=new Date(p.due_date);
+    months.forEach((m,i)=>{if(m.getMonth()===dd.getMonth()&&m.getFullYear()===dd.getFullYear()){catFourn[i]+=Number(p.amount_ttc||0);sorties[i]+=Number(p.amount_ttc||0);}});
+  });
+
+  // Encaissé réel au jour J (Qonto côté crédit mois courant)
+  const coAccountMap={'sas-living':'LIVING','sarl-guiraud':'GUIRAUD','meulette':'MEULETTE','real-gains':'REAL_GAINS','spv-monikaza':'MONIKAZA'};
+  const moisCourant=months[0].getFullYear()+'-'+String(months[0].getMonth()+1).padStart(2,'0');
+  let encaisseReel=0;
+  try{
+    const account=coAccountMap[coId]||'LIVING';
+    const qRes=await fetch('/api/qonto-transactions?account='+account+'&per_page=50');
+    if(qRes.ok){const qD=await qRes.json();encaisseReel=(qD.transactions||[]).filter(t=>t.side==='credit'&&(t.settled_at||'').startsWith(moisCourant)).reduce((s,t)=>s+Number(t.amount||0),0);}
+  }catch(e){}
+
+  const prevuM=entrees[0]||0;
+  const delta=encaisseReel-prevuM;
+  const bar=document.getElementById('co-encaisse-bar');
+  if(bar){
+    bar.style.display='flex';
+    document.getElementById('co-encaisse-val').textContent=Math.round(encaisseReel).toLocaleString('fr-FR')+' €';
+    document.getElementById('co-encaisse-prevu').textContent=Math.round(prevuM).toLocaleString('fr-FR')+' €';
+    const de=document.getElementById('co-encaisse-delta');
+    de.textContent=(delta>=0?'+':'')+Math.round(delta).toLocaleString('fr-FR')+' €';
+    de.style.color=delta>=0?'var(--grn)':'var(--red)';
+    document.getElementById('co-encaisse-date').textContent='Au '+now.getDate()+'/'+String(now.getMonth()+1).padStart(2,'0');
+  }
+
+  const isDark=matchMedia('(prefers-color-scheme:dark)').matches;
+  const gc=isDark?'rgba(255,255,255,.05)':'rgba(0,0,0,.05)',tc=isDark?'#9c9a92':'#73726c';
+  const coColor=(window.companies||[]).find(c=>c.id===coId)?.color||'#7b8cde';
+  const encLine=new Array(12).fill(null); encLine[0]=Math.round(encaisseReel);
+
+  // Graphique 1 : Entrées/Sorties
+  if(window._coFluxObj){window._coFluxObj.destroy();window._coFluxObj=null;}
+  const el1=document.getElementById('coFluxChart');
+  if(el1) window._coFluxObj=new Chart(el1.getContext('2d'),{
+    type:'bar',data:{labels,datasets:[
+      {label:'Entrées prévues',data:entrees,backgroundColor:coColor+'66',borderColor:coColor,borderWidth:1,order:2},
+      {label:'Sorties',data:sorties.map(v=>-v),backgroundColor:'#E74C3C66',borderColor:'#E74C3C',borderWidth:1,order:2},
+      {label:'Encaissé réel',data:encLine,type:'line',borderColor:'#2ECC71',borderWidth:2,pointRadius:6,fill:false,tension:0,order:0}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
+      plugins:{legend:{position:'bottom',labels:{color:tc,font:{size:10},boxWidth:10,padding:8}},tooltip:{callbacks:{label:ctx=>`${ctx.dataset.label}: ${ctx.parsed.y!==null?Math.round(Math.abs(ctx.parsed.y)).toLocaleString('fr-FR')+' €':'—'}`}}},
+      scales:{x:{ticks:{color:tc,font:{size:11}},grid:{display:false}},y:{ticks:{callback:v=>(Math.round(v/1000))+'k€',color:tc,font:{size:10}},grid:{color:gc}}}}
+  });
+
+  // Graphique 2 : Sorties par catégorie
+  if(window._coSortiesObj){window._coSortiesObj.destroy();window._coSortiesObj=null;}
+  const el2=document.getElementById('coSortiesChart');
+  if(el2) window._coSortiesObj=new Chart(el2.getContext('2d'),{
+    type:'bar',data:{labels,datasets:[
+      {label:'URSSAF',data:catUrssaf,backgroundColor:'#E74C3C88',stack:'s',order:2},
+      {label:'Impôts',data:catImpots,backgroundColor:'#8E44AD88',stack:'s',order:2},
+      {label:'Dettes financières',data:catDettesF,backgroundColor:'#E67E2288',stack:'s',order:2},
+      {label:'Charges récurrentes',data:catCharges,backgroundColor:'#F39C1288',stack:'s',order:2},
+      {label:'Fournisseurs',data:catFourn,backgroundColor:'#7F8C8D88',stack:'s',order:2},
+      {label:'Entrées prévues',data:entrees,type:'line',borderColor:'#2ECC71',borderWidth:2.5,pointRadius:4,fill:false,tension:0.3,order:0,stack:undefined}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{position:'bottom',labels:{color:tc,font:{size:10},boxWidth:10,padding:8}}},
+      scales:{x:{stacked:true,ticks:{color:tc,font:{size:11}},grid:{display:false}},y:{stacked:true,ticks:{callback:v=>(Math.round(v/1000))+'k€',color:tc,font:{size:10}},grid:{color:gc}}}}
+  });
+
+  // Graphique 3 : Cumulé
+  let cum=0;
+  const cumul=months.map((_,i)=>{cum+=(entrees[i]-sorties[i]);return Math.round(cum);});
+  if(window._coCumulObj){window._coCumulObj.destroy();window._coCumulObj=null;}
+  const el3=document.getElementById('coCumulChart');
+  if(el3) window._coCumulObj=new Chart(el3.getContext('2d'),{
+    type:'line',data:{labels,datasets:[{label:'Tréso cumulée',data:cumul,borderColor:coColor,backgroundColor:coColor+'22',borderWidth:2,fill:true,tension:0.3,pointRadius:3}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+      scales:{x:{ticks:{color:tc,font:{size:10}},grid:{display:false}},y:{ticks:{callback:v=>(Math.round(v/1000))+'k€',color:tc,font:{size:10}},grid:{color:gc}}}}
+  });
+
+  // Tableau récap
+  const tbody=document.getElementById('co-flux-table');
+  if(tbody){
+    cum=0;
+    tbody.innerHTML=months.map((m,i)=>{
+      const e=entrees[i],s=sorties[i],net=e-s; cum+=net;
+      return `<tr><td>${labels[i]}</td><td style="text-align:right;font-family:monospace;font-size:12px;color:var(--grn)">${Math.round(e).toLocaleString('fr-FR')} €</td><td style="text-align:right;font-family:monospace;font-size:12px;color:var(--red)">${Math.round(s).toLocaleString('fr-FR')} €</td><td style="text-align:right;font-family:monospace;font-size:12px;font-weight:600;color:${net>=0?'var(--grn)':'var(--red)'}">${(net>=0?'+':'')+Math.round(net).toLocaleString('fr-FR')} €</td><td style="text-align:right;font-family:monospace;font-size:12px;color:${cum>=0?'var(--acc)':'var(--red)'}">${(cum>=0?'+':'')+Math.round(cum).toLocaleString('fr-FR')} €</td><td><span class="badge ${net>=0?'bg':'br'}">${net>=0?'✓':'⚠'}</span></td></tr>`;
+    }).join('');
   }
 }
 
