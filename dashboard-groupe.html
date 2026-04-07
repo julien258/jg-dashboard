@@ -6327,12 +6327,21 @@ function apurAssign(id){
   let item=null;
   if(id.startsWith('d_')){
     const d=debts.find(x=>x.id===id.slice(2));
-    if(d) item={id,name:d.debiteur,sub:d.company_id,amount:Number(d.monthly_amount||0)};
+    if(d) item={id,name:d.debiteur,sub:d.company_id,amount:Number(d.monthly_amount||d.amount_remaining||0)};
   } else {
     const p=payables.find(x=>x.id===id.slice(2));
     if(p) item={id,name:p.fournisseur,sub:p.invoice_ref||p.company_id,amount:Number(p.amount_ttc||0)};
   }
-  if(item){window._apurAssigned[id]=item;window._apurRenderAll&&window._apurRenderAll();}
+  if(item&&item.amount>0){
+    window._apurAssigned[id]=item;
+    window._apurRenderAll&&window._apurRenderAll();
+  } else if(item&&item.amount===0) {
+    // Montant 0 — essayer amount_total ou amount_remaining
+    console.warn('apurAssign: montant 0 pour',id,item);
+    toast('⚠️ Montant 0 pour cette dette — vérifier la saisie dans CC & Dettes');
+  } else {
+    console.warn('apurAssign: item non trouvé pour',id,'debts:',debts.length,'payables:',payables.length);
+  }
 }
 
 function apurUnassign(id){
