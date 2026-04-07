@@ -130,6 +130,7 @@
         <div class="det-h">Besoins — <span id="det-mois-label"></span></div>
         <div class="det-row"><span><span class="dot" style="background:#E24B4A"></span>Dettes</span><span class="mono" style="color:#A32D2D" id="d-dettes"></span></div>
         <div class="det-row"><span><span class="dot" style="background:#BA7517"></span>Charges fixes</span><span class="mono" style="color:#854F0B" id="d-fixes"></span></div>
+        <div class="det-row" id="d-rattrapage-row" style="display:none"><span><span class="dot" style="background:#E24B4A"></span>⚠️ Rattrapage charges</span><span class="mono" style="color:#A32D2D;font-weight:600" id="d-rattrapage"></span></div>
         <div class="det-row"><span><span class="dot" style="background:#73726c"></span>Variables</span><span class="mono" id="d-vars"></span></div>
         <div class="det-row"><span><span class="dot" style="background:#2C2C2A"></span>Impôts PAS</span><span class="mono" id="d-impots"></span></div>
         <div class="det-row"><span><span class="dot" style="background:#185FA5"></span>Projets</span><span class="mono" style="color:#0C447C" id="d-projets"></span></div>
@@ -741,6 +742,10 @@ function renderDetail(){
   // Ligne IR 2025 — visible uniquement sur sept-déc 2026
   const irRow=document.getElementById('d-ir2025-row');
   if(irRow){irRow.style.display=ir25>0?'':'none';document.getElementById('d-ir2025').textContent=fmtM(ir25);}
+  const rattrapage=i===0?fixesRetardTotal():0;
+  // Ligne rattrapage — visible uniquement si rattrapage > 0 ce mois
+  const ratRow=document.getElementById('d-rattrapage-row');
+  if(ratRow){ratRow.style.display=rattrapage>0?'':'none';document.getElementById('d-rattrapage').textContent=fmtM(rattrapage);}
   document.getElementById('d-total').textContent=fmt(tot);
   document.getElementById('d-rav').textContent=fmt(rav);
   document.getElementById('d-rev').textContent=fmt(rev);

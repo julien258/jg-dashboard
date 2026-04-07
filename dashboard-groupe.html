@@ -2643,7 +2643,6 @@ const sb=createClient(SB_URL,SB_KEY);
 const companies=[
   {id:'meulette',name:'La Meulette',type:'SARL de famille — RCS Paris (en cours)',color:'#F39C12',health:'Ventes en cours',dot:'amb',
    kpis:[
-     {l:'Revenus locatifs',v:'2 400 €/m',c:'p',s:'Paris 75007 · Étab. sec. Toulouse'},
      {l:'Vente Fronsac',v:'290 000 €',c:'p',s:'Attendu juin 2026'},
      {l:'Vente Toulouse',v:'À chiffrer',c:'',s:'À venir'},
      {l:'CC dû à SARL GJ',v:'À importer',c:'n',s:'Voir bilans'},
@@ -7418,19 +7417,24 @@ async function loadTresoChart(){
   // = revNecessaire(mois) × 1.45 × 1.20 (TTC)
   // revNecessaire = dettes perso + charges fixes perso + impôts perso + projets + RAV
   // Les dettes SARL Guiraud (URSSAF, huissiers) sont payées en interne par SARL depuis sa tréso
-  const [fxRes,dPRes,bmpRes,setPRes,ppRes] = await Promise.all([
-    sb.from('fixed_expenses').select('amount').eq('active',true),
+  // ── Flux intra-groupe : même sources que foyer-budget ──
+  const [dPRes,bmpRes,setPRes,ppRes,fxPersoRes,chSarlRes] = await Promise.all([
     sb.from('debts').select('*').eq('company_id','perso').not('status','eq','solde'),
     sb.from('budget_mensuel_perso').select('*'),
     sb.from('settings').select('key,value'),
-    sb.from('projets_perso').select('*')
+    sb.from('projets_perso').select('*'),
+    sb.from('fixed_charges').select('*').eq('active',true),
+    sb.from('recurring_charges').select('monthly_amount,amount_ttc').eq('company_id','sarl-guiraud').eq('status','actif')
   ]);
-  const fixesPersoTotal=(fxRes.data||[]).reduce((s,f)=>s+Number(f.amount||0),0);
   const settingsMap2={}; (setPRes.data||[]).forEach(s=>settingsMap2[s.key]=s.value);
   const budgetByMois={}; (bmpRes.data||[]).forEach(b=>budgetByMois[b.mois]=b);
-  const ravDefault=parseFloat(settingsMap2['rav_cible']||2500);
+  const ravDefault=parseFloat(settingsMap2['rav_cible']||3000);
+  const fixesRetardMap=JSON.parse(settingsMap2['fixes_retard']||'{}');
+  const fixesPersoBase=(fxPersoRes.data||[]).reduce((s,f)=>s+Number(f.amount||0),0);
+  const fixesRetardMontant=(fxPersoRes.data||[]).reduce((s,f)=>s+Number(f.amount||0)*Number(fixesRetardMap[f.id]||0),0);
+  const chargesSarlGuiraud=(chSarlRes.data||[]).reduce((s,c)=>s+Number(c.monthly_amount||c.amount_ttc||0),0);
 
-  const intraGroupe=months.map((m)=>{
+  const intraGroupe=months.map((m,mIdx)=>{
     const mKey2=m.getFullYear()+'-'+String(m.getMonth()+1).padStart(2,'0');
     const mY=m.getFullYear(),mM=m.getMonth();
     const dettesPerso=(dPRes.data||[]).filter(d=>{
@@ -7441,16 +7445,18 @@ async function loadTresoChart(){
     }).reduce((s,d)=>s+Number(d.monthly_amount||0),0);
     const impots=budgetByMois[mKey2]?.impots_pas?Number(budgetByMois[mKey2].impots_pas):0;
     const rav=budgetByMois[mKey2]?.rav_cible?Number(budgetByMois[mKey2].rav_cible):ravDefault;
+    const vars=budgetByMois[mKey2]?.depenses_variables?Number(budgetByMois[mKey2].depenses_variables):0;
     let projets=0;
     (ppRes.data||[]).forEach(p=>{
       if(p.date_debut&&p.duree_mois){const cout=p.cout_total||0;const mens=Math.ceil(cout/p.duree_mois);
         for(let k=0;k<p.duree_mois;k++){const dd=new Date(p.date_debut);dd.setMonth(dd.getMonth()+k);
-          if(dd.getFullYear()===mY&&dd.getMonth()===mM)projets+=mens;}
-      }
+          if(dd.getFullYear()===mY&&dd.getMonth()===mM)projets+=mens;}}
     });
-    const revNec=dettesPerso+fixesPersoTotal+impots+projets+rav;
-    // TTC = revNecessaire × 1.20 (TVA) — URSSAF non incluse (payée sur revenus N-1)
-    return Math.round(revNec*1.20);
+    const rattrapage=mIdx===0?fixesRetardMontant:0;
+    // Besoin perso net = dettes + fixes + rattrapage + variables + impôts + projets + RAV
+    const besoinPersoNet=dettesPerso+fixesPersoBase+rattrapage+vars+impots+projets+rav;
+    // Facturation SARL = besoin perso + charges propres SARL Guiraud → TTC × 1.20
+    return Math.round((besoinPersoNet+chargesSarlGuiraud)*1.20);
   });
 
   // TVA déductible pour Living = 20% sur HT facture SARL Guiraud
