@@ -6090,7 +6090,10 @@ async function loadApurement(){
   // Calculs
   const soldeQonto=window._qontoData?.totalEur||0;
   const rentreesForecast=forecasts.filter(f=>f.month_label===mKey).reduce((s,f)=>s+Number(f.amount||0)*Number(f.probability||100)/100,0);
-  const rentreesRec=receivables.reduce((s,r)=>s+Number(r.amount_ttc||0),0);
+  // Factures attendues en règlement CE MOIS uniquement
+  const rentreesRec=receivables.filter(r=>r.due_date&&r.due_date.startsWith(mKey)).reduce((s,r)=>s+Number(r.amount_ttc||0),0);
+  // Factures émises (statut envoyee/en_attente) sans filtre date — montant total en attente
+  const facturesEmises=receivables.reduce((s,r)=>s+Number(r.amount_ttc||0),0);
   const totalEntrees=rentreesForecast+rentreesRec;
 
   const prelev=charges.filter(c=>c.payment_day).sort((a,b)=>a.payment_day-b.payment_day);
@@ -6106,7 +6109,10 @@ async function loadApurement(){
   const stockFact=payables.reduce((s,p)=>s+Number(p.amount_ttc||0),0);
 
   const getAssignedTotal=()=>Object.values(window._apurAssigned).reduce((s,x)=>s+x.amount,0);
-  const getDispo=()=>soldeQonto+totalEntrees-pimentsTotal-prelevRestants-factureSarl-getAssignedTotal();
+  // Dettes pro non-critiques actives ce mois
+  const dettesProMois=debts.filter(d=>d.company_id!=='perso'&&d.urgency_level<3&&d.urgency_level>0).reduce((s,d)=>s+Number(d.monthly_amount||0),0);
+  const getTotalSorties=()=>pimentsTotal+dettesProMois+prelevRestants+factureSarl+getAssignedTotal();
+  const getDispo=()=>soldeQonto+totalEntrees-getTotalSorties();
 
   // === FRISE ===
   const pct=d=>((d-1)/(daysInMonth-1)*96+2).toFixed(1)+'%';
@@ -6152,31 +6158,9 @@ async function loadApurement(){
       'real-gains':'Real Gains','spv-monikaza':'Monikaza SPV','perso':'Perso','group':'Groupe'
     };
 
-    // COL 1 SITUATION
-    const col1='<div class="card" style="border-left:3px solid var(--acc);font-size:12px;position:sticky;top:0">'
-      +'<div style="font-size:13px;font-weight:700;margin-bottom:12px;color:var(--acc)">Situation '+mLabel+'</div>'
-      +'<div style="font-size:10px;color:var(--t2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px">Tréso actuelle</div>'
-      +'<div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="color:var(--t2)">Solde Qonto+Wise</span><span style="font-weight:600;color:var(--acc)">'+(soldeQonto>=0?'+':'')+Math.round(soldeQonto).toLocaleString('fr-FR')+' €</span></div>'
-      +'<div style="font-size:10px;color:var(--t2);text-transform:uppercase;letter-spacing:.5px;margin:8px 0 5px">Entrées prévues</div>'
-      +'<div style="display:flex;justify-content:space-between;margin-bottom:3px"><span style="color:var(--t2)">Prévisions / Trails</span><span style="color:var(--grn)">'+(rentreesForecast>0?'+'+Math.round(rentreesForecast).toLocaleString('fr-FR')+' €':'—')+'</span></div>'
-      +'<div style="display:flex;justify-content:space-between;margin-bottom:3px"><span style="color:var(--t2)">Factures émises</span><span style="color:var(--grn)">'+(rentreesRec>0?'+'+Math.round(rentreesRec).toLocaleString('fr-FR')+' €':'—')+'</span></div>'
-      +'<div style="display:flex;justify-content:space-between;font-weight:600;border-top:1px solid var(--b1);padding-top:5px;margin:3px 0 8px"><span>Total entrées</span><span style="color:var(--grn)">'+(totalEntrees>0?'+'+Math.round(totalEntrees).toLocaleString('fr-FR')+' €':'Non renseigné')+'</span></div>'
-      +'<div style="font-size:10px;color:var(--t2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px">Déductions ce mois</div>'
-      +'<div style="display:flex;justify-content:space-between;margin-bottom:3px"><span style="color:var(--t2)">🌶️🌶️🌶️ Piments</span><span style="color:var(--red)">−'+Math.round(pimentsTotal).toLocaleString('fr-FR')+' €</span></div>'
-      +'<div style="display:flex;justify-content:space-between;margin-bottom:3px"><span style="color:var(--t2)">🔄 Prélèvements restants</span><span style="color:var(--amb)">−'+Math.round(prelevRestants).toLocaleString('fr-FR')+' €</span></div>'
-      +'<div style="display:flex;justify-content:space-between;margin-bottom:3px"><span style="color:var(--t2)">🏛️ Fact. SARL Guiraud</span><span style="color:var(--red)">−'+Math.round(factureSarl).toLocaleString('fr-FR')+' €</span></div>'
-      +'<div style="display:flex;justify-content:space-between;margin-bottom:3px"><span style="color:var(--t2)">✅ Factures cochées</span><span id="sit-at" style="color:var(--red)">−'+Math.round(at).toLocaleString('fr-FR')+' €</span></div>'
-      +'<div style="padding:10px;border-radius:8px;border:2px solid '+dispColor+';text-align:center;margin:10px 0">'
-      +'<div style="font-size:9px;color:var(--t2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">Cash net disponible</div>'
-      +'<div id="sit-dispo" style="font-size:20px;font-weight:700;color:'+dispColor+'">'+(dispo>=0?'+':'')+Math.round(dispo).toLocaleString('fr-FR')+' €</div>'
-      +'</div>'
-      +'<div style="background:var(--s2);border-radius:6px;padding:8px 10px">'
-      +'<div style="font-size:9px;color:var(--t2);text-transform:uppercase;letter-spacing:.5px">Stock dettes totales</div>'
-      +'<div style="font-size:14px;font-weight:600;margin-top:2px">'+Math.round(stockDettes+stockFact).toLocaleString('fr-FR')+' €</div>'
-      +'<div style="font-size:10px;color:var(--t2)">'+Math.round(stockDettes).toLocaleString('fr-FR')+' € dettes · '+Math.round(stockFact).toLocaleString('fr-FR')+' € factures</div>'
-      +'</div>'
-      +'</div>';
-
+    // COL 1 SITUATION — Entrées / Déductions / Solde si tout payé
+    const totalSorties=getTotalSorties();
+    const col1='<div class="card" style="border-left:3px solid var(--acc);font-size:12px;position:sticky;top:0">'      +'<div style="font-size:13px;font-weight:700;margin-bottom:10px;color:var(--acc)">Situation '+mLabel+'</div>'      +'<div style="font-size:10px;font-weight:600;color:var(--t2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px;padding-bottom:3px;border-bottom:1px solid var(--b1)">📥 Entrées</div>'      +'<div style="display:flex;justify-content:space-between;margin-bottom:3px"><span style="color:var(--t2)">Solde Qonto+Wise</span><span style="font-weight:600;color:var(--acc)">'+(soldeQonto>=0?'+':'')+Math.round(soldeQonto).toLocaleString('fr-FR')+' €</span></div>'      +'<div style="display:flex;justify-content:space-between;margin-bottom:3px"><span style="color:var(--t2)">Factures émises (en attente)</span><span style="color:var(--grn)">'+(facturesEmises>0?'+'+Math.round(facturesEmises).toLocaleString('fr-FR')+' €':'—')+'</span></div>'      +'<div style="display:flex;justify-content:space-between;margin-bottom:3px"><span style="color:var(--t2)">Attendu en règlement ce mois</span><span style="color:var(--grn)">'+(rentreesRec>0?'+'+Math.round(rentreesRec).toLocaleString('fr-FR')+' €':'—')+'</span></div>'      +(rentreesForecast>0?'<div style="display:flex;justify-content:space-between;margin-bottom:3px"><span style="color:var(--t2)">Prévisions / Trails</span><span style="color:var(--grn)">+'+Math.round(rentreesForecast).toLocaleString('fr-FR')+' €</span></div>':'')      +'<div style="display:flex;justify-content:space-between;font-weight:700;border-top:1px solid var(--b1);padding-top:4px;margin:3px 0 8px"><span>Total entrées ce mois</span><span style="color:var(--grn)">'+Math.round(soldeQonto+totalEntrees).toLocaleString('fr-FR')+' €</span></div>'      +'<div style="font-size:10px;font-weight:600;color:var(--t2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px;padding-bottom:3px;border-bottom:1px solid var(--b1)">📤 Déductions</div>'      +'<div style="display:flex;justify-content:space-between;margin-bottom:3px"><span style="color:var(--t2)">Besoin perso (dont dettes perso)</span><span style="color:var(--red)">−'+Math.round(factureSarl).toLocaleString('fr-FR')+' €</span></div>'      +'<div style="display:flex;justify-content:space-between;margin-bottom:3px"><span style="color:var(--t2)">🌶️ Dettes pro critiques</span><span style="color:var(--red)">−'+Math.round(pimentsTotal).toLocaleString('fr-FR')+' €</span></div>'      +(dettesProMois>0?'<div style="display:flex;justify-content:space-between;margin-bottom:3px"><span style="color:var(--t2)">Dettes pro (autres)</span><span style="color:var(--amb)">−'+Math.round(dettesProMois).toLocaleString('fr-FR')+' €</span></div>':'')      +'<div style="display:flex;justify-content:space-between;margin-bottom:3px"><span style="color:var(--t2)">🔄 Prélèvements restants</span><span style="color:var(--amb)">−'+Math.round(prelevRestants).toLocaleString('fr-FR')+' €</span></div>'      +'<div style="display:flex;justify-content:space-between;margin-bottom:3px"><span style="color:var(--t2)">✅ Factures cochées</span><span id="sit-at" style="color:var(--red)">−'+Math.round(at).toLocaleString('fr-FR')+' €</span></div>'      +'<div style="display:flex;justify-content:space-between;font-weight:700;border-top:1px solid var(--b1);padding-top:4px;margin:3px 0 8px"><span>Total enveloppe</span><span id="sit-total-sorties" style="color:var(--red)">−'+Math.round(totalSorties).toLocaleString('fr-FR')+' €</span></div>'      +'<div style="padding:10px;border-radius:8px;border:2px solid '+dispColor+';text-align:center;margin:8px 0 10px">'      +'<div style="font-size:9px;color:var(--t2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">Solde si tout payé</div>'      +'<div id="sit-dispo" style="font-size:20px;font-weight:700;color:'+dispColor+'">'+(dispo>=0?'+':'')+Math.round(dispo).toLocaleString('fr-FR')+' €</div>'      +'</div>'      +'<div style="background:var(--s2);border-radius:6px;padding:7px 10px">'      +'<div style="font-size:9px;color:var(--t2);text-transform:uppercase;letter-spacing:.5px">Stock dettes total</div>'      +'<div style="font-size:14px;font-weight:600;margin-top:2px">'+Math.round(stockDettes+stockFact).toLocaleString('fr-FR')+' €</div>'      +'<div style="font-size:10px;color:var(--t2)">'+Math.round(stockDettes).toLocaleString('fr-FR')+' € dettes · '+Math.round(stockFact).toLocaleString('fr-FR')+' € factures</div>'      +'</div>'      +'</div>';
     // COL 2 MOIS
     const assignedIds=Object.keys(window._apurAssigned);
     const assignedCards=assignedIds.map(k=>{
