@@ -1032,6 +1032,17 @@
         <div id="pennylane-soldes-grid" style="display:none"></div>
         <div id="pennylane-impayes-list" style="display:none"></div>
       </div>
+      <!-- Encaissé réel au jour J -->
+      <div id="encaisse-reel-bar" style="display:none;margin-bottom:1rem;padding:10px 14px;background:var(--s2);border-radius:8px;border-left:3px solid var(--grn);display:flex;align-items:center;gap:16px">
+        <div><div style="font-size:10px;color:var(--t2);text-transform:uppercase;letter-spacing:.5px">Encaissé réel ce mois</div><div style="font-size:18px;font-weight:600;color:var(--grn)" id="encaisse-reel-val">—</div></div>
+        <div style="width:1px;height:32px;background:var(--b1)"></div>
+        <div><div style="font-size:10px;color:var(--t2);text-transform:uppercase;letter-spacing:.5px">Prévu ce mois</div><div style="font-size:18px;font-weight:600;color:var(--acc)" id="encaisse-prevu-val">—</div></div>
+        <div style="width:1px;height:32px;background:var(--b1)"></div>
+        <div><div style="font-size:10px;color:var(--t2);text-transform:uppercase;letter-spacing:.5px">Delta</div><div style="font-size:18px;font-weight:600" id="encaisse-delta-val">—</div></div>
+        <div style="margin-left:auto;font-size:11px;color:var(--t3)" id="encaisse-date"></div>
+      </div>
+
+      <!-- Graphique 1 : Entrées / Sorties 12 mois -->
       <div class="card mb">
         <div class="card-t">Flux de trésorerie — 12 mois glissants</div>
         <div style="position:relative;height:380px"><canvas id="tresoChart"></canvas></div>
@@ -1049,6 +1060,24 @@
         <div class="card-t">Trésorerie cumulée — solde net mois par mois</div>
         <div style="position:relative;height:200px"><canvas id="tresoCumulChart"></canvas></div>
       </div>
+      <!-- Graphique 3 : Pilotage des sorties -->
+      <div class="card mb">
+        <div class="card-t">Pilotage des sorties — détail par catégorie</div>
+        <div style="font-size:11px;color:var(--t2);margin-bottom:10px">Les barres = sorties planifiées par catégorie · La ligne verte = entrées prévues · La ligne pointillée = encaissé réel au jour J</div>
+        <div style="position:relative;height:320px"><canvas id="sortiesChart"></canvas></div>
+        <div style="display:flex;gap:10px;margin-top:10px;flex-wrap:wrap;font-size:11px;color:var(--t2)">
+          <span><span style="display:inline-block;width:12px;height:12px;background:#E74C3C88;border-radius:2px;margin-right:4px"></span>URSSAF / Cotisations</span>
+          <span><span style="display:inline-block;width:12px;height:12px;background:#8E44AD88;border-radius:2px;margin-right:4px"></span>Impôts perso</span>
+          <span><span style="display:inline-block;width:12px;height:12px;background:#C0392B88;border-radius:2px;margin-right:4px"></span>Impôts pro</span>
+          <span><span style="display:inline-block;width:12px;height:12px;background:#E67E2288;border-radius:2px;margin-right:4px"></span>Dettes financières</span>
+          <span><span style="display:inline-block;width:12px;height:12px;background:#F39C1288;border-radius:2px;margin-right:4px"></span>Charges fixes</span>
+          <span><span style="display:inline-block;width:12px;height:12px;background:#7F8C8D88;border-radius:2px;margin-right:4px"></span>Fournisseurs</span>
+          <span><span style="display:inline-block;width:12px;height:12px;background:#3D8EF088;border-radius:2px;margin-right:4px"></span>Besoin perso (SARL→LIVING)</span>
+          <span style="border-left:1px solid var(--b1);padding-left:10px;color:var(--grn);font-weight:600">── Entrées prévues</span>
+          <span style="color:var(--grn)">- - Encaissé réel</span>
+        </div>
+      </div>
+
       <div class="card">
         <div class="card-t">Détail mensuel</div>
         <div style="max-height:300px;overflow-y:auto">
@@ -7423,7 +7452,7 @@ async function loadTresoChart(){
     sb.from('budget_mensuel_perso').select('*'),
     sb.from('settings').select('key,value'),
     sb.from('projets_perso').select('*'),
-    sb.from('fixed_charges').select('*').eq('active',true),
+    sb.from('fixed_expenses').select('*').eq('active',true),
     sb.from('recurring_charges').select('monthly_amount,amount_ttc').eq('company_id','sarl-guiraud').eq('status','actif')
   ]);
   const settingsMap2={}; (setPRes.data||[]).forEach(s=>settingsMap2[s.key]=s.value);
@@ -7800,6 +7829,136 @@ async function loadTresoChart(){
       yAxisID:'y2'
     }
   ];
+
+
+  // ── SORTIES CATÉGORISÉES pour le nouveau graphique ──
+  const catUrssaf    = new Array(12).fill(0);
+  const catImpotsP   = new Array(12).fill(0); // perso IR/PAS
+  const catImpotsPro = new Array(12).fill(0); // pro IS/TVA
+  const catDettesF   = new Array(12).fill(0); // leasing, crédits
+  const catChargesF  = new Array(12).fill(0); // charges récurrentes pro
+  const catFourn     = new Array(12).fill(0); // payables fournisseurs
+  const catPerso     = intraGroupe;            // besoin perso = intraGroupe
+
+  // Classifier les dettes par catégorie
+  (debts||[]).forEach(d=>{
+    const freq={monthly:1,quarterly:3,annual:12}[d.frequency]||0;
+    const montant=Number(d.monthly_amount||0);
+    if(freq===0||montant===0)return;
+    const nat=(d.nature||d.debiteur||'').toLowerCase();
+    const isUrssaf=nat.includes('urssaf')||nat.includes('cotis')||nat.includes('tggv');
+    const isIR=nat.includes(' ir ')||nat.includes('ir ')||nat.includes('impôt')||nat.includes('impot')||nat.includes('pas ')||nat.includes('dgfip')||nat.includes('dgfip');
+    const isIS=nat.includes(' is ')||nat.includes(' tva')||nat.includes('is 20');
+    const isFinancier=nat.includes('leasing')||nat.includes('crédit')||nat.includes('credit')||nat.includes('lld')||nat.includes('bank');
+    months.forEach((m,i)=>{
+      const mY=m.getFullYear(),mM=m.getMonth();
+      if(d.start_date){const s=new Date(d.start_date);if(mY<s.getUTCFullYear()||(mY===s.getUTCFullYear()&&mM<s.getUTCMonth()))return;}
+      if(d.end_date){const e=new Date(d.end_date);if(mY>e.getUTCFullYear()||(mY===e.getUTCFullYear()&&mM>e.getUTCMonth()))return;}
+      const startM=d.start_date?new Date(d.start_date).getUTCMonth():0;
+      if(!(freq===1||(freq===3&&(mM-startM+12)%3===0)||(freq===12&&mM===startM)))return;
+      if(isUrssaf)catUrssaf[i]+=montant;
+      else if(isIR&&d.company_id==='perso')catImpotsP[i]+=montant;
+      else if(isIS||d.company_id==='sas-living')catImpotsPro[i]+=montant;
+      else if(isFinancier)catDettesF[i]+=montant;
+      else catDettesF[i]+=montant; // défaut
+    });
+  });
+
+  // Charges récurrentes pro → catChargesF
+  (charges||[]).forEach(c=>{
+    const freq={monthly:1,quarterly:3,annual:12}[c.frequency]||1;
+    const montant=Number(c.amount_ttc||0);
+    if(!montant)return;
+    months.forEach((m,i)=>{
+      const mY=m.getFullYear(),mM=m.getMonth();
+      if(c.start_date){const s=new Date(c.start_date);if(mY<s.getUTCFullYear()||(mY===s.getUTCFullYear()&&mM<s.getUTCMonth()))return;}
+      if(c.end_date){const e=new Date(c.end_date);if(mY>e.getUTCFullYear()||(mY===e.getUTCFullYear()&&mM>e.getUTCMonth()))return;}
+      const startM=c.start_date?new Date(c.start_date).getUTCMonth():0;
+      if(freq===1||(freq===3&&(mM-startM+12)%3===0)||(freq===12&&mM===startM))catChargesF[i]+=montant;
+    });
+  });
+
+  // Payables → catFourn
+  (payables||[]).forEach(p=>{
+    if(!p.due_date)return;
+    const dd=new Date(p.due_date);
+    months.forEach((m,i)=>{
+      if(m.getMonth()===dd.getMonth()&&m.getFullYear()===dd.getFullYear())
+        catFourn[i]+=Number(p.amount_ttc||0);
+    });
+  });
+
+  // Entrées prévues par mois (pour la ligne du graphique sorties)
+  const totalEntreesMois=months.map((_,i)=>
+    coIds.reduce((s,id)=>s+revenusParSoc[id][i],0)+revenusPlac[i]
+  );
+
+  // ── ENCAISSÉ RÉEL au jour J (Qonto transactions crédit mois courant) ──
+  const prevuMoisActuel = totalEntreesMois[0] || 0;
+  let encaisseReel = 0;
+  try {
+    const qRes = await fetch('/api/qonto-transactions?account=LIVING&per_page=50');
+    if(qRes.ok){
+      const qData = await qRes.json();
+      const moisCourant = months[0].getFullYear()+'-'+String(months[0].getMonth()+1).padStart(2,'0');
+      encaisseReel = (qData.transactions||[])
+        .filter(t=>t.side==='credit'&&(t.settled_at||'').startsWith(moisCourant))
+        .reduce((s,t)=>s+Number(t.amount||0),0);
+    }
+  } catch(e){}
+
+  // Afficher indicateur encaissé réel
+  const encBar = document.getElementById('encaisse-reel-bar');
+  if(encBar){
+    encBar.style.display='flex';
+    document.getElementById('encaisse-reel-val').textContent = Math.round(encaisseReel).toLocaleString('fr-FR')+' €';
+    document.getElementById('encaisse-prevu-val').textContent = Math.round(prevuMoisActuel).toLocaleString('fr-FR')+' €';
+    const delta = encaisseReel - prevuMoisActuel;
+    const deltaEl = document.getElementById('encaisse-delta-val');
+    deltaEl.textContent = (delta>=0?'+':'')+Math.round(delta).toLocaleString('fr-FR')+' €';
+    deltaEl.style.color = delta>=0?'var(--grn)':'var(--red)';
+    document.getElementById('encaisse-date').textContent = 'Au '+new Date().getDate()+'/'+String(new Date().getMonth()+1).padStart(2,'0');
+  }
+
+  // ── GRAPHIQUE PILOTAGE SORTIES ──
+  const sortiesEl = document.getElementById('sortiesChart');
+  if(sortiesEl){
+    const isDark=matchMedia('(prefers-color-scheme:dark)').matches;
+    const gc=isDark?'rgba(255,255,255,.05)':'rgba(0,0,0,.05)';
+    const tc=isDark?'#9c9a92':'#73726c';
+    const encaisseReelLine = new Array(12).fill(null);
+    encaisseReelLine[0] = Math.round(encaisseReel);
+    if(window._sortiesChartObj){window._sortiesChartObj.destroy();window._sortiesChartObj=null;}
+    window._sortiesChartObj = new Chart(sortiesEl.getContext('2d'),{
+      type:'bar',
+      data:{
+        labels,
+        datasets:[
+          {label:'URSSAF / Cotisations',data:catUrssaf,backgroundColor:'#E74C3C88',stack:'s',order:2},
+          {label:'Impôts perso',data:catImpotsP,backgroundColor:'#8E44AD88',stack:'s',order:2},
+          {label:'Impôts pro',data:catImpotsPro,backgroundColor:'#C0392B88',stack:'s',order:2},
+          {label:'Dettes financières',data:catDettesF,backgroundColor:'#E67E2288',stack:'s',order:2},
+          {label:'Charges fixes',data:catChargesF,backgroundColor:'#F39C1288',stack:'s',order:2},
+          {label:'Fournisseurs',data:catFourn,backgroundColor:'#7F8C8D88',stack:'s',order:2},
+          {label:'Besoin perso',data:catPerso,backgroundColor:'#3D8EF088',stack:'s',order:2},
+          {label:'Entrées prévues',data:totalEntreesMois,type:'line',borderColor:'#2ECC71',backgroundColor:'rgba(46,204,113,0.05)',borderWidth:2.5,pointRadius:4,fill:false,tension:0.3,order:0,stack:undefined},
+          {label:'Encaissé réel',data:encaisseReelLine,type:'line',borderColor:'#2ECC71',backgroundColor:'transparent',borderWidth:2,borderDash:[5,4],pointRadius:6,pointBackgroundColor:'#2ECC71',fill:false,tension:0,order:0,stack:undefined}
+        ]
+      },
+      options:{
+        responsive:true,maintainAspectRatio:false,
+        interaction:{mode:'index',intersect:false},
+        plugins:{
+          legend:{position:'bottom',labels:{color:tc,font:{size:10},boxWidth:10,padding:8}},
+          tooltip:{callbacks:{label:ctx=>`${ctx.dataset.label}: ${ctx.parsed.y!==null?Math.round(ctx.parsed.y).toLocaleString('fr-FR')+' €':'—'}`}}
+        },
+        scales:{
+          x:{stacked:true,ticks:{color:tc,font:{size:11}},grid:{display:false}},
+          y:{stacked:true,ticks:{callback:v=>(v/1000).toFixed(0)+'k€',color:tc,font:{size:10}},grid:{color:gc}}
+        }
+      }
+    });
+  }
 
   tresoChartObj=new Chart(document.getElementById('tresoChart').getContext('2d'),{
     type:'bar',
