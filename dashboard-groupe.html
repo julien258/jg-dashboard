@@ -6071,12 +6071,13 @@ async function loadApurement(){
   const mLabel=now.toLocaleDateString('fr-FR',{month:'long',year:'numeric'});
 
   // Chargement données
-  const [debts,payables,forecasts,receivables,charges] = await Promise.all([
+  const [debts,payables,forecasts,receivables,charges,contracts] = await Promise.all([
     safeQ(sb.from('debts').select('*').eq('status','en_cours').neq('monthly_amount',0)),
     safeQ(sb.from('payables').select('*').eq('status','a_payer')),
     safeQ(sb.from('cash_forecast').select('*')),
     safeQ(sb.from('receivables').select('*').in('status',['envoyee','en_attente'])),
-    safeQ(sb.from('recurring_charges').select('*').eq('status','actif'))
+    safeQ(sb.from('recurring_charges').select('*').eq('status','actif')),
+    safeQ(sb.from('contracts').select('id,billing_company_id,client,commission_amount,payment_expected_date,recurrence,status,signed_date').not('status','eq','termine'))
   ]);
   const payeRes=await sb.from('settings').select('value').eq('key','paye_perso').single();
   const payePerso=parseFloat(payeRes.data?.value||0);
@@ -6089,12 +6090,37 @@ async function loadApurement(){
 
   // Calculs
   const soldeQonto=window._qontoData?.totalEur||0;
+
+  // Entrées depuis contracts (même logique que tréso globale)
+  // 1. Factures ponctuelles attendues ce mois (payment_expected_date = mKey)
+  const contractsMoisPonctuel=contracts.filter(c=>{
+    if(c.recurrence)return false; // récurrents traités séparément
+    const d=c.payment_expected_date||c.signed_date;
+    return d&&d.startsWith(mKey);
+  });
+  // 2. Contrats récurrents actifs ce mois
+  const now2=new Date();
+  const contractsMoisRec=contracts.filter(c=>{
+    if(!c.recurrence)return false;
+    const freq={monthly:1,quarterly:3,semi_annual:6,annual:12}[c.recurrence]||0;
+    if(!freq)return false;
+    const startRef=c.payment_expected_date||c.signed_date;
+    if(!startRef)return false;
+    const s=new Date(startRef);
+    if(now2<s)return false;
+    const diffM=(now2.getFullYear()-s.getFullYear())*12+(now2.getMonth()-s.getMonth());
+    return diffM%freq===0;
+  });
+
+  // Attendu en règlement ce mois = ponctuels + récurrents du mois
+  const rentreesCRM=[...contractsMoisPonctuel,...contractsMoisRec].reduce((s,c)=>s+Number(c.commission_amount||0),0);
+  // Factures émises en attente = tous contrats facturés non encaissés (receivables manuelles + CRM)
+  const facturesEmisesCRM=contracts.filter(c=>['facture','signe'].includes(c.status)).reduce((s,c)=>s+Number(c.commission_amount||0),0);
+  const facturesEmisesManuel=receivables.reduce((s,r)=>s+Number(r.amount_ttc||0),0);
+  const facturesEmises=facturesEmisesCRM+facturesEmisesManuel;
+  const rentreesRec=rentreesCRM+receivables.filter(r=>r.due_date&&r.due_date.startsWith(mKey)).reduce((s,r)=>s+Number(r.amount_ttc||0),0);
   const rentreesForecast=forecasts.filter(f=>f.month_label===mKey).reduce((s,f)=>s+Number(f.amount||0)*Number(f.probability||100)/100,0);
-  // Factures attendues en règlement CE MOIS uniquement
-  const rentreesRec=receivables.filter(r=>r.due_date&&r.due_date.startsWith(mKey)).reduce((s,r)=>s+Number(r.amount_ttc||0),0);
-  // Factures émises (statut envoyee/en_attente) sans filtre date — montant total en attente
-  const facturesEmises=receivables.reduce((s,r)=>s+Number(r.amount_ttc||0),0);
-  const totalEntrees=rentreesForecast+rentreesRec;
+  const totalEntrees=rentreesRec+rentreesForecast;
 
   const prelev=charges.filter(c=>c.payment_day).sort((a,b)=>a.payment_day-b.payment_day);
   const prelevTotal=prelev.reduce((s,c)=>s+Number(c.amount_ttc||0),0);
