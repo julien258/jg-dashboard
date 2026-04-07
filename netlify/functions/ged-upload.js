@@ -29,6 +29,7 @@ const TYPE_FOLDER = {
   'contrat':      'Juridique',
   'assurance':    'Juridique',
   'recommande':   'Juridique',
+  'compte_rendu': 'Réunions CRM',
   'autre':        'Comptabilité',
 };
 
@@ -199,10 +200,21 @@ export default async (req) => {
       try {
         const accessToken = await getGoogleToken();
         const subFolderName = TYPE_FOLDER[finalType] || 'Comptabilité';
-        const year = (ocr?.doc_date || new Date().toISOString()).substring(0, 4);
-        const subFolderId  = await findOrCreateFolder(accessToken, rootId, subFolderName);
-        const yearFolderId = await findOrCreateFolder(accessToken, subFolderId, year);
-        const uploaded = await uploadToDrive(accessToken, yearFolderId, normalizedName, base64);
+        const subFolderId = await findOrCreateFolder(accessToken, rootId, subFolderName);
+        let targetFolderId;
+        if (finalType === 'compte_rendu' && body.subfolder) {
+          // CR réunion : sous-dossier par interlocuteur (ex: "Réunions CRM/Yacine MAL")
+          const parts = body.subfolder.split('/').filter(Boolean);
+          targetFolderId = subFolderId;
+          for (const part of parts.slice(1)) { // skip "Réunions CRM" déjà créé
+            targetFolderId = await findOrCreateFolder(accessToken, targetFolderId, part);
+          }
+        } else {
+          // Autres docs : sous-dossier par année
+          const year = (ocr?.doc_date || new Date().toISOString()).substring(0, 4);
+          targetFolderId = await findOrCreateFolder(accessToken, subFolderId, year);
+        }
+        const uploaded = await uploadToDrive(accessToken, targetFolderId, normalizedName, base64);
         driveUrl    = uploaded.webViewLink || null;
         driveFileId = uploaded.id || null;
       } catch (driveErr) {
