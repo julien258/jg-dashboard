@@ -12498,7 +12498,7 @@ async function generateTrailContracts(){
       .select('*,products(name,category,trailing_rate,trailing_frequency),clients(name)')
       .eq('id', contractId).single();
     if(ce || !c) throw new Error('Contrat introuvable');
-    if(!c.products || c.products.category !== 'cgw') throw new Error('Ce contrat n'est pas CGW');
+    if(!c.products || c.products.category !== 'cgw') throw new Error('Ce contrat nest pas un produit CGW');
     if(!c.products.trailing_rate) throw new Error('Aucun taux trail défini sur ce produit');
 
     const capital     = Number(c.amount || 0);
