@@ -13,77 +13,27 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Upload vers Google Drive
+      - name: Upload vers Google Drive via Netlify
         env:
-          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
-          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
-          GOOGLE_REFRESH_TOKEN: ${{ secrets.GOOGLE_REFRESH_TOKEN }}
-          DRIVE_FILE_ID: ${{ secrets.DRIVE_FILE_ID }}
+          NETLIFY_SYNC_SECRET: ${{ secrets.NETLIFY_SYNC_SECRET }}
         run: |
           python3 << 'EOF'
-          import os, json, requests
+          import os, base64, requests
 
-          # 1. Obtenir un access token via refresh token
-          token_resp = requests.post('https://oauth2.googleapis.com/token', data={
-              'client_id':     os.environ['GOOGLE_CLIENT_ID'],
-              'client_secret': os.environ['GOOGLE_CLIENT_SECRET'],
-              'refresh_token': os.environ['GOOGLE_REFRESH_TOKEN'],
-              'grant_type':    'refresh_token'
-          })
-          token_resp.raise_for_status()
-          access_token = token_resp.json()['access_token']
-          headers = {'Authorization': f'Bearer {access_token}'}
-
-          with open('ETAT_DOSSIERS.md', 'rb') as f:
+          with open('ETAT_DOSSIERS.md', 'r', encoding='utf-8') as f:
               content = f.read()
 
-          file_id = os.environ.get('DRIVE_FILE_ID', '').strip()
+          resp = requests.post(
+              'https://jg-groupe-dashboard.netlify.app/api/sync-etat-dossiers',
+              headers={
+                  'Content-Type': 'application/json',
+                  'x-sync-secret': os.environ['NETLIFY_SYNC_SECRET']
+              },
+              json={'content': content, 'filename': 'ETAT_DOSSIERS.md'}
+          )
 
-          # 2. Si pas de file_id connu → chercher par nom dans Drive
-          if not file_id:
-              search = requests.get(
-                  'https://www.googleapis.com/drive/v3/files',
-                  headers=headers,
-                  params={
-                      'q': "name='ETAT_DOSSIERS.md' and trashed=false",
-                      'fields': 'files(id,name)',
-                      'spaces': 'drive'
-                  }
-              )
-              search.raise_for_status()
-              files = search.json().get('files', [])
-              if files:
-                  file_id = files[0]['id']
-                  print(f'Fichier trouvé : {file_id}')
-
-          # 3. Mettre à jour le fichier existant
-          if file_id:
-              resp = requests.patch(
-                  f'https://www.googleapis.com/upload/drive/v3/files/{file_id}?uploadType=media',
-                  headers={**headers, 'Content-Type': 'text/markdown; charset=utf-8'},
-                  data=content
-              )
-              resp.raise_for_status()
-              print(f'✅ Fichier mis à jour (ID: {file_id}) — {len(content)} octets')
-
-          # 4. Sinon → créer le fichier dans Drive
-          else:
-              boundary = 'frontier_jg'
-              meta = json.dumps({'name': 'ETAT_DOSSIERS.md', 'mimeType': 'text/markdown'}).encode()
-              body = (
-                  f'--{boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n'.encode()
-                  + meta
-                  + f'\r\n--{boundary}\r\nContent-Type: text/markdown; charset=utf-8\r\n\r\n'.encode()
-                  + content
-                  + f'\r\n--{boundary}--'.encode()
-              )
-              resp = requests.post(
-                  'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',
-                  headers={**headers, 'Content-Type': f'multipart/related; boundary={boundary}'},
-                  data=body
-              )
-              resp.raise_for_status()
-              new_id = resp.json().get('id')
-              print(f'✅ Fichier créé dans Drive (ID: {new_id})')
-              print(f'👉 Ajoute ce DRIVE_FILE_ID dans les secrets GitHub pour accélérer les prochains syncs : {new_id}')
+          print(f'Status: {resp.status_code}')
+          print(f'Response: {resp.text[:500]}')
+          resp.raise_for_status()
+          print('✅ ETAT_DOSSIERS.md synchronisé dans Google Drive')
           EOF
