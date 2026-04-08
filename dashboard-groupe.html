@@ -7348,6 +7348,8 @@ async function loadTresoChart(){
   (contracts||[]).forEach(c=>{
     const soc=c.billing_company_id;
     if(!revenusParSoc[soc])return;
+    // Exclure les contrats CGW trailing — déjà comptés dans revenusTrailing
+    if(c.products&&c.products.category==='cgw'&&Number(c.products.trailing_rate||0)>0)return;
     const freq={monthly:1,quarterly:3,semi_annual:6,annual:12}[c.recurrence]||0;
     const com=Number(c.commission_amount||0);
     if(c.recurrence&&freq>0){
