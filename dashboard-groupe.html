@@ -10849,16 +10849,22 @@ async function loadCCBalances(){
   const netEl=document.getElementById('cc-net');
   netEl.textContent=(net>=0?'+':'')+Math.round(net).toLocaleString('fr-FR')+' €';
   netEl.style.color=net>=0?'var(--grn)':'var(--red)';
-  tbody.innerHTML=data.map(d=>`<tr>
-    <td><span class="badge ${Number(d.amount)>=0?'bg':'br'}">${typeLabels[d.balance_type]||d.balance_type}</span></td>
+  tbody.innerHTML=data.map(d=>{
+    const amt=Number(d.amount);
+    const sensLabel=amt<0?'À PAYER':'À RÉCUPÉRER';
+    const sensColor=amt<0?'var(--red)':'var(--grn)';
+    const sensBg=amt<0?'#E74C3C22':'#2ECC7122';
+    return `<tr>
+    <td><span class="badge ${amt>=0?'bg':'br'}">${typeLabels[d.balance_type]||d.balance_type}</span></td>
     <td style="font-size:13px">${d.counterpart_name||d.counterpart}</td>
     <td>${d.label||'—'}</td>
-    <td style="text-align:right;font-family:'IBM Plex Mono',monospace;font-weight:600;color:${Number(d.amount)>=0?'var(--grn)':'var(--red)'}">${Number(d.amount)>=0?'+':''}${Math.round(Number(d.amount)).toLocaleString('fr-FR')} €</td>
+    <td style="text-align:center"><span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;color:${sensColor};background:${sensBg};border:1px solid ${sensColor}">${sensLabel}</span></td>
+    <td style="text-align:right;font-family:'IBM Plex Mono',monospace;font-weight:600;color:${sensColor}">${amt>=0?'+':''}${Math.round(amt).toLocaleString('fr-FR')} €</td>
     <td style="font-size:12px;color:var(--t2)">${new Date(d.balance_date).toLocaleDateString('fr-FR')}</td>
     <td><span class="badge bz" style="font-size:10px">${d.source||'manuel'}</span></td>
     <td style="font-size:11px;color:var(--t2);max-width:200px">${d.notes||'—'}</td>
     <td><button onclick="delCCBalance('${d.id}')" style="border:none;background:none;cursor:pointer;color:var(--t2);font-size:13px">✕</button></td>
-  </tr>`).join('');
+  </tr>`;}).join('');
 
   // Graphique historique
   const byDate={};
