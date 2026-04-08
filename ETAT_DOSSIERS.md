@@ -1,5 +1,5 @@
 # ÉTAT DES DOSSIERS — GROUPE GUIRAUD
-> Mis à jour le : 6 avril 2026  
+> Mis à jour le : 8 avril 2026  
 > Fichier de référence — à lire en début de session Claude
 
 ---
@@ -24,7 +24,7 @@
 ## DASHBOARD TECHNIQUE — ÉTAT AU 6 AVRIL 2026
 
 **Repo GitHub :** julien258/jg-dashboard  
-**PAT GitHub :** [TOKEN — récupérer dans GitHub → Settings → Developer settings → PAT → "jg-dashboard-deploy"] (expire mai 2026)  
+**PAT GitHub :** [TOKEN CLASSIC — voir GitHub Settings → Tokens → jg-dashboard-deploy-classic] (workflow scope, sans expiration)  
 **Config git début de session :** `git remote set-url origin https://[TOKEN]@github.com/julien258/jg-dashboard.git`  
 **Netlify :** jg-groupe-dashboard.netlify.app (déploiement auto sur push main)  
 **Supabase :** https://uqpgwypgkwlvrpxtxhia.supabase.co (Pro — pas de pause auto)  
@@ -259,7 +259,7 @@ contexte avant de répondre.
 
 GITHUB :
 - Repo : github.com/julien258/jg-dashboard
-- Token PAT : [TOKEN — récupérer dans GitHub → Settings → Developer settings → PAT → "jg-dashboard-deploy"] (expire mai 2026)
+- Token PAT : [TOKEN CLASSIC — voir GitHub Settings → Tokens → jg-dashboard-deploy-classic] (workflow scope, sans expiration)
 - Config : git remote set-url origin https://[TOKEN]@github.com/julien258/jg-dashboard.git
 
 NETLIFY :
