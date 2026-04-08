@@ -6133,9 +6133,12 @@ async function loadApurement(){
   const rentreesForecast=forecasts.filter(f=>f.month_label===mKey).reduce((s,f)=>s+Number(f.amount||0)*Number(f.probability||100)/100,0);
   const totalEntrees=rentreesRec+rentreesForecast;
 
+  // Charges avec payment_day → pour la frise et le tri temporel
   const prelev=charges.filter(c=>c.payment_day).sort((a,b)=>a.payment_day-b.payment_day);
-  const prelevTotal=prelev.reduce((s,c)=>s+Number(c.amount_ttc||0),0);
-  const prelevRestants=prelev.filter(c=>c.payment_day>today).reduce((s,c)=>s+Number(c.amount_ttc||0),0);
+  // TOTAL = toutes les charges actives (avec ou sans payment_day)
+  const prelevTotal=charges.reduce((s,c)=>s+Number(c.amount_ttc||0),0);
+  // RESTANTS = charges sans payment_day (timing inconnu = à provisionner) + celles avec payment_day > today
+  const prelevRestants=charges.filter(c=>!c.payment_day||c.payment_day>today).reduce((s,c)=>s+Number(c.amount_ttc||0),0);
   const nextPrelev=prelev.find(c=>c.payment_day>today);
 
   const piments=debts.filter(d=>d.urgency_level===3&&d.company_id!=='perso');
