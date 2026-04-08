@@ -1,5 +1,5 @@
 # ÉTAT DES DOSSIERS — GROUPE GUIRAUD
-> Mis à jour le : 8 avril 2026  
+> Mis à jour le : 8 avril 2026 — sync auto activé  
 > Fichier de référence — à lire en début de session Claude
 
 ---
