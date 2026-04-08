@@ -6114,14 +6114,18 @@ async function loadApurement(){
   });
 
   // Attendu en règlement ce mois = ponctuels + récurrents du mois
-  const rentreesCRM=[...contractsMoisPonctuel,...contractsMoisRec].reduce((s,c)=>s+Number(c.commission_amount||0),0);
+  const rentreesCRM=[...contractsMoisPonctuel,...contractsMoisRec].reduce((s,c)=>{
+    const ht=Number(c.commission_amount||0);
+    const tva=Number(c.tva_taux||0);
+    return s+Math.round(ht*(1+tva/100));
+  },0);
   // Factures émises en attente = tous contrats facturés non encaissés (receivables manuelles + CRM)
   const facturesEmisesCRM=contracts.filter(c=>c.status==='facture').reduce((s,c)=>{
     const ht=Number(c.commission_amount||0);
     const tva=Number(c.tva_taux||0);
     return s+Math.round(ht*(1+tva/100));
   },0);
-  const facturesEmisesManuel=receivables.reduce((s,r)=>s+Number(r.amount_ttc||0),0);
+  const facturesEmisesManuel=receivables.filter(r=>r.status==='envoyee').reduce((s,r)=>s+Number(r.amount_ttc||0),0);
   const facturesEmises=facturesEmisesCRM+facturesEmisesManuel;
   const rentreesRec=rentreesCRM+receivables.filter(r=>r.due_date&&r.due_date.startsWith(mKey)).reduce((s,r)=>s+Number(r.amount_ttc||0),0);
   const rentreesForecast=forecasts.filter(f=>f.month_label===mKey).reduce((s,f)=>s+Number(f.amount||0)*Number(f.probability||100)/100,0);
