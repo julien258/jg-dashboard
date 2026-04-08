@@ -2644,6 +2644,8 @@
         <div class="fg"><label>Date 1er roll-over prévu</label><input type="date" id="ce-rollover-date" title="Date réelle de la 1ère reconduction"></div>
       </div>
       <div style="margin-top:10px;padding:10px;background:var(--s2);border-radius:8px;font-size:12px;color:var(--t2)" id="ce-cgw-preview"></div>
+      <button id="btn-gen-trails" class="btn btn-g" onclick="generateTrailContracts()" style="width:100%;margin-top:10px;background:rgba(46,204,113,.12);border-color:var(--grn);color:var(--grn)">🔄 Générer les contrats trails en CRM</button>
+      <div id="gen-trails-result" style="display:none;margin-top:8px;font-size:11px;padding:6px 10px;border-radius:6px"></div>
     </div>
     <div style="display:flex;gap:8px;margin-top:1.2rem">
       <button class="btn btn-p" onclick="saveContractEdit()" style="flex:1">Enregistrer</button>
@@ -8636,6 +8638,7 @@ async function updateContractStatus(id,currentStatus){
 }
 
 async function openContractEdit(id){
+  window._editingContractId = id; // Utilisé par generateTrailContracts
   const{data,error}=await sb.from('contracts').select('*,clients(name),products(name,category,trailing_rate,trailing_frequency)').eq('id',id).single();
   if(error||!data){toast('Erreur chargement contrat');return;}
   document.getElementById('ce-id').value=id;
@@ -12471,11 +12474,97 @@ async function init(){
   const{error}=await sb.from('todos').select('id').limit(1);
   setConn(!error);renderSidebar();renderGrpTable();
   generatePlacementReminders();
-  generateTrailingReceivables();
+  // generateTrailingReceivables(); // Désactivé — les trails sont désormais des contrats CRM
   loadAlertes();
   loadGrpKpis();
   loadQonto();
   syncQontoAccounts(true); // sync silencieuse au démarrage
+}
+
+
+async function generateTrailContracts(){
+  const btn = document.getElementById('btn-gen-trails');
+  const resultEl = document.getElementById('gen-trails-result');
+  const contractId = window._editingContractId;
+  if(!contractId){ alert('Erreur : contrat non identifié'); return; }
+
+  btn.disabled = true;
+  btn.textContent = '⏳ Génération en cours...';
+  resultEl.style.display = 'none';
+
+  try {
+    // 1. Charger le contrat avec son produit
+    const {data:c, error:ce} = await sb.from('contracts')
+      .select('*,products(name,category,trailing_rate,trailing_frequency),clients(name)')
+      .eq('id', contractId).single();
+    if(ce || !c) throw new Error('Contrat introuvable');
+    if(!c.products || c.products.category !== 'cgw') throw new Error('Ce contrat n'est pas CGW');
+    if(!c.products.trailing_rate) throw new Error('Aucun taux trail défini sur ce produit');
+
+    const capital     = Number(c.amount || 0);
+    const trailRate   = Number(c.products.trailing_rate) / 100;
+    const trailMontant= Math.round(capital * trailRate);
+    const trailFreq   = {quarterly:3, semi_annual:6, monthly:1, annual:12}[c.products.trailing_frequency] || 3;
+    const maxRecon    = parseInt(document.getElementById('ce-max-recon')?.value) || c.max_reconductions || 3;
+    const rolloverDate= document.getElementById('ce-rollover-date')?.value || c.rollover_date;
+    if(!rolloverDate) throw new Error('Date 1er roll-over manquante — renseigne-la ci-dessus');
+
+    const ref = new Date(rolloverDate);
+    const created = [];
+
+    for(let n = 0; n < maxRecon; n++){
+      const d = new Date(ref.getFullYear(), ref.getMonth() + trailFreq * n, ref.getDate());
+      const dateStr = d.toISOString().split('T')[0];
+
+      // Vérifier si un contrat trail existe déjà pour cette date
+      const {data:existing} = await sb.from('contracts')
+        .select('id').eq('client_id', c.client_id)
+        .ilike('label', '%Trail%').ilike('label', `%${n+1}/${maxRecon}%`)
+        .eq('payment_expected_date', dateStr);
+      if(existing?.length){ created.push(`⚠️ Échéance ${n+1} déjà existante (${dateStr})`); continue; }
+
+      const {error:ie} = await sb.from('contracts').insert({
+        client_id:            c.client_id,
+        billing_company_id:   c.billing_company_id,
+        product_id:           c.product_id,
+        label:                `Trail ${n+1}/${maxRecon} — ${c.label}`,
+        commission_amount:    trailMontant,
+        tva_taux:             Number(c.tva_taux || 0),
+        payment_expected_date: dateStr,
+        status:               'en_cours',
+        signed_date:          c.signed_date,
+        amount:               capital,
+        recurrence:           null,
+        source:               'trail_auto'
+      });
+      if(ie) throw new Error(`Erreur création trail ${n+1}: ${ie.message}`);
+      created.push(`✅ Trail ${n+1}/${maxRecon} — ${trailMontant.toLocaleString('fr-FR')}€ — ${dateStr}`);
+    }
+
+    // 2. Nettoyer les receivables auto parasites de ce contrat
+    await sb.from('receivables')
+      .delete()
+      .eq('source','auto')
+      .ilike('label','%Trail%')
+      .ilike('label', `%${c.label}%`);
+
+    resultEl.style.background = 'rgba(46,204,113,.1)';
+    resultEl.style.border = '1px solid var(--grn)';
+    resultEl.style.color = 'var(--grn)';
+    resultEl.innerHTML = created.join('<br>') + '<br><strong>Receivables auto supprimées ✓</strong>';
+    resultEl.style.display = 'block';
+    btn.textContent = '✅ Trails générés';
+    loadContracts();
+    loadCRMData();
+  } catch(err){
+    resultEl.style.background = 'rgba(226,75,74,.1)';
+    resultEl.style.border = '1px solid var(--red)';
+    resultEl.style.color = 'var(--red)';
+    resultEl.textContent = '❌ ' + err.message;
+    resultEl.style.display = 'block';
+    btn.disabled = false;
+    btn.textContent = '🔄 Générer les contrats trails en CRM';
+  }
 }
 
 async function generateTrailingReceivables(){
