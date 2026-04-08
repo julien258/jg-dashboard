@@ -90,7 +90,7 @@ export default async (req, context) => {
       try {
         const sbUrl = Netlify.env.get('SUPABASE_URL') || 'https://uqpgwypgkwlvrpxtxhia.supabase.co';
         const sbKey = Netlify.env.get('SUPABASE_SERVICE_KEY');
-        const wRes = await fetch(`${sbUrl}/rest/v1/bank_accounts_pro?source=eq.wise&select=solde`, {
+        const wRes = await fetch(`${sbUrl}/rest/v1/bank_accounts_pro?source=eq.wise&company_id=neq.perso&select=solde`, {
           headers: { 'apikey': sbKey, 'Authorization': `Bearer ${sbKey}` }
         });
         if (wRes.ok) {
