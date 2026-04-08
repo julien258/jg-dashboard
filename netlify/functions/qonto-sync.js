@@ -83,8 +83,24 @@ export default async (req, context) => {
       const accounts = settled.map((r, i) =>
         r.status === 'fulfilled' ? r.value : { ...toFetch[i], error: r.reason?.message, bank_accounts: [], total_balance: 0 }
       );
-      const totalEur = accounts.reduce((s, a) => s + (a.total_balance || 0), 0);
-      return Response.json({ ok: true, accounts, totalEur });
+      const totalQonto = accounts.reduce((s, a) => s + (a.total_balance || 0), 0);
+
+      // Ajouter les soldes Wise depuis bank_accounts_pro
+      let totalWise = 0;
+      try {
+        const sbUrl = Netlify.env.get('SUPABASE_URL') || 'https://uqpgwypgkwlvrpxtxhia.supabase.co';
+        const sbKey = Netlify.env.get('SUPABASE_SERVICE_KEY');
+        const wRes = await fetch(`${sbUrl}/rest/v1/bank_accounts_pro?source=eq.wise&select=solde`, {
+          headers: { 'apikey': sbKey, 'Authorization': `Bearer ${sbKey}` }
+        });
+        if (wRes.ok) {
+          const wData = await wRes.json();
+          totalWise = wData.reduce((s, r) => s + (parseFloat(r.solde) || 0), 0);
+        }
+      } catch(e) { /* silencieux */ }
+
+      const totalEur = totalQonto + totalWise;
+      return Response.json({ ok: true, accounts, totalQonto, totalWise, totalEur });
     }
 
     // ── TRANSACTIONS ─────────────────────────────────────────────────────
