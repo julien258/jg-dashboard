@@ -1,5 +1,5 @@
 # ÉTAT DES DOSSIERS — GROUPE GUIRAUD
-> Mis à jour le : 8 avril 2026 — sync auto activé ✓  
+> Mis à jour le : 8 avril 2026 (fin de session)  
 > Fichier de référence — à lire en début de session Claude
 
 ---
@@ -24,7 +24,7 @@
 ## DASHBOARD TECHNIQUE — ÉTAT AU 6 AVRIL 2026
 
 **Repo GitHub :** julien258/jg-dashboard  
-**PAT GitHub :** [TOKEN CLASSIC — voir GitHub Settings → Tokens → jg-dashboard-deploy-classic] (workflow scope, sans expiration)  
+**PAT GitHub :** [TOKEN CLASSIC — voir GitHub Settings → Tokens → jg-dashboard-deploy-classic]  
 **Config git début de session :** `git remote set-url origin https://[TOKEN]@github.com/julien258/jg-dashboard.git`  
 **Netlify :** jg-groupe-dashboard.netlify.app (déploiement auto sur push main)  
 **Supabase :** https://uqpgwypgkwlvrpxtxhia.supabase.co (Pro — pas de pause auto)  
@@ -76,6 +76,28 @@
 - **Facturation intra-groupe** : Management fees GUIRAUD→LIVING (60k€ HT/mois via Pennylane)
 - **Module TVA** : Schéma flux groupe + tableau B par société
 - **Apurement dettes** : Tableau 3 mois glissants avec filtres fournisseur/priorité
+- **Encart situation** : Entrées/Déductions corrigées (contracts via client_id+tva_taux, facturesEmises=TTC+status facture only, paye_perso=1381€ en base → 47970€ affiché)
+- **CRM contrats** : Filtre client ajouté, génération trails CGW en contrats CRM (bouton dans formulaire), receivables auto désactivées
+- **GitHub Action** : sync ETAT_DOSSIERS.md → Google Drive via fonction Netlify (NETLIFY_SYNC_SECRET configuré)
+
+### Corrections importantes session 08/04/2026
+- `paye_perso` Supabase = 1381€ (dettes perso 46589€ comptées séparément → total 47970€)
+- Trails CGW : plus de receivables auto → contrats CRM séparés (bouton "Générer trails" dans formulaire édition)
+- `facturesEmises` = status `facture` uniquement, montant TTC par contrat
+- `prelevRestants` = toutes charges actives (payment_day null inclus)
+- cash_forecast loyers Meulette supprimés (à recréer en recurring_charges)
+- BPOC Meulette payment_day = 10 (à confirmer)
+- AYVENS/BMW/URSSAF GUIRAUD payment_day mis à jour via SQL
+
+### TODO session suivante
+- [ ] Convention loyer bureaux Toulouse GUIRAUD→LIVING (remplace PANGEE→LIVING — montant à confirmer)
+- [ ] Loyers La Meulette : créer recurring_charges pour les loyers à encaisser
+- [ ] Vérifier BPOC crédit Toulouse apparaît bien sur frise (payment_day=10)
+- [ ] Module fiscal : ~20 fonctions JS à implémenter
+- [ ] Data room groupe + data room client (VELOMOTION)
+- [ ] OAuth Qonto pour virements
+- [ ] Compte Wise SARL GUIRAUD à ouvrir
+- [ ] Mail cabinet 451-F (API iSuite Expert)
 
 ### Supabase — tables principales
 bank_accounts_pro (colonnes source + external_ref ajoutées), management_fees_invoices, recurring_charges (colonne tva_deductible ajoutée), ged_documents, debts, payables, receivables, cash_forecast, interco_balances, contracts, todos, settings
@@ -259,7 +281,7 @@ contexte avant de répondre.
 
 GITHUB :
 - Repo : github.com/julien258/jg-dashboard
-- Token PAT : [TOKEN CLASSIC — voir GitHub Settings → Tokens → jg-dashboard-deploy-classic] (workflow scope, sans expiration)
+- Token PAT : [TOKEN CLASSIC — voir GitHub Settings → Tokens → jg-dashboard-deploy-classic]
 - Config : git remote set-url origin https://[TOKEN]@github.com/julien258/jg-dashboard.git
 
 NETLIFY :
