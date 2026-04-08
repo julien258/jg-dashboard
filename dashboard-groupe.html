@@ -12534,8 +12534,7 @@ async function generateTrailContracts(){
         status:               'en_cours',
         signed_date:          c.signed_date,
         amount:               capital,
-        recurrence:           null,
-        source:               'trail_auto'
+        recurrence:           null
       });
       if(ie) throw new Error(`Erreur création trail ${n+1}: ${ie.message}`);
       created.push(`✅ Trail ${n+1}/${maxRecon} — ${trailMontant.toLocaleString('fr-FR')}€ — ${dateStr}`);
