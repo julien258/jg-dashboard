@@ -6077,7 +6077,7 @@ async function loadApurement(){
     safeQ(sb.from('cash_forecast').select('*')),
     safeQ(sb.from('receivables').select('*').in('status',['envoyee','en_attente'])),
     safeQ(sb.from('recurring_charges').select('*').eq('status','actif')),
-    safeQ(sb.from('contracts').select('id,billing_company_id,client,commission_amount,payment_expected_date,recurrence,status,signed_date').not('status','eq','termine'))
+    safeQ(sb.from('contracts').select('id,billing_company_id,client_id,commission_amount,tva_taux,payment_expected_date,recurrence,status,signed_date').not('status','eq','termine'))
   ]);
   const payeRes=await sb.from('settings').select('value').eq('key','paye_perso').single();
   const payePerso=parseFloat(payeRes.data?.value||0);
@@ -6094,7 +6094,8 @@ async function loadApurement(){
   // Entrées depuis contracts (même logique que tréso globale)
   // 1. Factures ponctuelles attendues ce mois (payment_expected_date = mKey)
   const contractsMoisPonctuel=contracts.filter(c=>{
-    if(c.recurrence)return false; // récurrents traités séparément
+    if(c.recurrence)return false;
+    if(!['facture','encaisse'].includes(c.status))return false; // uniquement factures confirmées
     const d=c.payment_expected_date||c.signed_date;
     return d&&d.startsWith(mKey);
   });
@@ -6115,7 +6116,11 @@ async function loadApurement(){
   // Attendu en règlement ce mois = ponctuels + récurrents du mois
   const rentreesCRM=[...contractsMoisPonctuel,...contractsMoisRec].reduce((s,c)=>s+Number(c.commission_amount||0),0);
   // Factures émises en attente = tous contrats facturés non encaissés (receivables manuelles + CRM)
-  const facturesEmisesCRM=contracts.filter(c=>['facture','signe'].includes(c.status)).reduce((s,c)=>s+Number(c.commission_amount||0),0);
+  const facturesEmisesCRM=contracts.filter(c=>c.status==='facture').reduce((s,c)=>{
+    const ht=Number(c.commission_amount||0);
+    const tva=Number(c.tva_taux||0);
+    return s+Math.round(ht*(1+tva/100));
+  },0);
   const facturesEmisesManuel=receivables.reduce((s,r)=>s+Number(r.amount_ttc||0),0);
   const facturesEmises=facturesEmisesCRM+facturesEmisesManuel;
   const rentreesRec=rentreesCRM+receivables.filter(r=>r.due_date&&r.due_date.startsWith(mKey)).reduce((s,r)=>s+Number(r.amount_ttc||0),0);
