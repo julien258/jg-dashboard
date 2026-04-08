@@ -8420,11 +8420,26 @@ async function loadContracts(filter){
   // Filtres
   const statuses=['all','prospect','en_cours','signe','facture','encaisse'];
   const statusFrLabels={all:'Tous',...statusLabels};
-  document.getElementById('contract-filters').innerHTML=statuses.map(s=>`
-    <button onclick="loadContracts('${s}')" class="btn btn-sm ${activeContractFilter===s?'btn-p':'btn-g'}" style="font-size:11px">${statusFrLabels[s]}</button>
-  `).join('');
 
-  const filtered=activeContractFilter==='all'?allContracts:allContracts.filter(c=>c.status===activeContractFilter);
+  // Filtre client — liste unique des clients présents
+  const clientNames=[...new Set(allContracts.map(c=>c.clients?.name).filter(Boolean))].sort();
+  const activeClientFilter=window._activeClientFilter||'all';
+  const clientSelect=`<select onchange="window._activeClientFilter=this.value;loadContracts()" style="font-size:11px;padding:2px 8px;border-radius:6px;border:1px solid var(--b1);background:var(--s2);color:var(--t1);margin-left:8px">
+    <option value="all">Tous les clients</option>
+    ${clientNames.map(n=>`<option value="${n}" ${activeClientFilter===n?'selected':''}>${n}</option>`).join('')}
+  </select>`;
+
+  document.getElementById('contract-filters').innerHTML=
+    '<div style="display:flex;align-items:center;flex-wrap:wrap;gap:6px">'
+    +statuses.map(s=>`<button onclick="loadContracts('${s}')" class="btn btn-sm ${activeContractFilter===s?'btn-p':'btn-g'}" style="font-size:11px">${statusFrLabels[s]}</button>`).join('')
+    +clientSelect
+    +'</div>';
+
+  const filtered=allContracts.filter(c=>{
+    const statusOk=activeContractFilter==='all'||c.status===activeContractFilter;
+    const clientOk=activeClientFilter==='all'||c.clients?.name===activeClientFilter;
+    return statusOk&&clientOk;
+  });
 
   window._contractsMap = {}; filtered.forEach(c => window._contractsMap[c.id] = c);
   document.getElementById('contracts-list').innerHTML=`<div class="card"><div style="overflow-x:auto"><table>
