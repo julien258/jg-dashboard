@@ -70,20 +70,24 @@ export default async (req) => {
 
     // MODE FULL : bilans + procédures judiciaires
     const [bilansRes, proceduresRes] = await Promise.allSettled([
-      pappersGet(`https://api.pappers.fr/v2/entreprise?siren=${siren}&extrait_inpi=true&api_token=${apiKey}`),
-      pappersGet(`https://api.pappers.fr/v2/entreprise?siren=${siren}&procedures_collectives=true&api_token=${apiKey}`),
+      pappersGet(`https://api.pappers.fr/v2/entreprise?siren=${siren}&extrait_financier=true&api_token=${apiKey}`),
+      pappersGet(`https://api.pappers.fr/v2/entreprise?siren=${siren}&extrait_statutaire=true&api_token=${apiKey}`),
     ]);
 
-    const bilansData = bilansRes.status === 'fulfilled' ? bilansRes.value : {};
-    fiche.bilans = (bilansData.finances || []).slice(0, 3).map(b => ({
+    const bilansData = bilansRes.status === 'fulfilled' ? bilansRes.value : data;
+    // Finances disponibles dans la réponse principale ou dans extrait_financier
+    const finances = bilansData.finances || data.finances || [];
+    fiche.bilans = finances.slice(0, 3).map(b => ({
       annee:            b.annee,
       chiffre_affaires: b.chiffre_affaires ? `${Number(b.chiffre_affaires).toLocaleString('fr-FR')} €` : null,
       resultat:         b.resultat ? `${Number(b.resultat).toLocaleString('fr-FR')} €` : null,
       effectif:         b.effectif,
+      fonds_propres:    b.fonds_propres ? `${Number(b.fonds_propres).toLocaleString('fr-FR')} €` : null,
     }));
+    fiche.bilans_confidentiels = finances.length === 0;
 
     const procData = proceduresRes.status === 'fulfilled' ? proceduresRes.value : {};
-    const procedures = procData.procedures_collectives || [];
+    const procedures = data.procedures_collectives || procData.procedures_collectives || [];
     fiche.procedures_collectives = procedures.map(p => ({
       type:          p.type,
       date_debut:    p.date_debut,
