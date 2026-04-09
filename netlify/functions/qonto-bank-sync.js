@@ -19,7 +19,10 @@ const QONTO_ACCOUNTS = [
 // À mettre à jour quand de nouveaux comptes Wise sont créés
 const WISE_PROFILE_ID_MAP = {
   24414380: 'perso',        // JULIEN GUIRAUD — personnel
-  24414368: 'real-gains',   // BACK END LOGISTICS — Real Gains
+  24414368: 'real-gains',   // BACK END LOGISTICS — Real Gains (compte fermé)
+  84010501: 'sas-living',   // SAS LIVING
+  85108582: 'sarl-guiraud', // SARL GUIRAUD
+  86999872: 'meulette',     // La Meulette
   // À ajouter quand créés :
   // XXXXX: 'sas-living',
   // XXXXX: 'meulette',
@@ -179,10 +182,9 @@ export default async (req) => {
 
   // ── WISE ──────────────────────────────────────────────────────────────────
   // Chaque token Wise peut couvrir 1 ou plusieurs profils
+  // Un seul token suffit — tous les profils sont sur le même login Wise
   const wiseTokens = [
-    { envKey: 'WISE_API_TOKEN',    defaultCompanyId: 'perso' },      // perso + real-gains
-    { envKey: 'WISE_LIVING_TOKEN', defaultCompanyId: 'sas-living' }, // SAS LIVING
-    { envKey: 'WISE_MEULETTE_TOKEN', defaultCompanyId: 'meulette' }, // La Meulette (à ajouter)
+    { envKey: 'WISE_LIVING_TOKEN', defaultCompanyId: 'sas-living' }, // token principal — accès tous profils
   ];
 
   for (const wt of wiseTokens) {
