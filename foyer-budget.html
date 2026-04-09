@@ -641,7 +641,7 @@ function fixesBase(i){
   },0);
 }
 // fixesTotalMois = charges normales + rattrapage UNIQUEMENT mois courant (i=0)
-function fixesTotalMois(i){return fixesBase(i)+(i===0?fixesRetardTotal():0);}
+function fixesTotalMois(i){return fixesBase(i)+fixesRetardTotal();}
 // fixesTotal() conservé pour affichage global (KPI, renderFixes)
 function fixesTotal(){return fixesBase()+fixesRetardTotal();}
 
@@ -749,7 +749,7 @@ function renderDetail(){
   // Ligne IR 2025 — visible uniquement sur sept-déc 2026
   const irRow=document.getElementById('d-ir2025-row');
   if(irRow){irRow.style.display=ir25>0?'':'none';document.getElementById('d-ir2025').textContent=fmtM(ir25);}
-  const rattrapage=i===0?fixesRetardTotal():0;
+  const rattrapage=fixesRetardTotal();
   // Ligne rattrapage — visible uniquement si rattrapage > 0 ce mois
   const ratRow=document.getElementById('d-rattrapage-row');
   if(ratRow){ratRow.style.display=rattrapage>0?'':'none';document.getElementById('d-rattrapage').textContent=fmtM(rattrapage);}
@@ -839,7 +839,7 @@ function renderFixes(){
           <button onclick="setFixeRetard('${f.id}',1)" style="width:22px;height:22px;border:1px solid var(--b1);border-radius:4px;background:var(--s2);cursor:pointer;font-size:13px;line-height:1">+</button>
         </div>
       </td>
-      <td class="mono" style="text-align:right;color:var(--red);font-weight:${rattrapageDu>0?'600':'400'}">${rattrapageDu>0?(selM===0?fmt(rattrapageDu):'<span title="Rattrapage comptabilisé en '+mLab[0]+' uniquement" style="color:var(--amb);font-size:11px">'+fmt(rattrapageDu)+' ⓘ</span>'):'—'}</td>
+      <td class="mono" style="text-align:right;color:var(--red);font-weight:${rattrapageDu>0?'600':'400'}">${rattrapageDu>0?(fmt(rattrapageDu)):'—'}</td>
       <td><button class="btn btn-r btn-sm" onclick="delFixe('${f.id}')">✕</button></td>
     </tr>`;
   }).join('')||'<tr><td colspan="6" style="text-align:center;color:var(--t2);padding:1rem">Aucune charge</td></tr>';
