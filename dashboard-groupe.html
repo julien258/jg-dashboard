@@ -6260,16 +6260,31 @@ async function loadApurement(){
     const searchQ=(window._apurSearch||'').toLowerCase();
     const filterSoc=window._apurFilterSoc||'';
 
-    // PIMENTS — toutes dettes pro urgency>0, triées 3→2→1 puis date ancienne→récente
+    // PIMENTS — toutes dettes pro urgency>0, actives ce mois, triées 3→2→1 puis date ancienne→récente
+    const nowM=new Date(mKey+'-01'); // mois courant sélectionné
     const pimentItems=debts
-      .filter(d=>d.company_id!=='perso'&&(d.urgency_level||0)>0&&!['solde','paye','payé'].includes(d.status||''))
+      .filter(d=>{
+        if(d.company_id==='perso') return false;
+        if((d.urgency_level||0)<1) return false;
+        if(['solde','paye','payé'].includes(d.status||'')) return false;
+        // Vérifier start_date : ne pas afficher si pas encore commencé
+        if(d.start_date && new Date(d.start_date) > nowM) return false;
+        // Vérifier end_date : ne pas afficher si terminé
+        if(d.end_date && new Date(d.end_date) < nowM) return false;
+        return true;
+      })
       .filter(d=>!searchQ||d.debiteur?.toLowerCase().includes(searchQ))
       .filter(d=>!filterSoc||d.company_id===filterSoc)
-      .sort((a,b)=>(b.urgency_level||0)-(a.urgency_level||0)||new Date(a.due_date||a.created_at||'9999')-new Date(b.due_date||b.created_at||'9999'));
+      .sort((a,b)=>(b.urgency_level||0)-(a.urgency_level||0)||new Date(a.due_date||a.start_date||a.created_at||'9999')-new Date(b.due_date||b.start_date||b.created_at||'9999'));
 
     // BANANES — payables a_payer, triés priority 3→2→1 puis due_date ancienne→récente
     const bananeItems=payables
-      .filter(p=>p.status==='a_payer')
+      .filter(p=>{
+        if(p.status==='paye') return false;
+        // Vérifier due_date : si dans le futur (> mois prochain), ne pas afficher ce mois
+        if(p.due_date){const dd=new Date(p.due_date);if(dd>new Date(mKey.substring(0,7)+'-28'))return false;}
+        return true;
+      })
       .filter(p=>!searchQ||p.fournisseur?.toLowerCase().includes(searchQ))
       .filter(p=>!filterSoc||p.company_id===filterSoc)
       .sort((a,b)=>(b.priority||0)-(a.priority||0)||new Date(a.due_date||'9999')-new Date(b.due_date||'9999'));
