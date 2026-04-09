@@ -6260,17 +6260,18 @@ async function loadApurement(){
     const searchQ=(window._apurSearch||'').toLowerCase();
     const filterSoc=window._apurFilterSoc||'';
 
-    // PIMENTS — toutes dettes pro urgency>0, actives ce mois, triées 3→2→1 puis date ancienne→récente
-    const nowM=new Date(mKey+'-01'); // mois courant sélectionné
+    // PIMENTS — toutes dettes pro urgency>0, actives ce mois
+    // Comparaison en YYYY-MM pour éviter les problèmes de timezone
+    const mKeyYM=mKey.substring(0,7); // format YYYY-MM
     const pimentItems=debts
       .filter(d=>{
         if(d.company_id==='perso') return false;
         if((d.urgency_level||0)<1) return false;
         if(['solde','paye','payé'].includes(d.status||'')) return false;
-        // Vérifier start_date : ne pas afficher si pas encore commencé
-        if(d.start_date && new Date(d.start_date) > nowM) return false;
-        // Vérifier end_date : ne pas afficher si terminé
-        if(d.end_date && new Date(d.end_date) < nowM) return false;
+        // start_date : exclure seulement si commence STRICTEMENT après ce mois
+        if(d.start_date && d.start_date.substring(0,7) > mKeyYM) return false;
+        // end_date : exclure seulement si terminé STRICTEMENT avant ce mois
+        if(d.end_date && d.end_date.substring(0,7) < mKeyYM) return false;
         return true;
       })
       .filter(d=>!searchQ||d.debiteur?.toLowerCase().includes(searchQ))
@@ -6280,9 +6281,9 @@ async function loadApurement(){
     // BANANES — payables a_payer, triés priority 3→2→1 puis due_date ancienne→récente
     const bananeItems=payables
       .filter(p=>{
-        if(p.status==='paye') return false;
-        // Vérifier due_date : si dans le futur (> mois prochain), ne pas afficher ce mois
-        if(p.due_date){const dd=new Date(p.due_date);if(dd>new Date(mKey.substring(0,7)+'-28'))return false;}
+        if(['paye','payé'].includes(p.status||'')) return false;
+        // Exclure seulement si due_date strictement après ce mois
+        if(p.due_date && p.due_date.substring(0,7) > mKeyYM) return false;
         return true;
       })
       .filter(p=>!searchQ||p.fournisseur?.toLowerCase().includes(searchQ))
