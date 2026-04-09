@@ -5,12 +5,11 @@
 const SUPABASE_URL = 'https://uqpgwypgkwlvrpxtxhia.supabase.co';
 
 // Mapping profileId Wise → company_id dashboard
-// À compléter quand on aura les IDs des profils LIVING/Meulette/GUIRAUD
 const PROFILE_MAP = {
   24414380: 'perso',
   24414368: 'real-gains',
-  // À ajouter :
-  // XXXXXXXX: 'sas-living',
+  84010501: 'sas-living',
+  // À compléter quand on aura les IDs Meulette et GUIRAUD :
   // XXXXXXXX: 'meulette',
   // XXXXXXXX: 'sarl-guiraud',
 };
