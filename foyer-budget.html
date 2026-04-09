@@ -174,6 +174,7 @@
         <div class="fg"><label>Libellé</label><input type="text" id="fx-nom" placeholder="Loyer, Abonnement..."></div>
         <div class="fg"><label>Montant (€/mois)</label><input type="number" id="fx-mt" placeholder="0" step="10"></div>
         <div class="fg"><label>Catégorie</label><select id="fx-cat"><option>Logement</option><option>Abonnements</option><option>Transport</option><option>Assurance</option><option>Autre</option></select></div>
+        <div class="fg"><label>Date de début</label><input type="month" id="fx-debut" placeholder="2026-04"></div>
       </div>
       <div style="display:flex;gap:8px"><button class="btn btn-p btn-sm" onclick="saveFixe()">Enregistrer</button><button class="btn btn-g btn-sm" onclick="toggleForm('fixe-form')">Annuler</button></div>
     </div></div>
@@ -632,9 +633,15 @@ async function loadWise(){
 function getFixesRetard(){try{return JSON.parse(D.settings['fixes_retard']||'{}');}catch(e){return {};}}
 function fixesRetardTotal(){const r=getFixesRetard();return D.fixes.reduce((s,f)=>s+Number(f.amount||0)*(Number(r[f.id]||0)),0);}
 // fixesBase = charges normales sans rattrapage
-function fixesBase(){return D.fixes.reduce((s,f)=>s+Number(f.amount||0),0);}
+function fixesBase(i){
+  const m=months[i===undefined?selM:i];
+  return D.fixes.reduce((s,f)=>{
+    if(f.date_debut){const dd=new Date(f.date_debut+'-01');if(m<dd)return s;}
+    return s+Number(f.amount||0);
+  },0);
+}
 // fixesTotalMois = charges normales + rattrapage UNIQUEMENT mois courant (i=0)
-function fixesTotalMois(i){return fixesBase()+(i===0?fixesRetardTotal():0);}
+function fixesTotalMois(i){return fixesBase(i)+(i===0?fixesRetardTotal():0);}
 // fixesTotal() conservé pour affichage global (KPI, renderFixes)
 function fixesTotal(){return fixesBase()+fixesRetardTotal();}
 
@@ -822,7 +829,7 @@ function renderFixes(){
     const nbRetard=Number(retardMap[f.id]||0);
     const rattrapageDu=nbRetard*Number(f.amount||0);
     return `<tr>
-      <td>${f.name}</td>
+      <td>${f.name}${f.date_debut?'<span style="font-size:10px;color:var(--t2);margin-left:6px">dès '+f.date_debut+'</span>':''}</td>
       <td><span class="badge bb">${f.category||'—'}</span></td>
       <td class="mono" style="text-align:right">${fmt(f.amount)}</td>
       <td style="text-align:center">
@@ -832,7 +839,7 @@ function renderFixes(){
           <button onclick="setFixeRetard('${f.id}',1)" style="width:22px;height:22px;border:1px solid var(--b1);border-radius:4px;background:var(--s2);cursor:pointer;font-size:13px;line-height:1">+</button>
         </div>
       </td>
-      <td class="mono" style="text-align:right;color:var(--red);font-weight:${rattrapageDu>0?'600':'400'}">${rattrapageDu>0?fmt(rattrapageDu):'—'}</td>
+      <td class="mono" style="text-align:right;color:var(--red);font-weight:${rattrapageDu>0?'600':'400'}">${rattrapageDu>0?(selM===0?fmt(rattrapageDu):'<span title="Rattrapage comptabilisé en '+mLab[0]+' uniquement" style="color:var(--amb);font-size:11px">'+fmt(rattrapageDu)+' ⓘ</span>'):'—'}</td>
       <td><button class="btn btn-r btn-sm" onclick="delFixe('${f.id}')">✕</button></td>
     </tr>`;
   }).join('')||'<tr><td colspan="6" style="text-align:center;color:var(--t2);padding:1rem">Aucune charge</td></tr>';
@@ -992,9 +999,10 @@ async function saveFixe(){
   const mt=parseFloat(document.getElementById('fx-mt').value)||0;
   const cat=document.getElementById('fx-cat').value;
   if(!nom||!mt){toast('Remplissez les champs');return;}
-  const{error}=await sb.from('fixed_expenses').insert({name:nom,amount:mt,category:cat,active:true});
+  const debut=document.getElementById('fx-debut').value||null;
+  const{error}=await sb.from('fixed_expenses').insert({name:nom,amount:mt,category:cat,active:true,date_debut:debut});
   if(error){toast('Erreur: '+error.message);return;}
-  document.getElementById('fx-nom').value='';document.getElementById('fx-mt').value='';
+  document.getElementById('fx-nom').value='';document.getElementById('fx-mt').value='';document.getElementById('fx-debut').value='';
   toggleForm('fixe-form');toast('✅ Charge ajoutée');
   const{data}=await sb.from('fixed_expenses').select('*').eq('active',true);
   D.fixes=data||[];renderFixes();renderKPIs();renderDetail();renderChart();
