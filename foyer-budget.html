@@ -560,14 +560,14 @@ const months=Array.from({length:12},(_,i)=>new Date(now.getFullYear(),now.getMon
 const mLab=months.map(d=>MN[d.getMonth()]+'\u00a0'+String(d.getFullYear()).slice(2));
 let selM=0;
 let chart=null;
-let D={fixes:[],vars:[],dettes:[],impots:[],projets:[],mensuel:{},settings:{}};
+let D={fixes:[],vars:[],dettes:[],impots:[],projets:[],mensuel:{},settings:{},retards:[]};
 
 function mKey(i){const m=months[i];return `${m.getFullYear()}-${String(m.getMonth()+1).padStart(2,'0')}-01`;}
 
 async function loadAll(){
   document.getElementById('conn-dot').style.background='#BA7517';
   document.getElementById('conn-lbl').textContent='Chargement...';
-  const[r1,r2,r3,r4,r5,r6,r7,r8]=await Promise.all([
+  const[r1,r2,r3,r4,r5,r6,r7,r8,r9]=await Promise.all([
     sb.from('fixed_expenses').select('*').eq('active',true),
     sb.from('recurring_expenses').select('*').eq('active',true),
     sb.from('debts').select('*').eq('company_id','perso').not('status','eq','solde'),
@@ -575,7 +575,8 @@ async function loadAll(){
     sb.from('projects').select('*'),
     sb.from('budget_mensuel_perso').select('*'),
     sb.from('projets_perso').select('*'),
-    sb.from('settings').select('*')
+    sb.from('settings').select('*'),
+    sb.from('fixed_expenses_retards').select('*').order('created_at')
   ]);
   D.fixes=r1.data||[];
   D.vars=r2.data||[];
@@ -587,6 +588,7 @@ async function loadAll(){
   D.projets=[...projSrc.filter(p=>!nomsCoverts.has((p.name||'').toLowerCase())),...projPerso];
   D.mensuel={};(r6.data||[]).forEach(m=>{D.mensuel[m.mois]=m;});
   D.settings={};(r8.data||[]).forEach(s=>{D.settings[s.key]=s.value;});
+  D.retards=r9.data||[];
   document.getElementById('conn-dot').style.background='#18A85A';
   document.getElementById('conn-lbl').textContent='Connecté';
   renderAll();
@@ -630,8 +632,22 @@ async function loadWise(){
 }
 
 // ── Calculs par mois ──
-function getFixesRetard(){try{return JSON.parse(D.settings['fixes_retard']||'{}');}catch(e){return {};}}
-function fixesRetardTotal(){const r=getFixesRetard();return D.fixes.reduce((s,f)=>s+Number(f.amount||0)*(Number(r[f.id]||0)),0);}
+// ── Nouveau système retards ──
+function getRetardRestant(chargeId){
+  return D.retards.filter(r=>r.charge_id===chargeId)
+    .reduce((s,r)=>s+Math.max(0,Number(r.montant_total||0)-Number(r.montant_paye||0)),0);
+}
+function fixesRetardTotal(moisIdx){
+  // Retards actifs sur le mois sélectionné (mois_debut <= mois sélectionné)
+  const m=months[moisIdx===undefined?selM:moisIdx];
+  const mStr=m.getFullYear()+'-'+String(m.getMonth()+1).padStart(2,'0');
+  return D.retards.filter(r=>{
+    const restant=Math.max(0,Number(r.montant_total||0)-Number(r.montant_paye||0));
+    if(restant<=0)return false;
+    const rd=r.mois_debut?r.mois_debut.substring(0,7):'';
+    return rd<=mStr;
+  }).reduce((s,r)=>s+Math.max(0,Number(r.montant_total||0)-Number(r.montant_paye||0)),0);
+}
 // fixesBase = charges normales sans rattrapage
 function fixesBase(i){
   const m=months[i===undefined?selM:i];
@@ -641,7 +657,7 @@ function fixesBase(i){
   },0);
 }
 // fixesTotalMois = charges normales + rattrapage UNIQUEMENT mois courant (i=0)
-function fixesTotalMois(i){return fixesBase(i)+fixesRetardTotal();}
+function fixesTotalMois(i){return fixesBase(i)+fixesRetardTotal(i);}
 // fixesTotal() conservé pour affichage global (KPI, renderFixes)
 function fixesTotal(){return fixesBase()+fixesRetardTotal();}
 
@@ -749,8 +765,7 @@ function renderDetail(){
   // Ligne IR 2025 — visible uniquement sur sept-déc 2026
   const irRow=document.getElementById('d-ir2025-row');
   if(irRow){irRow.style.display=ir25>0?'':'none';document.getElementById('d-ir2025').textContent=fmtM(ir25);}
-  const rattrapage=fixesRetardTotal();
-  // Ligne rattrapage — visible uniquement si rattrapage > 0 ce mois
+  const rattrapage=fixesRetardTotal(i);
   const ratRow=document.getElementById('d-rattrapage-row');
   if(ratRow){ratRow.style.display=rattrapage>0?'':'none';document.getElementById('d-rattrapage').textContent=fmtM(rattrapage);}
   document.getElementById('d-total').textContent=fmt(tot);
@@ -793,26 +808,25 @@ function renderChart(){
 
 function renderFixes(){
   const tot=D.fixes.reduce((s,f)=>s+Number(f.amount||0),0);
-  const retardMap=getFixesRetard();
   const totRetard=fixesRetardTotal();
   document.getElementById('fixes-total').textContent=fmt(tot);
   const retEl=document.getElementById('fixes-retard-total');
-  if(retEl)retEl.textContent=totRetard>0?'+ '+fmt(totRetard)+' rattrapage':'—';
+  if(retEl)retEl.textContent=totRetard>0?'+ '+fmt(totRetard)+' à rattraper':'—';
 
   // Alerte retards
   const alertEl=document.getElementById('fixes-retard-alert');
-  const enRetard=D.fixes.filter(f=>Number(retardMap[f.id]||0)>0);
+  const actifs=D.retards.filter(r=>Math.max(0,Number(r.montant_total||0)-Number(r.montant_paye||0))>0);
   if(alertEl){
-    if(enRetard.length){
+    if(actifs.length){
       alertEl.style.display='block';
       alertEl.innerHTML='<div style="background:var(--rdd);border:1px solid var(--red);border-radius:8px;padding:12px 14px">'
-        +'<div style="font-size:13px;font-weight:600;color:var(--red);margin-bottom:6px">⚠️ Charges en retard ce mois</div>'
-        +enRetard.map(f=>{
-          const nb=Number(retardMap[f.id]);
-          const mt=Number(f.amount||0)*nb;
+        +'<div style="font-size:13px;font-weight:600;color:var(--red);margin-bottom:6px">⚠️ Charges en retard</div>'
+        +actifs.map(r=>{
+          const charge=D.fixes.find(f=>f.id===r.charge_id)||{name:'?',amount:0};
+          const restant=Math.max(0,Number(r.montant_total)-Number(r.montant_paye||0));
           return '<div style="font-size:12px;color:var(--t1);display:flex;justify-content:space-between;padding:3px 0">'
-            +'<span>'+f.name+' <span style="color:var(--red);font-weight:600">×'+nb+' mois</span></span>'
-            +'<span style="font-family:monospace;font-weight:600;color:var(--red)">'+fmt(mt)+'</span>'
+            +'<span>'+charge.name+' <span style="color:var(--t2);font-size:10px">dès '+r.mois_debut?.substring(0,7)+'</span></span>'
+            +'<span style="font-family:monospace;font-weight:600;color:var(--red)">'+fmt(restant)+'</span>'
             +'</div>';
         }).join('')
         +'<div style="border-top:1px solid var(--red);margin-top:8px;padding-top:8px;display:flex;justify-content:space-between;font-size:13px;font-weight:600">'
@@ -826,20 +840,30 @@ function renderFixes(){
   }
 
   document.getElementById('fixes-tbody').innerHTML=D.fixes.map(f=>{
-    const nbRetard=Number(retardMap[f.id]||0);
-    const rattrapageDu=nbRetard*Number(f.amount||0);
+    const retardsCharge=D.retards.filter(r=>r.charge_id===f.id&&Math.max(0,Number(r.montant_total||0)-Number(r.montant_paye||0))>0);
+    const totalRetardCharge=retardsCharge.reduce((s,r)=>s+Math.max(0,Number(r.montant_total||0)-Number(r.montant_paye||0)),0);
+    const dateDebut=f.date_debut?'<span style="font-size:10px;color:var(--t2);margin-left:6px">dès '+f.date_debut+'</span>':'';
+    const retardCell=totalRetardCharge>0
+      ?`<div style="color:var(--red);font-size:12px;font-weight:600">${fmt(totalRetardCharge)}</div>`
+        +retardsCharge.map(r=>{
+          const restant=Math.max(0,Number(r.montant_total)-Number(r.montant_paye||0));
+          return `<div style="font-size:10px;color:var(--t2)">dès ${r.mois_debut?.substring(0,7)} · 
+            <button onclick="payerRetard('${r.id}')" style="font-size:10px;color:var(--acc);background:none;border:none;cursor:pointer;padding:0;text-decoration:underline">Payer</button>
+            <button onclick="delRetard('${r.id}')" style="font-size:10px;color:var(--red);background:none;border:none;cursor:pointer;padding:0;margin-left:4px">✕</button>
+          </div>`;
+        }).join('')
+      :'—';
     return `<tr>
-      <td>${f.name}${f.date_debut?'<span style="font-size:10px;color:var(--t2);margin-left:6px">dès '+f.date_debut+'</span>':''}</td>
+      <td>${f.name}${dateDebut}</td>
       <td><span class="badge bb">${f.category||'—'}</span></td>
       <td class="mono" style="text-align:right">${fmt(f.amount)}</td>
       <td style="text-align:center">
-        <div style="display:flex;align-items:center;justify-content:center;gap:6px">
-          <button onclick="setFixeRetard('${f.id}',-1)" style="width:22px;height:22px;border:1px solid var(--b1);border-radius:4px;background:var(--s2);cursor:pointer;font-size:13px;line-height:1">−</button>
-          <span style="font-weight:600;color:${nbRetard>0?'var(--red)':'var(--t2)'};min-width:20px;text-align:center">${nbRetard}</span>
-          <button onclick="setFixeRetard('${f.id}',1)" style="width:22px;height:22px;border:1px solid var(--b1);border-radius:4px;background:var(--s2);cursor:pointer;font-size:13px;line-height:1">+</button>
-        </div>
+        <button onclick="ajouterRetard('${f.id}','${f.name}',${f.amount})" 
+          style="font-size:11px;padding:3px 8px;border:1px solid var(--red);border-radius:4px;background:var(--rdd);color:var(--red);cursor:pointer">
+          + Retard
+        </button>
       </td>
-      <td class="mono" style="text-align:right;color:var(--red);font-weight:${rattrapageDu>0?'600':'400'}">${rattrapageDu>0?(fmt(rattrapageDu)):'—'}</td>
+      <td style="text-align:right">${retardCell}</td>
       <td><button class="btn btn-r btn-sm" onclick="delFixe('${f.id}')">✕</button></td>
     </tr>`;
   }).join('')||'<tr><td colspan="6" style="text-align:center;color:var(--t2);padding:1rem">Aucune charge</td></tr>';
@@ -1013,15 +1037,59 @@ async function delFixe(id){
   D.fixes=D.fixes.filter(f=>f.id!==id);renderFixes();renderKPIs();renderDetail();renderChart();
 }
 
-async function setFixeRetard(id,delta){
-  const retard=getFixesRetard();
-  const current=Number(retard[id]||0);
-  const next=Math.max(0,current+delta);
-  if(next===0)delete retard[id];
-  else retard[id]=next;
-  const val=JSON.stringify(retard);
-  await sb.from('settings').upsert({key:'fixes_retard',value:val},{onConflict:'key'});
-  D.settings['fixes_retard']=val;
+// ── Nouveau système retards ──
+function ajouterRetard(chargeId, chargeName, montantMensuel){
+  const moisDefaut=months[selM].toISOString().substring(0,7);
+  const nbStr=prompt('Nombre de mois en retard pour "'+chargeName+'" :\n(ou laissez vide pour saisir un montant direct)','');
+  if(nbStr===null)return;
+  let montant;
+  if(nbStr===''||isNaN(parseFloat(nbStr))){
+    const mtStr=prompt('Montant total à rattraper (€) :\n(inclure les frais de recouvrement si nécessaire)','');
+    if(!mtStr||isNaN(parseFloat(mtStr)))return;
+    montant=parseFloat(mtStr);
+  } else {
+    montant=parseFloat(nbStr)*montantMensuel;
+    const mtConfirm=prompt('Montant calculé : '+Math.round(montant)+' €\nAjuster si des frais supplémentaires s\'appliquent :',Math.round(montant));
+    if(mtConfirm===null)return;
+    montant=parseFloat(mtConfirm)||montant;
+  }
+  const moisStr=prompt('Mois de début du rattrapage (AAAA-MM) :',moisDefaut);
+  if(!moisStr)return;
+  saveRetard(chargeId, montant, moisStr+'-01');
+}
+
+async function saveRetard(chargeId, montantTotal, moisDebut){
+  const{data,error}=await sb.from('fixed_expenses_retards').insert({
+    charge_id:chargeId,
+    montant_total:montantTotal,
+    montant_paye:0,
+    mois_debut:moisDebut
+  }).select();
+  if(error){toast('Erreur: '+error.message);return;}
+  D.retards.push(data[0]);
+  renderFixes();renderKPIs();renderDetail();renderChart();
+  toast('✅ Retard enregistré : '+Math.round(montantTotal).toLocaleString('fr-FR')+' €');
+}
+
+async function payerRetard(retardId){
+  const retard=D.retards.find(r=>r.id===retardId);
+  if(!retard)return;
+  const restant=Math.max(0,Number(retard.montant_total)-Number(retard.montant_paye||0));
+  const mtStr=prompt('Montant payé (€) — Restant : '+Math.round(restant).toLocaleString('fr-FR')+' €',Math.round(restant));
+  if(!mtStr||isNaN(parseFloat(mtStr)))return;
+  const paye=Math.min(Number(retard.montant_paye||0)+parseFloat(mtStr), Number(retard.montant_total));
+  const{error}=await sb.from('fixed_expenses_retards').update({montant_paye:paye}).eq('id',retardId);
+  if(error){toast('Erreur: '+error.message);return;}
+  retard.montant_paye=paye;
+  renderFixes();renderKPIs();renderDetail();renderChart();
+  const restantApres=Math.max(0,Number(retard.montant_total)-paye);
+  toast(restantApres>0?'✅ Paiement partiel — reste '+Math.round(restantApres).toLocaleString('fr-FR')+' €':'✅ Retard soldé !');
+}
+
+async function delRetard(retardId){
+  if(!confirm('Supprimer ce retard ?'))return;
+  await sb.from('fixed_expenses_retards').delete().eq('id',retardId);
+  D.retards=D.retards.filter(r=>r.id!==retardId);
   renderFixes();renderKPIs();renderDetail();renderChart();
 }
 
