@@ -14,8 +14,8 @@ async function wiseGet(token, path) {
 }
 
 export default async (req) => {
-  const token = Netlify.env.get('WISE_API_TOKEN');
-  if (!token) return Response.json({ ok: false, error: 'WISE_API_TOKEN manquant' }, { status: 500 });
+  const token = Netlify.env.get('WISE_LIVING_TOKEN') || Netlify.env.get('WISE_API_TOKEN');
+  if (!token) return Response.json({ ok: false, error: 'WISE_LIVING_TOKEN manquant' }, { status: 500 });
 
   try {
     const url = new URL(req.url);
