@@ -1060,19 +1060,50 @@
 
     <!-- GRAPHIQUE -->
     <div id="treso-tab-graph">
-      <!-- SOLDES PENNYLANE — Total consolidé uniquement -->
-      <div id="pennylane-soldes" style="display:none;margin-bottom:1rem">
-        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px">
-          <div class="kc" style="border-left:3px solid var(--grn)">
-            <div class="kl">🏦 Tréso bancaire réelle</div>
-            <div class="kv p" id="pennylane-total-solde">—</div>
-            <div class="ks" id="pennylane-sync-date">Pennylane</div>
+      <!-- SOLDES RÉELS — Supabase bank_accounts_pro -->
+      <div id="soldes-reels" style="margin-bottom:1rem">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+          <div style="font-size:13px;font-weight:600;color:var(--t1)">🏦 Trésorerie bancaire réelle</div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <span style="font-size:11px;color:var(--t2)" id="soldes-update-date"></span>
+            <button class="btn btn-g btn-sm" onclick="loadSoldesReels()">🔄 Actualiser</button>
           </div>
-
         </div>
-        <!-- Détail comptes par société — caché, visible dans onglets sociétés -->
+        <!-- KPI total -->
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;margin-bottom:12px">
+          <div class="kc" style="border-left:3px solid var(--grn)">
+            <div class="kl">Total groupe</div>
+            <div class="kv" id="soldes-total" style="color:var(--grn)">—</div>
+            <div class="ks">Hors perso</div>
+          </div>
+          <div class="kc" style="border-left:3px solid var(--acc)">
+            <div class="kl">Qonto (auto)</div>
+            <div class="kv" id="soldes-qonto" style="color:var(--acc)">—</div>
+            <div class="ks">Sync temps réel</div>
+          </div>
+          <div class="kc" style="border-left:3px solid var(--acc)">
+            <div class="kl">Wise (auto)</div>
+            <div class="kv" id="soldes-wise" style="color:var(--acc)">—</div>
+            <div class="ks">Webhook temps réel</div>
+          </div>
+          <div class="kc" style="border-left:3px solid var(--amb)">
+            <div class="kl">Comptes manuels</div>
+            <div class="kv" id="soldes-manual" style="color:var(--amb)">—</div>
+            <div class="ks">CA / BNP / BPOC</div>
+          </div>
+        </div>
+        <!-- Tableau saisie rapide comptes manuels -->
+        <div id="soldes-manual-table" style="background:var(--s2);border-radius:8px;padding:12px">
+          <div style="font-size:11px;font-weight:600;color:var(--t2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">✏️ Saisie manuelle — comptes sans API</div>
+          <div id="soldes-manual-rows"></div>
+          <button class="btn btn-p btn-sm" onclick="saveManualSoldes()" style="margin-top:8px">💾 Enregistrer les soldes</button>
+        </div>
+        <!-- Pennylane legacy caché -->
+        <div id="pennylane-soldes" style="display:none"></div>
         <div id="pennylane-soldes-grid" style="display:none"></div>
         <div id="pennylane-impayes-list" style="display:none"></div>
+        <div id="pennylane-total-solde" style="display:none"></div>
+        <div id="pennylane-sync-date" style="display:none"></div>
       </div>
       <!-- Encaissé réel au jour J -->
       <div id="encaisse-reel-bar" style="display:none;margin-bottom:1rem;padding:10px 14px;background:var(--s2);border-radius:8px;border-left:3px solid var(--grn);display:flex;align-items:center;gap:16px">
@@ -3042,8 +3073,8 @@ function showTreso(){
   document.getElementById('tb-title').textContent='Trésorerie Globale';
   document.getElementById('tb-sub').textContent='12 mois glissants · Revenus · Dettes · Placements';
   document.querySelectorAll('.gbtn').forEach(b=>b.classList.remove('active'));
-  // Détruit le graphique existant pour forcer un rechargement frais
   if(tresoChartObj){tresoChartObj.destroy();tresoChartObj=null;}
+  loadSoldesReels();
   showTresoTab('graph');
 }
 
@@ -5593,6 +5624,46 @@ function updateApurCheckByMkey(mkey){
     dispoEl.style.color = mainColor;
     dispoEl.parentElement.style.borderColor = mainColor;
   }
+}
+
+// ===== SOLDES RÉELS — Supabase bank_accounts_pro =====
+async function loadSoldesReels() {
+  const {data: comptes} = await sb.from('bank_accounts_pro').select('*').order('company_id');
+  if (!comptes) return;
+  const coNames = {'sas-living':'SAS Living','sarl-guiraud':'SARL Guiraud','meulette':'La Meulette','real-gains':'Real Gains','spv-monikaza':'Monikaza','perso':'Perso'};
+  const groupe = comptes.filter(c => c.company_id !== 'perso');
+  const totalGroupe = groupe.reduce((s,c) => c.type_compte==='pret' ? s-Number(c.solde||0) : s+Number(c.solde||0), 0);
+  const totalQonto = groupe.filter(c=>c.source==='qonto').reduce((s,c)=>s+Number(c.solde||0),0);
+  const totalWise = groupe.filter(c=>c.source==='wise').reduce((s,c)=>s+Number(c.solde||0),0);
+  const totalManual = groupe.filter(c=>c.source==='manual').reduce((s,c) => c.type_compte==='pret' ? s-Number(c.solde||0) : s+Number(c.solde||0), 0);
+  const fmt = v => (v>=0?'+':'')+Math.round(v).toLocaleString('fr-FR')+' €';
+  const el = id => document.getElementById(id);
+  if(el('soldes-total')) { el('soldes-total').textContent = fmt(totalGroupe); el('soldes-total').style.color = totalGroupe>=0?'var(--grn)':'var(--red)'; }
+  if(el('soldes-qonto')) el('soldes-qonto').textContent = fmt(totalQonto);
+  if(el('soldes-wise')) el('soldes-wise').textContent = fmt(totalWise);
+  if(el('soldes-manual')) el('soldes-manual').textContent = fmt(totalManual);
+  if(el('soldes-update-date')) el('soldes-update-date').textContent = 'Mis à jour : '+new Date().toLocaleString('fr-FR');
+  const manuels = comptes.filter(c => c.source === 'manual');
+  const rows = document.getElementById('soldes-manual-rows');
+  if (rows) {
+    rows.innerHTML = manuels.map(c => `<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--b1)"><div style="flex:1;font-size:12px"><span style="font-weight:600;color:var(--acc)">${coNames[c.company_id]||c.company_id}</span><span style="color:var(--t2);margin-left:6px">${c.banque}</span>${c.type_compte==='pret'?'<span style="font-size:10px;color:var(--amb);margin-left:4px">[prêt]</span>':''}</div><div style="font-size:10px;color:var(--t2)">${c.solde_date?new Date(c.solde_date).toLocaleDateString('fr-FR'):''}</div><input type="number" step="0.01" value="${Number(c.solde||0).toFixed(2)}" data-id="${c.id}" style="width:120px;padding:4px 8px;border:1px solid var(--b1);border-radius:4px;background:var(--s2);color:var(--t1);font-size:13px;text-align:right"></div>`).join('') || '<div style="color:var(--t2);font-size:12px">Aucun compte manuel</div>';
+  }
+  const tresoEl = document.getElementById('grp-treso-total');
+  if(tresoEl) { tresoEl.textContent = Math.round(totalGroupe).toLocaleString('fr-FR')+' €'; tresoEl.style.color = totalGroupe>=0?'var(--grn)':'var(--red)'; }
+  window._soldesData = comptes;
+}
+
+async function saveManualSoldes() {
+  const inputs = document.querySelectorAll('#soldes-manual-rows input[data-id]');
+  let ok = 0, err = 0;
+  for (const inp of inputs) {
+    const id = inp.getAttribute('data-id');
+    const solde = parseFloat(inp.value) || 0;
+    const {error} = await sb.from('bank_accounts_pro').update({solde, solde_date: new Date().toISOString().split('T')[0]}).eq('id', id);
+    if(error) err++; else ok++;
+  }
+  if(err===0) { toast('✓ '+ok+' solde(s) enregistré(s)'); loadSoldesReels(); }
+  else toast('⚠️ '+err+' erreur(s) — '+ok+' enregistrés');
 }
 
 async function syncPennylane(){
