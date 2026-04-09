@@ -9,9 +9,8 @@ const PROFILE_MAP = {
   24414380: 'perso',
   24414368: 'real-gains',
   84010501: 'sas-living',
-  // À compléter quand on aura les IDs Meulette et GUIRAUD :
-  // XXXXXXXX: 'meulette',
-  // XXXXXXXX: 'sarl-guiraud',
+  85108582: 'sarl-guiraud',
+  86999872: 'meulette',
 };
 
 async function sbFetch(path, opts = {}) {
