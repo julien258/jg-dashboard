@@ -258,6 +258,17 @@
       <div id="pending-list"></div>
     </div>
 
+    <!-- BLOC 2B : HISTORIQUE DÉPENSES -->
+    <div class="card" style="border-left:3px solid var(--s3)">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <div class="card-t" style="margin:0">📋 Historique des dépenses</div>
+        <button class="btn btn-g btn-sm" onclick="loadHistoriqueDepenses()" style="font-size:11px">↺ Actualiser</button>
+      </div>
+      <div id="historique-depenses" style="max-height:280px;overflow-y:auto">
+        <div style="color:var(--t2);font-size:12px;padding:8px">Chargement...</div>
+      </div>
+    </div>
+
     <!-- BLOC 3 : SUIVI PRÉVU vs RÉEL -->
     <div class="card">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px">
@@ -600,6 +611,7 @@ async function loadAll(){
   document.getElementById('conn-lbl').textContent='Connecté';
   renderAll();
   loadWise();
+  loadHistoriqueDepenses();
 }
 
 async function loadWise(){
@@ -1900,8 +1912,11 @@ async function loadExpenseRequests(){
         <span style="color:var(--t2)">${r.date_prevue||'—'}</span>
         <button class="btn btn-p btn-sm" onclick="validateRequest('${r.id}',true)">✅ Valider</button>
         <button class="btn btn-r btn-sm" onclick="validateRequest('${r.id}',false)">✕</button>
+        <button class="btn btn-g btn-sm" onclick="deleteRequest('${r.id}')" title="Supprimer définitivement" style="padding:4px 8px">🗑️</button>
       </div>
     </div>`).join('');
+  // Charger aussi l'historique (validées + refusées)
+  loadHistoriqueDepenses();
 }
 
 async function validateRequest(id, accept){
@@ -1913,10 +1928,47 @@ async function validateRequest(id, accept){
     toast('Dépense refusée');
   }
   loadExpenseRequests();
-  render12Mois();
+  renderBudgetPVR();
   renderCalendrier();
   renderHistorique();
-  loadPVR();
+}
+
+async function deleteRequest(id) {
+  if (!confirm('Supprimer définitivement cette dépense ?')) return;
+  const { error } = await sb.from('expense_requests').delete().eq('id', id);
+  if (error) { toast('Erreur: ' + error.message); return; }
+  toast('🗑️ Dépense supprimée');
+  loadExpenseRequests();
+  renderBudgetPVR();
+}
+
+async function loadHistoriqueDepenses() {
+  const { data } = await sb.from('expense_requests')
+    .select('*')
+    .in('statut', ['valide', 'refuse'])
+    .order('created_at', { ascending: false })
+    .limit(50);
+  const items = data || [];
+  const el = document.getElementById('historique-depenses');
+  if (!el) return;
+  if (!items.length) { el.innerHTML = '<div style="color:var(--t2);font-size:12px;padding:8px">Aucune dépense archivée</div>'; return; }
+  el.innerHTML = items.map(r => {
+    const statColor = r.statut === 'valide' ? '#18A85A' : '#E53935';
+    const statLabel = r.statut === 'valide' ? 'Validée' : 'Refusée';
+    return `<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--b1);font-size:12px">
+      <div>
+        <span style="font-weight:600">${r.nom}</span>
+        <span class="badge bb" style="margin-left:6px">${r.nature}</span>
+        <span style="color:var(--t2);margin-left:6px">${r.submitted_by}</span>
+        <span style="margin-left:6px;font-size:11px;color:${statColor};font-weight:600">${statLabel}</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span class="mono" style="font-weight:600">${fmt(r.montant)}</span>
+        <span style="color:var(--t2)">${r.date_prevue || '—'}</span>
+        <button class="btn btn-g btn-sm" onclick="deleteRequest('${r.id}')" title="Supprimer définitivement" style="padding:4px 8px">🗑️</button>
+      </div>
+    </div>`;
+  }).join('');
 }
 
 // ── Tableau 12 mois ──
