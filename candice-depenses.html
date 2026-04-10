@@ -337,9 +337,11 @@ function renderCal() {
     const dayEvs = evs.filter(e=>e.date===ds);
     const shown = dayEvs.slice(0,3);
     const more = dayEvs.length-shown.length;
-    const evHtml = shown.map(e=>`<div class="ev ${e.cls}">${e.label}</div>`).join('')+(more?`<div style="font-size:9px;color:#6e6e73">+${more}</div>`:'');
-    return `<div class="cal-day${other?' other':''}${isT?' today':''}" onclick="${other?'':``openModal('${ds}')``}">
-      <div class="dn">${d.getDate()}</div>${evHtml}</div>`;
+    const evHtml = shown.map(e=>'<div class="ev '+e.cls+'">'+e.label+'</div>').join('')+(more?'<div style="font-size:9px;color:#6e6e73">+'+more+'</div>':'');
+    const cls = 'cal-day'+(other?' other':'')+(isT?' today':'');
+    const click = other ? "" : ("openModal('" + ds + "')");
+    return '<div class="'+cls+'" onclick="'+click+'">'
+      +'<div class="dn">'+d.getDate()+'</div>'+evHtml+'</div>';
   }).join('');
 }
 
