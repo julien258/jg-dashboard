@@ -175,6 +175,9 @@
         <div class="fg"><label>Montant (€/mois)</label><input type="number" id="fx-mt" placeholder="0" step="10"></div>
         <div class="fg"><label>Catégorie</label><select id="fx-cat"><option>Logement</option><option>Abonnements</option><option>Transport</option><option>Assurance</option><option>Autre</option></select></div>
         <div class="fg"><label>Date de début</label><input type="month" id="fx-debut" placeholder="2026-04"></div>
+        <div class="fg"><label>Compte prélevé</label><select id="fx-compte"><option value="">— Sélectionner —</option><option value="BNP SARL Guiraud">BNP SARL Guiraud</option><option value="BNP La Meulette">BNP La Meulette</option><option value="BNP SAS Living">BNP SAS Living</option><option value="Qonto SARL Guiraud">Qonto SARL Guiraud</option><option value="Qonto SAS Living">Qonto SAS Living</option><option value="Perso Julien">Perso Julien</option><option value="Autre">Autre</option></select></div>
+        <div class="fg"><label>Type de paiement</label><select id="fx-payment-type"><option value="prelevement_auto">Prélèvement automatique</option><option value="virement_volontaire">Virement volontaire</option><option value="carte">Carte bancaire</option></select></div>
+        <div class="fg"><label>Jour du mois</label><input type="number" id="fx-payment-day" placeholder="Ex: 5" min="1" max="31" step="1"></div>
       </div>
       <div style="display:flex;gap:8px"><button class="btn btn-p btn-sm" onclick="saveFixe()">Enregistrer</button><button class="btn btn-g btn-sm" onclick="toggleForm('fixe-form')">Annuler</button></div>
     </div></div>
@@ -1024,9 +1027,12 @@ async function saveFixe(){
   const cat=document.getElementById('fx-cat').value;
   if(!nom||!mt){toast('Remplissez les champs');return;}
   const debut=document.getElementById('fx-debut').value||null;
-  const{error}=await sb.from('fixed_expenses').insert({name:nom,amount:mt,category:cat,active:true,date_debut:debut});
+  const compte=document.getElementById('fx-compte').value||null;
+  const paymentType=document.getElementById('fx-payment-type').value||'prelevement_auto';
+  const paymentDay=parseInt(document.getElementById('fx-payment-day').value)||null;
+  const{error}=await sb.from('fixed_expenses').insert({name:nom,amount:mt,category:cat,active:true,date_debut:debut,compte_preleve:compte,payment_type:paymentType,payment_day:paymentDay});
   if(error){toast('Erreur: '+error.message);return;}
-  document.getElementById('fx-nom').value='';document.getElementById('fx-mt').value='';document.getElementById('fx-debut').value='';
+  document.getElementById('fx-nom').value='';document.getElementById('fx-mt').value='';document.getElementById('fx-debut').value='';document.getElementById('fx-compte').value='';document.getElementById('fx-payment-day').value='';
   toggleForm('fixe-form');toast('✅ Charge ajoutée');
   const{data}=await sb.from('fixed_expenses').select('*').eq('active',true);
   D.fixes=data||[];renderFixes();renderKPIs();renderDetail();renderChart();
