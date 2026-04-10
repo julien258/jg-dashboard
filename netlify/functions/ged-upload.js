@@ -284,4 +284,4 @@ export default async (req) => {
   }
 };
 
-export const config = { path: '/api/ged-upload' };
+export const config = { path: '/api/ged-upload', timeout: 26 };
