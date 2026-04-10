@@ -632,6 +632,7 @@ async function loadAll(){
   document.getElementById('conn-lbl').textContent='Connecté';
   renderAll();
   loadWise(); // charger les soldes Wise en parallèle
+  loadPVR(); // Prévu vs Réel
 }
 
 async function loadWise(){
