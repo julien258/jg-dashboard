@@ -401,21 +401,37 @@ function renderSuivi() {
 
   const now = new Date();
   const cols = [];
-  for (let m=-1;m<5;m++) {
+  for (let m=0;m<6;m++) {
     const d = new Date(now.getFullYear(),now.getMonth()+m,1);
     cols.push({y:d.getFullYear(),m:d.getMonth(),lbl:MONTHS[d.getMonth()].substring(0,3)+' '+String(d.getFullYear()).substring(2)});
   }
 
   const nats = Object.keys(NATURES);
   const mat = {};
-  nats.forEach(n=>{ mat[n]={}; cols.forEach(c=>{ mat[n][`${c.y}-${c.m}`]=0; }); });
+  nats.forEach(n=>{ mat[n]={}; cols.forEach(c=>{ mat[n][c.y+'-'+c.m]=0; }); });
+
+  // Source 1 : expense_requests (dépenses soumises)
   reqs.forEach(r=>{
     if (!r.date_prevue) return;
     const d = new Date(r.date_prevue+'T12:00:00');
-    const k = `${d.getFullYear()}-${d.getMonth()}`;
+    const k = d.getFullYear()+'-'+d.getMonth();
     const nat = r.nature||'autre';
     if (mat[nat]&&mat[nat][k]!==undefined) mat[nat][k]+=r.montant||0;
   });
+
+  // Source 2 : recurring_expenses (charges fixes prévues) — sur 6 mois
+  // Uniquement si filtre "toutes" ou "valide" (ce sont des charges confirmées)
+  if (filter==='toutes'||filter==='valide') {
+    allRec.forEach(r=>{
+      const nat = r.category||'autre';
+      const montant = r.amount_2026||r.amount||0;
+      cols.forEach(c=>{
+        const k = c.y+'-'+c.m;
+        if (mat[nat]&&mat[nat][k]!==undefined) mat[nat][k]+=montant;
+        else if (mat['autre']&&mat['autre'][k]!==undefined) mat['autre'][k]+=montant;
+      });
+    });
+  }
 
   document.getElementById('bt-head').innerHTML = '<th>Poste</th>'+cols.map(c=>`<th>${c.lbl}</th>`).join('')+'<th>Total</th>';
   let mTots = cols.map(()=>0), grand=0;
