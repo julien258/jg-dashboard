@@ -17,6 +17,12 @@ const DRIVE_ROOTS = {
   'perso':        null,
 };
 
+// Dossiers Drive spécifiques (override — si 'dossier' param matche, fichier va direct ici)
+const DRIVE_DOSSIERS = {
+  'montferrier':          '1KZe9BfO2Zn3XWm4KNpaeLK5E7m_VxvUr',
+  'location-montferrier': '1KZe9BfO2Zn3XWm4KNpaeLK5E7m_VxvUr',
+};
+
 // Mapping type document → sous-dossier Drive
 // Ces noms doivent correspondre EXACTEMENT aux dossiers créés dans chaque Drive société
 const TYPE_FOLDER = {
@@ -201,23 +207,31 @@ export default async (req) => {
     let driveFileId = null;
     let driveError = null;
     const subfolderParam = body.subfolder || null;
-    const rootId = DRIVE_ROOTS[finalCompany];
+    // Si un dossier spécifique est demandé (ex: montferrier), on route directement
+    const dossierKey = (dossier || '').toLowerCase().replace(/\s+/g, '-');
+    const specificFolderId = DRIVE_DOSSIERS[dossierKey] || null;
+    const rootId = specificFolderId || DRIVE_ROOTS[finalCompany];
 
     if (rootId) {
       try {
         const accessToken = await getGoogleToken();
-        const subFolderName = TYPE_FOLDER[finalType] || 'Comptabilité';
-        const subFolderId = await findOrCreateFolder(accessToken, rootId, subFolderName);
         let targetFolderId;
-        if (finalType === 'compte_rendu' && subfolderParam) {
+        if (specificFolderId) {
+          // Dossier spécifique : on dépose directement sans sous-dossier type/année
+          targetFolderId = specificFolderId;
+        } else if (finalType === 'compte_rendu' && subfolderParam) {
           // CR réunion : sous-dossier par interlocuteur (ex: "Réunions CRM/Yacine MAL")
+          const subFolderName = TYPE_FOLDER[finalType] || 'Comptabilité';
+          const subFolderId = await findOrCreateFolder(accessToken, rootId, subFolderName);
           const parts = subfolderParam.split('/').filter(Boolean);
           targetFolderId = subFolderId;
           for (const part of parts.slice(1)) { // skip "Réunions CRM" déjà créé
             targetFolderId = await findOrCreateFolder(accessToken, targetFolderId, part);
           }
         } else {
-          // Autres docs : sous-dossier par année
+          // Autres docs : sous-dossier par type puis par année
+          const subFolderName = TYPE_FOLDER[finalType] || 'Comptabilité';
+          const subFolderId = await findOrCreateFolder(accessToken, rootId, subFolderName);
           const year = (ocr?.doc_date || new Date().toISOString()).substring(0, 4);
           targetFolderId = await findOrCreateFolder(accessToken, subFolderId, year);
         }
