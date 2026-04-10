@@ -6293,27 +6293,34 @@ async function loadApurement(){
     const pLabels=['','🌶️','🌶️🌶️','🌶️🌶️🌶️'];
     const bLabels=['','🍌','🍌🍌','🍌🍌🍌'];
 
-    const mkApurCard=(id,name,sub,amount,label,date)=>{
+    const nowYM = new Date().toISOString().substring(0,7);
+    const mkApurCard=(id,name,sub,amount,label,date,rawDebt)=>{
       const checked=!!window._apurAssigned[id];
       const isOverdue=date&&new Date(date)<new Date();
-      const bg=checked?'rgba(55,138,221,.07)':'var(--s2)';
-      const border=checked?'var(--acc)':'var(--b1)';
+      // Vérifie si payé ce mois
+      const lastPaid = rawDebt?.last_paid_date;
+      const payeCeMois = lastPaid && lastPaid.substring(0,7)===nowYM;
+      const bg=payeCeMois?'rgba(24,168,90,.06)':checked?'rgba(55,138,221,.07)':'var(--s2)';
+      const border=payeCeMois?'var(--grn)':checked?'var(--acc)':'var(--b1)';
       const dateStr=date?new Date(date).toLocaleDateString('fr-FR',{day:'2-digit',month:'short'}):'';
-      return `<label style="display:flex;align-items:center;gap:9px;padding:8px 10px;margin-bottom:4px;border-radius:6px;border:1px solid ${border};background:${bg};cursor:pointer;transition:all .12s">
-        <input type="checkbox" ${checked?'checked':''} onchange="apurToggle('${id}',this.checked)" style="cursor:pointer;width:14px;height:14px;flex-shrink:0;accent-color:var(--acc)">
+      const payeStr=payeCeMois?'<span style="font-size:10px;color:var(--grn);font-weight:600;margin-left:6px">✅ Payé ce mois</span>':'';
+      const btnPaye=!payeCeMois&&id.startsWith('d_')?`<button onclick="event.preventDefault();event.stopPropagation();marquerPayeMois('${id.slice(2)}',${amount})" style="font-size:9px;padding:2px 7px;border-radius:4px;border:1px solid var(--grn);background:transparent;color:var(--grn);cursor:pointer;margin-top:3px;white-space:nowrap">✅ Payé ce mois</button>`:'';
+      return `<label style="display:flex;align-items:flex-start;gap:9px;padding:8px 10px;margin-bottom:4px;border-radius:6px;border:1px solid ${border};background:${bg};cursor:pointer;transition:all .12s">
+        <input type="checkbox" ${checked?'checked':''} onchange="apurToggle('${id}',this.checked)" style="cursor:pointer;width:14px;height:14px;flex-shrink:0;accent-color:var(--acc);margin-top:2px">
         <div style="flex:1;min-width:0">
-          <div style="font-size:12px;font-weight:500;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${name}</div>
+          <div style="font-size:12px;font-weight:500;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${name}${payeStr}</div>
           <div style="font-size:10px;color:var(--t2)">${sub}</div>
+          ${btnPaye}
         </div>
         <div style="text-align:right;flex-shrink:0">
-          <div style="font-size:12px;font-weight:600;color:${isOverdue?'var(--red)':'var(--t1)'}">${Math.round(amount).toLocaleString('fr-FR')} €</div>
-          <div style="font-size:10px;color:${isOverdue?'var(--red)':'var(--t2)'}">${label}${dateStr?' · '+dateStr:''}</div>
+          <div style="font-size:12px;font-weight:600;color:${isOverdue&&!payeCeMois?'var(--red)':'var(--t1)'}">${Math.round(amount).toLocaleString('fr-FR')} €</div>
+          <div style="font-size:10px;color:${isOverdue&&!payeCeMois?'var(--red)':'var(--t2)'}">${label}${dateStr?' · '+dateStr:''}</div>
         </div>
       </label>`;
     };
 
-    const pimentCards=pimentItems.map(d=>mkApurCard('d_'+d.id,d.debiteur,(co[d.company_id]||d.company_id)+(d.notes?' · '+d.notes.substring(0,30):''),Number(d.monthly_amount||d.amount_remaining||0),pLabels[d.urgency_level||0],d.due_date)).join('');
-    const bananeCards=bananeItems.map(p=>mkApurCard('p_'+p.id,p.fournisseur,(co[p.company_id]||p.company_id)+(p.invoice_ref?' · '+p.invoice_ref:''),Number(p.amount_ttc||0),bLabels[p.priority||0],p.due_date)).join('');
+    const pimentCards=pimentItems.map(d=>mkApurCard('d_'+d.id,d.debiteur,(co[d.company_id]||d.company_id)+(d.notes?' · '+d.notes.substring(0,30):''),Number(d.monthly_amount||d.amount_remaining||0),pLabels[d.urgency_level||0],d.due_date,d)).join('');
+    const bananeCards=bananeItems.map(p=>mkApurCard('p_'+p.id,p.fournisseur,(co[p.company_id]||p.company_id)+(p.invoice_ref?' · '+p.invoice_ref:''),Number(p.amount_ttc||0),bLabels[p.priority||0],p.due_date,null)).join('');
 
     const societesList=[...new Set([...debts.map(d=>d.company_id),...payables.map(p=>p.company_id)].filter(x=>x&&x!=='perso'))];
     const filterBar=`<div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap">
@@ -6445,6 +6452,33 @@ async function apurPayerTout(){
   const total=ids.reduce((s,k)=>s+(window._apurAssigned[k]?.amount||0),0);
   if(!confirm('Marquer '+ids.length+' élément(s) comme payés (total '+Math.round(total).toLocaleString('fr-FR')+' €) ?')) return;
   for(const id of ids) await apurPayer(id);
+}
+
+async function marquerPayeMois(debtId, amount) {
+  const today = new Date().toISOString().substring(0,10);
+  const mtStr = prompt('Montant payé ce mois (€) :', Math.round(amount));
+  if (!mtStr || isNaN(parseFloat(mtStr))) return;
+  const mt = parseFloat(mtStr);
+  const debt = (window._apurDebts||[]).find(d=>d.id==debtId);
+  if (!debt) return;
+  const remaining = Math.max(0, Number(debt.amount_remaining||debt.monthly_amount||0) - mt);
+  const newStatus = remaining <= 0 ? 'solde' : debt.status;
+  const { error } = await sb.from('debts').update({
+    last_paid_date: today,
+    last_paid_amount: mt,
+    amount_remaining: remaining,
+    status: newStatus
+  }).eq('id', debtId);
+  if (error) { toast('Erreur: '+error.message); return; }
+  toast('✅ Paiement du mois enregistré — '+Math.round(mt).toLocaleString('fr-FR')+' €');
+  // Recharger
+  const [dR,pR] = await Promise.all([
+    sb.from('debts').select('*').neq('status','solde').neq('status','paye'),
+    sb.from('payables').select('*').neq('status','paye')
+  ]);
+  window._apurDebts=dR.data||[];
+  window._apurPayables=pR.data||[];
+  window._apurRenderAll&&window._apurRenderAll();
 }
 
 
