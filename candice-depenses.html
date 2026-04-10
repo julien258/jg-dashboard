@@ -3,362 +3,441 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Dépenses — Candice</title>
+<title>Dépenses Foyer — Candice</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
-  *{box-sizing:border-box;margin:0;padding:0;}
-  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f5f7;color:#1d1d1f;min-height:100vh;}
-  .header{background:#fff;border-bottom:1px solid #e5e5ea;padding:16px 20px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:10;}
-  .header-icon{width:36px;height:36px;background:#5856d6;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;}
-  .header h1{font-size:17px;font-weight:600;}
-  .header p{font-size:12px;color:#6e6e73;margin-top:1px;}
-  .container{max-width:600px;margin:0 auto;padding:16px;}
-  .card{background:#fff;border-radius:16px;padding:20px;margin-bottom:16px;box-shadow:0 1px 3px rgba(0,0,0,.08);}
-  .card-title{font-size:15px;font-weight:600;margin-bottom:16px;display:flex;align-items:center;gap:8px;}
-  .fg{margin-bottom:12px;}
-  .fg label{display:block;font-size:12px;font-weight:500;color:#6e6e73;margin-bottom:4px;text-transform:uppercase;letter-spacing:.3px;}
-  .fg input,.fg select,.fg textarea{width:100%;padding:11px 14px;border:1.5px solid #e5e5ea;border-radius:10px;font-size:15px;background:#fff;outline:none;transition:border-color .2s;}
-  .fg input:focus,.fg select:focus,.fg textarea:focus{border-color:#5856d6;}
-  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
-  .btn{width:100%;padding:14px;border:none;border-radius:12px;font-size:16px;font-weight:600;cursor:pointer;transition:opacity .2s;}
-  .btn-primary{background:#5856d6;color:#fff;}
-  .btn-primary:hover{opacity:.9;}
-  .btn-primary:disabled{opacity:.5;cursor:not-allowed;}
-  .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);background:#1d1d1f;color:#fff;padding:12px 20px;border-radius:12px;font-size:14px;opacity:0;transition:all .3s;pointer-events:none;z-index:100;white-space:nowrap;}
-  .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
-  .badge{display:inline-flex;align-items:center;gap:4px;background:#f0f0f5;border-radius:8px;padding:4px 10px;font-size:12px;font-weight:500;color:#5856d6;}
-  .pending-item{padding:12px;border:1px solid #e5e5ea;border-radius:10px;margin-bottom:8px;}
-  .pending-item .meta{font-size:12px;color:#6e6e73;margin-top:4px;}
-  .pending-item .amount{font-size:16px;font-weight:600;color:#1d1d1f;}
-  .empty{text-align:center;padding:24px;color:#6e6e73;font-size:14px;}
-  .calendar-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;}
-  .cal-header{font-size:11px;font-weight:600;text-align:center;color:#6e6e73;padding:6px 2px;text-transform:uppercase;}
-  .cal-day{min-height:52px;border-radius:8px;padding:4px;font-size:11px;background:#fafafa;border:1px solid #f0f0f0;}
-  .cal-day.today{background:#f0f0ff;border-color:#c7c7ff;}
-  .cal-day .day-num{font-size:12px;font-weight:600;color:#1d1d1f;margin-bottom:2px;}
-  .cal-day.other-month .day-num{color:#c7c7cc;}
-  .cal-event{background:#5856d6;color:#fff;border-radius:4px;padding:1px 4px;font-size:9px;margin-bottom:1px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;}
-  .cal-event.recurrent{background:#34c759;}
-  .cal-event.pending{background:#ff9500;}
-  .month-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
-  .month-nav button{background:#f0f0f5;border:none;border-radius:8px;padding:6px 12px;cursor:pointer;font-size:14px;}
-  .month-nav span{font-size:15px;font-weight:600;}
-  .access-denied{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;gap:16px;padding:20px;text-align:center;}
-  .access-denied h2{font-size:24px;}
-  .access-denied p{color:#6e6e73;font-size:15px;}
-  #app{display:none;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f5f7;color:#1d1d1f;min-height:100vh;}
+.header{background:#fff;border-bottom:1px solid #e5e5ea;padding:14px 20px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:20;}
+.header-icon{width:36px;height:36px;background:#5856d6;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;}
+.header h1{font-size:17px;font-weight:600;}
+.header p{font-size:12px;color:#6e6e73;margin-top:1px;}
+.tabs{display:flex;gap:0;background:#e5e5ea;border-radius:10px;padding:2px;margin:14px 14px 0;}
+.tab{flex:1;padding:8px 4px;text-align:center;font-size:12px;font-weight:500;border-radius:8px;cursor:pointer;color:#6e6e73;transition:all .2s;}
+.tab.active{background:#fff;color:#1d1d1f;box-shadow:0 1px 3px rgba(0,0,0,.12);}
+.tab-content{display:none;padding:14px;}
+.tab-content.active{display:block;}
+.card{background:#fff;border-radius:16px;padding:18px;margin-bottom:14px;box-shadow:0 1px 3px rgba(0,0,0,.08);}
+.card-title{font-size:15px;font-weight:600;margin-bottom:14px;display:flex;align-items:center;gap:8px;}
+.fg{margin-bottom:11px;}
+.fg label{display:block;font-size:11px;font-weight:600;color:#6e6e73;margin-bottom:4px;text-transform:uppercase;letter-spacing:.3px;}
+.fg input,.fg select{width:100%;padding:10px 13px;border:1.5px solid #e5e5ea;border-radius:10px;font-size:15px;background:#fff;outline:none;transition:border-color .2s;}
+.fg input:focus,.fg select:focus{border-color:#5856d6;}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.btn{width:100%;padding:13px;border:none;border-radius:12px;font-size:15px;font-weight:600;cursor:pointer;transition:opacity .2s;}
+.btn-primary{background:#5856d6;color:#fff;}
+.btn-primary:hover{opacity:.9;}
+.btn-primary:disabled{opacity:.5;cursor:not-allowed;}
+.btn-ghost{background:#f0f0f5;color:#1d1d1f;}
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);background:#1d1d1f;color:#fff;padding:12px 20px;border-radius:12px;font-size:14px;opacity:0;transition:all .3s;pointer-events:none;z-index:200;}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+.badge{display:inline-flex;align-items:center;background:#f0f0f5;border-radius:8px;padding:3px 8px;font-size:12px;font-weight:500;color:#5856d6;}
+.item{padding:11px;border:1px solid #e5e5ea;border-radius:10px;margin-bottom:7px;display:flex;justify-content:space-between;align-items:center;}
+.item .meta{font-size:11px;color:#6e6e73;margin-top:2px;}
+.item .amt{font-size:15px;font-weight:700;white-space:nowrap;margin-left:10px;}
+.empty{text-align:center;padding:20px;color:#6e6e73;font-size:14px;}
+/* Cal */
+.month-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+.month-nav button{background:#f0f0f5;border:none;border-radius:8px;padding:6px 14px;cursor:pointer;font-size:16px;}
+.month-nav span{font-size:15px;font-weight:600;}
+.cal-wrap{overflow-x:auto;}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;}
+.cal-hdr{font-size:10px;font-weight:700;text-align:center;color:#6e6e73;padding:4px 0;text-transform:uppercase;}
+.cal-day{min-height:56px;border-radius:8px;padding:4px;background:#fafafa;border:1.5px solid transparent;cursor:pointer;transition:all .15s;}
+.cal-day:hover:not(.other){border-color:#5856d6;background:#f5f5ff;}
+.cal-day.today{background:#f0f0ff;border-color:#c7c7ff;}
+.cal-day.other{opacity:.4;cursor:default;}
+.dn{font-size:12px;font-weight:600;margin-bottom:2px;}
+.ev{border-radius:3px;padding:1px 4px;font-size:9px;margin-bottom:1px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;font-weight:500;}
+.ev-v{background:#e8e7ff;color:#5856d6;}
+.ev-p{background:#fff3cd;color:#92400e;}
+.ev-r{background:#d1fae5;color:#059669;}
+.legend{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;}
+.leg{display:flex;align-items:center;gap:4px;font-size:11px;color:#6e6e73;}
+.leg-dot{width:10px;height:10px;border-radius:2px;}
+/* Modal */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:100;display:none;align-items:flex-end;justify-content:center;}
+.overlay.show{display:flex;}
+.modal{background:#fff;border-radius:20px 20px 0 0;padding:22px;width:100%;max-width:480px;max-height:88vh;overflow-y:auto;}
+.modal-hdr{font-size:16px;font-weight:700;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;}
+.modal-close{background:none;border:none;font-size:22px;cursor:pointer;color:#6e6e73;}
+/* Budget table */
+.btable{width:100%;border-collapse:collapse;font-size:12px;}
+.btable th{text-align:right;padding:7px 8px;font-weight:700;color:#6e6e73;font-size:10px;border-bottom:2px solid #e5e5ea;white-space:nowrap;}
+.btable th:first-child{text-align:left;}
+.btable td{text-align:right;padding:7px 8px;border-bottom:1px solid #f0f0f0;}
+.btable td:first-child{text-align:left;font-weight:500;}
+.btable tfoot td{font-weight:700;border-top:2px solid #e5e5ea;border-bottom:none;}
+.stbtn{padding:5px 12px;border-radius:20px;font-size:12px;font-weight:600;border:1.5px solid #e5e5ea;background:#fff;cursor:pointer;color:#6e6e73;margin-bottom:10px;}
+.stbtn.active{background:#5856d6;color:#fff;border-color:#5856d6;}
+.sdot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:5px;}
+.dg{background:#34c759;} .do{background:#ff9500;} .dr{background:#c7c7cc;}
 </style>
 </head>
 <body>
 
-<div id="access-gate" class="access-denied">
+<div id="gate" style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;gap:14px;padding:20px;text-align:center;">
   <div style="font-size:48px">🔒</div>
-  <h2>Accès refusé</h2>
-  <p>Ce lien n'est pas valide ou a expiré.<br>Demande un nouveau lien à Julien.</p>
+  <h2 style="font-size:22px">Accès refusé</h2>
+  <p style="color:#6e6e73">Ce lien n'est pas valide.<br>Demande un nouveau lien à Julien.</p>
 </div>
 
-<div id="app">
+<div id="app" style="display:none">
   <div class="header">
     <div class="header-icon">💸</div>
-    <div>
-      <h1>Dépenses Foyer</h1>
-      <p>Soumettre une dépense · Candice</p>
-    </div>
+    <div><h1>Dépenses Foyer</h1><p>Candice · Saisie &amp; suivi</p></div>
   </div>
 
-  <div class="container">
+  <div class="tabs">
+    <div class="tab active" onclick="showTab('t-saisie',this)">✏️ Saisir</div>
+    <div class="tab" onclick="showTab('t-cal',this)">📅 Calendrier</div>
+    <div class="tab" onclick="showTab('t-suivi',this)">📊 Suivi</div>
+  </div>
 
-    <!-- FORMULAIRE SOUMISSION -->
-    <div class="card">
+  <!-- SAISIE -->
+  <div class="tab-content active" id="t-saisie">
+    <div class="card" style="border-left:3px solid #5856d6">
       <div class="card-title">📝 Soumettre une dépense</div>
-
-      <div class="fg">
-        <label>Nature</label>
-        <select id="req-nature">
+      <div class="fg"><label>Nature</label>
+        <select id="r-nature">
           <option value="alimentation">🛒 Alimentation</option>
           <option value="transport">🚗 Transport</option>
           <option value="sante">🏥 Santé</option>
           <option value="loisirs">🎉 Loisirs</option>
-          <option value="vetements">👕 Vêtements / Shopping</option>
+          <option value="vetements">👕 Vêtements</option>
           <option value="maison">🏠 Maison</option>
           <option value="enfants">👶 Enfants</option>
           <option value="autre">📦 Autre</option>
-        </select>
-      </div>
-
-      <div class="fg">
-        <label>Nom / Libellé</label>
-        <input type="text" id="req-nom" placeholder="Courses Monoprix, Médecin, Essence...">
-      </div>
-
+        </select></div>
+      <div class="fg"><label>Nom / Libellé</label><input type="text" id="r-nom" placeholder="Courses, Médecin, Essence..."></div>
       <div class="grid2">
-        <div class="fg">
-          <label>Montant (€)</label>
-          <input type="number" id="req-montant" placeholder="0" min="0" step="1">
-        </div>
-        <div class="fg">
-          <label>Date prévue</label>
-          <input type="date" id="req-date">
-        </div>
+        <div class="fg"><label>Montant (€)</label><input type="number" id="r-montant" placeholder="0" min="0" step="1"></div>
+        <div class="fg"><label>Date prévue</label><input type="date" id="r-date"></div>
       </div>
-
-      <div class="fg">
-        <label>Type</label>
-        <select id="req-recurrent" onchange="toggleRecurrent()">
+      <div class="fg"><label>Type</label>
+        <select id="r-recurrent" onchange="toggleFreq('r-recurrent','r-freq')">
           <option value="false">Ponctuel</option>
-          <option value="true">Récurrent (mensuel...)</option>
-        </select>
+          <option value="true">Récurrent</option>
+        </select></div>
+      <div id="r-freq" style="display:none" class="grid2">
+        <div class="fg"><label>Fréquence</label><select id="r-frequence"><option value="monthly">Mensuel</option><option value="quarterly">Trimestriel</option><option value="annual">Annuel</option></select></div>
+        <div class="fg"><label>Jour prélévement</label><input type="number" id="r-prelev" placeholder="Ex: 5" min="1" max="31"></div>
       </div>
-
-      <div id="freq-block" style="display:none">
-        <div class="grid2">
-          <div class="fg">
-            <label>Fréquence</label>
-            <select id="req-frequence">
-              <option value="monthly">Mensuel</option>
-              <option value="quarterly">Trimestriel</option>
-              <option value="annual">Annuel</option>
-            </select>
-          </div>
-          <div class="fg">
-            <label>Jour de prélèvement</label>
-            <input type="number" id="req-prelevement" placeholder="Ex: 5" min="1" max="31">
-          </div>
-        </div>
-      </div>
-
-      <div class="fg">
-        <label>Notes (optionnel)</label>
-        <input type="text" id="req-notes" placeholder="Précisions, justificatif...">
-      </div>
-
-      <button class="btn btn-primary" id="submit-btn" onclick="submitDepense()">📤 Soumettre la dépense</button>
+      <div class="fg"><label>Notes</label><input type="text" id="r-notes" placeholder="Précisions..."></div>
+      <button class="btn btn-primary" id="r-btn" onclick="doSubmit()">📤 Soumettre</button>
     </div>
-
-    <!-- MES SOUMISSIONS EN ATTENTE -->
     <div class="card">
-      <div class="card-title">⏳ Mes soumissions en attente <span id="pending-badge" class="badge" style="display:none">0</span></div>
-      <div id="pending-list"><div class="empty">Aucune dépense en attente</div></div>
+      <div class="card-title">⏳ Mes soumissions en attente <span id="p-badge" class="badge" style="display:none">0</span></div>
+      <div id="p-list"><div class="empty">Aucune dépense en attente ✅</div></div>
     </div>
+  </div>
 
-    <!-- CALENDRIER -->
+  <!-- CALENDRIER -->
+  <div class="tab-content" id="t-cal">
     <div class="card">
       <div class="month-nav">
-        <button onclick="prevMonth()">‹</button>
-        <span id="cal-month-label">—</span>
-        <button onclick="nextMonth()">›</button>
+        <button onclick="prevM()">‹</button>
+        <span id="cal-lbl">—</span>
+        <button onclick="nextM()">›</button>
       </div>
-      <div class="calendar-grid" id="cal-headers"></div>
-      <div class="calendar-grid" id="cal-grid"></div>
-      <div style="display:flex;gap:12px;margin-top:12px;font-size:11px;color:#6e6e73;">
-        <span><span style="display:inline-block;width:10px;height:10px;background:#5856d6;border-radius:2px;margin-right:4px"></span>Dépenses ponctuelles</span>
-        <span><span style="display:inline-block;width:10px;height:10px;background:#34c759;border-radius:2px;margin-right:4px"></span>Récurrentes</span>
-        <span><span style="display:inline-block;width:10px;height:10px;background:#ff9500;border-radius:2px;margin-right:4px"></span>En attente</span>
+      <div style="font-size:11px;color:#6e6e73;margin-bottom:8px">💡 Clique sur un jour pour y ajouter une dépense</div>
+      <div class="cal-wrap">
+        <div class="cal-grid" id="cal-hdrs"></div>
+        <div class="cal-grid" id="cal-body"></div>
+      </div>
+      <div class="legend">
+        <div class="leg"><div class="leg-dot" style="background:#5856d6"></div>Validée</div>
+        <div class="leg"><div class="leg-dot" style="background:#ff9500"></div>En attente</div>
+        <div class="leg"><div class="leg-dot" style="background:#34c759"></div>Récurrente</div>
       </div>
     </div>
+  </div>
 
+  <!-- SUIVI -->
+  <div class="tab-content" id="t-suivi">
+    <div class="card">
+      <div class="card-title">📊 Dépenses par poste &amp; par mois</div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px">
+        <button class="stbtn active" onclick="setFilter('toutes',this)">Toutes</button>
+        <button class="stbtn" onclick="setFilter('candice',this)">Mes saisies</button>
+        <button class="stbtn" onclick="setFilter('valide',this)">Validées</button>
+        <button class="stbtn" onclick="setFilter('en_attente',this)">En attente</button>
+      </div>
+      <div style="overflow-x:auto"><table class="btable">
+        <thead><tr id="bt-head"></tr></thead>
+        <tbody id="bt-body"></tbody>
+        <tfoot><tr id="bt-foot"></tr></tfoot>
+      </table></div>
+    </div>
+    <div class="card">
+      <div class="card-title">📋 Détail des dépenses</div>
+      <div id="det-list"><div class="empty">Chargement...</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL -->
+<div class="overlay" id="overlay" onclick="closeModal(event)">
+  <div class="modal">
+    <div class="modal-hdr">
+      <span>📅 <span id="m-lbl"></span></span>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="fg"><label>Nature</label>
+      <select id="m-nature">
+        <option value="alimentation">🛒 Alimentation</option>
+        <option value="transport">🚗 Transport</option>
+        <option value="sante">🏥 Santé</option>
+        <option value="loisirs">🎉 Loisirs</option>
+        <option value="vetements">👕 Vêtements</option>
+        <option value="maison">🏠 Maison</option>
+        <option value="enfants">👶 Enfants</option>
+        <option value="autre">📦 Autre</option>
+      </select></div>
+    <div class="fg"><label>Nom / Libellé</label><input type="text" id="m-nom" placeholder="Courses, Médecin..."></div>
+    <div class="grid2">
+      <div class="fg"><label>Montant (€)</label><input type="number" id="m-montant" placeholder="0" min="0" step="1"></div>
+      <div class="fg"><label>Type</label>
+        <select id="m-rec" onchange="toggleFreq('m-rec','m-freq')">
+          <option value="false">Ponctuel</option>
+          <option value="true">Récurrent</option>
+        </select></div>
+    </div>
+    <div id="m-freq" style="display:none" class="grid2">
+      <div class="fg"><label>Fréquence</label><select id="m-frequence"><option value="monthly">Mensuel</option><option value="quarterly">Trimestriel</option><option value="annual">Annuel</option></select></div>
+      <div class="fg"><label>Jour</label><input type="number" id="m-prelev" placeholder="Ex: 5" min="1" max="31"></div>
+    </div>
+    <div class="fg"><label>Notes</label><input type="text" id="m-notes" placeholder="Précisions..."></div>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-ghost" style="width:auto;padding:13px 18px" onclick="closeModal()">Annuler</button>
+      <button class="btn btn-primary" id="m-btn" onclick="submitModal()">📤 Soumettre</button>
+    </div>
   </div>
 </div>
 
 <div class="toast" id="toast"></div>
 
 <script>
-// ── Auth token ─────────────────────────────────────────────────────────────
-const VALID_TOKEN = 'candice2026jg';
-const params = new URLSearchParams(window.location.search);
-const token = params.get('token');
-
-if (token !== VALID_TOKEN) {
-  document.getElementById('access-gate').style.display = 'flex';
-} else {
-  document.getElementById('access-gate').style.display = 'none';
+const TOKEN = 'candice2026jg';
+const p = new URLSearchParams(location.search);
+if (p.get('token') === TOKEN) {
+  document.getElementById('gate').style.display = 'none';
   document.getElementById('app').style.display = 'block';
   init();
 }
 
-// ── Supabase ───────────────────────────────────────────────────────────────
 const SB_URL = 'https://uqpgwypgkwlvrpxtxhia.supabase.co';
 const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVxcGd3eXBna3dsdnJweHR4aGlhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM1ODg2NzAsImV4cCI6MjA4OTE2NDY3MH0.EVdcTLWbkx9X0L16-Az0GmfAVOsB977AAaSCeHiwihE';
 const { createClient } = supabase;
 const sb = createClient(SB_URL, SB_KEY);
 
-function toast(m) {
-  const t = document.getElementById('toast');
-  t.textContent = m;
-  t.classList.add('show');
-  setTimeout(() => t.classList.remove('show'), 3000);
+const MONTHS = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+const NATURES = { alimentation:'🛒 Alimentation', transport:'🚗 Transport', sante:'🏥 Santé',
+  loisirs:'🎉 Loisirs', vetements:'👕 Vêtements', maison:'🏠 Maison', enfants:'👶 Enfants', autre:'📦 Autre' };
+
+let allReqs = [], allRec = [], calY, calM, modalDate, filter = 'toutes';
+
+function toast(m) { const t=document.getElementById('toast'); t.textContent=m; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),3000); }
+function fmtD(s) { return s ? new Date(s+'T12:00:00').toLocaleDateString('fr-FR') : '—'; }
+function fmtE(v) { return Math.round(v).toLocaleString('fr-FR')+' €'; }
+
+function showTab(id, el) {
+  document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById(id).classList.add('active'); el.classList.add('active');
+  if (id==='t-cal') renderCal();
+  if (id==='t-suivi') renderSuivi();
 }
 
-function toggleRecurrent() {
-  const v = document.getElementById('req-recurrent').value === 'true';
-  document.getElementById('freq-block').style.display = v ? 'block' : 'none';
+function toggleFreq(selId, blockId) {
+  document.getElementById(blockId).style.display = document.getElementById(selId).value==='true' ? 'block' : 'none';
 }
-
-// ── Init ───────────────────────────────────────────────────────────────────
-let calYear, calMonth;
-let allEvents = [];
 
 async function init() {
-  // Pré-remplir date aujourd'hui
-  document.getElementById('req-date').value = new Date().toISOString().substring(0, 10);
-
-  const now = new Date();
-  calYear = now.getFullYear();
-  calMonth = now.getMonth();
-
-  await Promise.all([loadPending(), loadCalendarData()]);
-  renderCalendar();
+  document.getElementById('r-date').value = new Date().toISOString().substring(0,10);
+  const now = new Date(); calY = now.getFullYear(); calM = now.getMonth();
+  await reload();
 }
 
-// ── Soumettre ──────────────────────────────────────────────────────────────
-async function submitDepense() {
-  const nom = document.getElementById('req-nom').value.trim();
-  const montant = parseFloat(document.getElementById('req-montant').value) || 0;
-  const date = document.getElementById('req-date').value;
-  if (!nom || !montant) { toast('Remplissez le nom et le montant'); return; }
+async function reload() {
+  const [{ data: r }, { data: rec }] = await Promise.all([
+    sb.from('expense_requests').select('*').order('date_prevue',{ascending:true}),
+    sb.from('recurring_expenses').select('*').eq('active',true)
+  ]);
+  allReqs = r||[]; allRec = rec||[];
+  renderPending();
+}
 
-  const btn = document.getElementById('submit-btn');
-  btn.disabled = true;
-  btn.textContent = '⏳ Envoi...';
-
-  const payload = {
-    submitted_by: 'candice',
-    nature: document.getElementById('req-nature').value,
-    nom, montant,
-    date_prevue: date || null,
-    recurrent: document.getElementById('req-recurrent').value === 'true',
-    frequence: document.getElementById('req-recurrent').value === 'true' ? document.getElementById('req-frequence').value : null,
-    date_prelevement: parseInt(document.getElementById('req-prelevement')?.value) || null,
-    notes: document.getElementById('req-notes').value || null,
-    statut: 'en_attente'
-  };
-
-  const { error } = await sb.from('expense_requests').insert(payload);
-  btn.disabled = false;
-  btn.textContent = '📤 Soumettre la dépense';
-
-  if (error) { toast('Erreur: ' + error.message); return; }
-
-  document.getElementById('req-nom').value = '';
-  document.getElementById('req-montant').value = '';
-  document.getElementById('req-notes').value = '';
-  document.getElementById('req-date').value = new Date().toISOString().substring(0, 10);
-  toast('✅ Dépense soumise — Julien va valider');
-  await loadPending();
-  allEvents = allEvents.filter(e => !e._pending);
-  const { data: pend } = await sb.from('expense_requests').select('*').eq('statut', 'en_attente').eq('submitted_by', 'candice');
-  (pend || []).forEach(r => {
-    if (r.date_prevue) allEvents.push({ date: r.date_prevue, label: r.nom, type: 'pending' });
+// ── Saisie ─────────────────────────────────────────────────────────────────
+async function doSubmit(dateOverride) {
+  const nom = document.getElementById('r-nom').value.trim();
+  const montant = parseFloat(document.getElementById('r-montant').value)||0;
+  const date = dateOverride || document.getElementById('r-date').value;
+  if (!nom||!montant) { toast('Remplissez le nom et le montant'); return; }
+  const btn = document.getElementById('r-btn');
+  btn.disabled=true; btn.textContent='⏳ Envoi...';
+  const { error } = await sb.from('expense_requests').insert({
+    submitted_by:'candice', nature:document.getElementById('r-nature').value,
+    nom, montant, date_prevue:date||null,
+    recurrent:document.getElementById('r-recurrent').value==='true',
+    frequence:document.getElementById('r-recurrent').value==='true'?document.getElementById('r-frequence').value:null,
+    date_prelevement:parseInt(document.getElementById('r-prelev').value)||null,
+    notes:document.getElementById('r-notes').value||null, statut:'en_attente'
   });
-  renderCalendar();
+  btn.disabled=false; btn.textContent='📤 Soumettre';
+  if (error) { toast('Erreur: '+error.message); return; }
+  document.getElementById('r-nom').value=''; document.getElementById('r-montant').value='';
+  document.getElementById('r-notes').value=''; document.getElementById('r-date').value=new Date().toISOString().substring(0,10);
+  toast('✅ Dépense soumise — Julien va valider');
+  await reload();
 }
 
-// ── Dépenses en attente ────────────────────────────────────────────────────
-async function loadPending() {
-  const { data } = await sb.from('expense_requests').select('*')
-    .eq('statut', 'en_attente').eq('submitted_by', 'candice')
-    .order('created_at', { ascending: false });
-  const list = document.getElementById('pending-list');
-  const badge = document.getElementById('pending-badge');
-  const items = data || [];
-  if (!items.length) {
-    list.innerHTML = '<div class="empty">Aucune dépense en attente ✅</div>';
-    badge.style.display = 'none';
-    return;
-  }
-  badge.style.display = 'inline-flex';
-  badge.textContent = items.length;
-  list.innerHTML = items.map(r => `
-    <div class="pending-item">
-      <div style="display:flex;justify-content:space-between;align-items:center">
-        <div><strong>${r.nom}</strong> <span style="font-size:12px;color:#6e6e73">${r.nature}</span></div>
-        <div class="amount">${Math.round(r.montant).toLocaleString('fr-FR')} €</div>
-      </div>
-      <div class="meta">${r.date_prevue ? '📅 ' + new Date(r.date_prevue).toLocaleDateString('fr-FR') : ''} ${r.notes ? '· ' + r.notes : ''}</div>
-    </div>
-  `).join('');
+function renderPending() {
+  const pending = allReqs.filter(r=>r.statut==='en_attente'&&r.submitted_by==='candice');
+  const list = document.getElementById('p-list'), badge = document.getElementById('p-badge');
+  if (!pending.length) { list.innerHTML='<div class="empty">Aucune dépense en attente ✅</div>'; badge.style.display='none'; return; }
+  badge.style.display='inline-flex'; badge.textContent=pending.length;
+  list.innerHTML = pending.map(r=>`
+    <div class="item">
+      <div><div style="font-weight:600;font-size:14px">${r.nom}</div>
+      <div class="meta">${NATURES[r.nature]||r.nature} ${r.date_prevue?'· 📅 '+fmtD(r.date_prevue):''} ${r.notes?'· '+r.notes:''}</div></div>
+      <div class="amt">${fmtE(r.montant)}</div>
+    </div>`).join('');
 }
 
 // ── Calendrier ─────────────────────────────────────────────────────────────
-async function loadCalendarData() {
-  const [{ data: validated }, { data: recurring }, { data: pending }] = await Promise.all([
-    sb.from('expense_requests').select('date_prevue,nom,montant,recurrent').eq('statut', 'valide'),
-    sb.from('recurring_expenses').select('*').eq('active', true),
-    sb.from('expense_requests').select('date_prevue,nom').eq('statut', 'en_attente').eq('submitted_by', 'candice'),
-  ]);
-
-  allEvents = [];
-  (validated || []).forEach(r => {
-    if (r.date_prevue) allEvents.push({ date: r.date_prevue, label: r.nom, type: r.recurrent ? 'recurrent' : 'ponctuel' });
+function buildEvents() {
+  const evs = [];
+  allReqs.forEach(r => {
+    if (!r.date_prevue) return;
+    evs.push({ date:r.date_prevue, label:r.nom, cls:r.statut==='valide'?'ev-v':r.statut==='en_attente'?'ev-p':'ev-v' });
   });
-  (pending || []).forEach(r => {
-    if (r.date_prevue) allEvents.push({ date: r.date_prevue, label: r.nom, type: 'pending', _pending: true });
-  });
-  // Récurrentes sur 3 mois
   const now = new Date();
-  (recurring || []).forEach(r => {
-    for (let m = 0; m < 3; m++) {
-      const d = new Date(now.getFullYear(), now.getMonth() + m, r.payment_day || 1);
-      allEvents.push({ date: d.toISOString().substring(0, 10), label: r.name, type: 'recurrent' });
+  allRec.forEach(r => {
+    for (let m=0;m<6;m++) {
+      const d = new Date(now.getFullYear(),now.getMonth()+m,r.payment_day||1);
+      evs.push({ date:d.toISOString().substring(0,10), label:r.name, cls:'ev-r' });
     }
   });
+  return evs;
 }
 
-function renderCalendar() {
-  const headers = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
-  const monthNames = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
-  document.getElementById('cal-month-label').textContent = monthNames[calMonth] + ' ' + calYear;
-
-  const hEl = document.getElementById('cal-headers');
-  hEl.innerHTML = headers.map(h => `<div class="cal-header">${h}</div>`).join('');
-
-  const firstDay = new Date(calYear, calMonth, 1);
-  const lastDay = new Date(calYear, calMonth + 1, 0);
-  let startDow = firstDay.getDay(); // 0=Sun
-  startDow = startDow === 0 ? 6 : startDow - 1; // Monday-based
-
-  const today = new Date().toISOString().substring(0, 10);
+function renderCal() {
+  document.getElementById('cal-lbl').textContent = MONTHS[calM]+' '+calY;
+  const hdrs = ['Lun','Mar','Mer','Jeu','Ven','Sam','Dim'];
+  document.getElementById('cal-hdrs').innerHTML = hdrs.map(h=>`<div class="cal-hdr">${h}</div>`).join('');
+  const first = new Date(calY,calM,1), last = new Date(calY,calM+1,0);
+  let dow = first.getDay(); dow = dow===0?6:dow-1;
+  const today = new Date().toISOString().substring(0,10);
   const cells = [];
-
-  // Previous month days
-  for (let i = startDow - 1; i >= 0; i--) {
-    const d = new Date(calYear, calMonth, -i);
-    cells.push({ date: d, otherMonth: true });
-  }
-  // Current month
-  for (let d = 1; d <= lastDay.getDate(); d++) {
-    cells.push({ date: new Date(calYear, calMonth, d), otherMonth: false });
-  }
-  // Fill to complete weeks
-  while (cells.length % 7 !== 0) {
-    const last = cells[cells.length - 1].date;
-    const next = new Date(last);
-    next.setDate(next.getDate() + 1);
-    cells.push({ date: next, otherMonth: true });
-  }
-
-  const grid = document.getElementById('cal-grid');
-  grid.innerHTML = cells.map(({ date, otherMonth }) => {
-    const ds = date.toISOString().substring(0, 10);
-    const isToday = ds === today;
-    const events = allEvents.filter(e => e.date === ds);
-    const evHtml = events.map(e => `<div class="cal-event ${e.type}">${e.label}</div>`).join('');
-    return `<div class="cal-day${otherMonth ? ' other-month' : ''}${isToday ? ' today' : ''}">
-      <div class="day-num">${date.getDate()}</div>
-      ${evHtml}
-    </div>`;
+  for (let i=dow-1;i>=0;i--) { const d=new Date(calY,calM,-i); cells.push({d,other:true}); }
+  for (let i=1;i<=last.getDate();i++) cells.push({d:new Date(calY,calM,i),other:false});
+  while (cells.length%7!==0) { const l=cells[cells.length-1].d; const n=new Date(l); n.setDate(n.getDate()+1); cells.push({d:n,other:true}); }
+  const evs = buildEvents();
+  document.getElementById('cal-body').innerHTML = cells.map(({d,other})=>{
+    const ds = d.toISOString().substring(0,10);
+    const isT = ds===today;
+    const dayEvs = evs.filter(e=>e.date===ds);
+    const shown = dayEvs.slice(0,3);
+    const more = dayEvs.length-shown.length;
+    const evHtml = shown.map(e=>`<div class="ev ${e.cls}">${e.label}</div>`).join('')+(more?`<div style="font-size:9px;color:#6e6e73">+${more}</div>`:'');
+    return `<div class="cal-day${other?' other':''}${isT?' today':''}" onclick="${other?'':``openModal('${ds}')``}">
+      <div class="dn">${d.getDate()}</div>${evHtml}</div>`;
   }).join('');
 }
 
-function prevMonth() {
-  calMonth--;
-  if (calMonth < 0) { calMonth = 11; calYear--; }
-  renderCalendar();
+function prevM() { calM--; if(calM<0){calM=11;calY--;} renderCal(); }
+function nextM() { calM++; if(calM>11){calM=0;calY++;} renderCal(); }
+
+// ── Modal ──────────────────────────────────────────────────────────────────
+function openModal(ds) {
+  modalDate = ds;
+  const d = new Date(ds+'T12:00:00');
+  document.getElementById('m-lbl').textContent = d.toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'});
+  ['m-nom','m-montant','m-notes'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('m-rec').value='false';
+  document.getElementById('m-freq').style.display='none';
+  document.getElementById('overlay').classList.add('show');
+  setTimeout(()=>document.getElementById('m-nom').focus(),150);
 }
-function nextMonth() {
-  calMonth++;
-  if (calMonth > 11) { calMonth = 0; calYear++; }
-  renderCalendar();
+
+function closeModal(e) {
+  if (e&&e.target!==document.getElementById('overlay')) return;
+  document.getElementById('overlay').classList.remove('show');
+}
+
+async function submitModal() {
+  const nom = document.getElementById('m-nom').value.trim();
+  const montant = parseFloat(document.getElementById('m-montant').value)||0;
+  if (!nom||!montant) { toast('Remplissez le nom et le montant'); return; }
+  const btn = document.getElementById('m-btn');
+  btn.disabled=true; btn.textContent='⏳...';
+  const { error } = await sb.from('expense_requests').insert({
+    submitted_by:'candice', nature:document.getElementById('m-nature').value,
+    nom, montant, date_prevue:modalDate,
+    recurrent:document.getElementById('m-rec').value==='true',
+    frequence:document.getElementById('m-rec').value==='true'?document.getElementById('m-frequence').value:null,
+    date_prelevement:parseInt(document.getElementById('m-prelev').value)||null,
+    notes:document.getElementById('m-notes').value||null, statut:'en_attente'
+  });
+  btn.disabled=false; btn.textContent='📤 Soumettre';
+  if (error) { toast('Erreur: '+error.message); return; }
+  document.getElementById('overlay').classList.remove('show');
+  toast('✅ Soumis pour le '+fmtD(modalDate));
+  await reload(); renderCal();
+}
+
+// ── Suivi ──────────────────────────────────────────────────────────────────
+function setFilter(f,el) {
+  filter=f;
+  document.querySelectorAll('.stbtn').forEach(b=>b.classList.remove('active')); el.classList.add('active');
+  renderSuivi();
+}
+
+function renderSuivi() {
+  let reqs = allReqs;
+  if (filter==='candice') reqs=reqs.filter(r=>r.submitted_by==='candice');
+  else if (filter==='valide') reqs=reqs.filter(r=>r.statut==='valide');
+  else if (filter==='en_attente') reqs=reqs.filter(r=>r.statut==='en_attente');
+
+  const now = new Date();
+  const cols = [];
+  for (let m=-1;m<5;m++) {
+    const d = new Date(now.getFullYear(),now.getMonth()+m,1);
+    cols.push({y:d.getFullYear(),m:d.getMonth(),lbl:MONTHS[d.getMonth()].substring(0,3)+' '+String(d.getFullYear()).substring(2)});
+  }
+
+  const nats = Object.keys(NATURES);
+  const mat = {};
+  nats.forEach(n=>{ mat[n]={}; cols.forEach(c=>{ mat[n][`${c.y}-${c.m}`]=0; }); });
+  reqs.forEach(r=>{
+    if (!r.date_prevue) return;
+    const d = new Date(r.date_prevue+'T12:00:00');
+    const k = `${d.getFullYear()}-${d.getMonth()}`;
+    const nat = r.nature||'autre';
+    if (mat[nat]&&mat[nat][k]!==undefined) mat[nat][k]+=r.montant||0;
+  });
+
+  document.getElementById('bt-head').innerHTML = '<th>Poste</th>'+cols.map(c=>`<th>${c.lbl}</th>`).join('')+'<th>Total</th>';
+  let mTots = cols.map(()=>0), grand=0;
+  document.getElementById('bt-body').innerHTML = nats.map(n=>{
+    let rTot=0;
+    const cells = cols.map((c,i)=>{ const v=mat[n][`${c.y}-${c.m}`]||0; rTot+=v; mTots[i]+=v; return `<td>${v>0?fmtE(v):'—'}</td>`; }).join('');
+    grand+=rTot;
+    return `<tr><td>${NATURES[n]}</td>${cells}<td style="font-weight:700">${rTot>0?fmtE(rTot):'—'}</td></tr>`;
+  }).join('');
+  document.getElementById('bt-foot').innerHTML = '<td>Total</td>'+mTots.map(t=>`<td>${t>0?fmtE(t):'—'}</td>`).join('')+`<td>${fmtE(grand)}</td>`;
+
+  const recent = [...reqs].filter(r=>r.date_prevue).sort((a,b)=>new Date(b.date_prevue)-new Date(a.date_prevue)).slice(0,40);
+  document.getElementById('det-list').innerHTML = recent.length ? recent.map(r=>{
+    const dot = r.statut==='valide'?'dg':r.statut==='en_attente'?'do':'dr';
+    const lbl = r.statut==='valide'?'Validée':r.statut==='en_attente'?'En attente':'Refusée';
+    return `<div class="item">
+      <div><div style="font-size:13px;font-weight:600"><span class="sdot ${dot}"></span>${r.nom}</div>
+      <div class="meta">${NATURES[r.nature]||r.nature} · ${r.submitted_by} · ${fmtD(r.date_prevue)} · ${lbl}</div></div>
+      <div class="amt">${fmtE(r.montant)}</div>
+    </div>`;
+  }).join('') : '<div class="empty">Aucune dépense</div>';
 }
 </script>
 </body>
