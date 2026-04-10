@@ -218,13 +218,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 <div class="toast" id="toast"></div>
 
 <script>
-const TOKEN = 'candice2026jg';
-const p = new URLSearchParams(location.search);
-if (p.get('token') === TOKEN) {
-  document.getElementById('gate').style.display = 'none';
-  document.getElementById('app').style.display = 'block';
-  init();
-}
+// Accès direct — l'URL est la clé de sécurité
+document.getElementById('gate').style.display = 'none';
+document.getElementById('app').style.display = 'block';
+init();
 
 const SB_URL = 'https://uqpgwypgkwlvrpxtxhia.supabase.co';
 const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVxcGd3eXBna3dsdnJweHR4aGlhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM1ODg2NzAsImV4cCI6MjA4OTE2NDY3MH0.EVdcTLWbkx9X0L16-Az0GmfAVOsB977AAaSCeHiwihE';
