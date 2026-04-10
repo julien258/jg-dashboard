@@ -258,59 +258,27 @@
       <div id="pending-list"></div>
     </div>
 
-    <!-- BLOC 3 : TABLEAU 12 MOIS -->
+    <!-- BLOC 3 : SUIVI PRÉVU vs RÉEL -->
     <div class="card">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-        <div class="card-t" style="margin:0">📊 Budget variables — 12 mois</div>
-        <div style="display:flex;gap:6px;align-items:center;font-size:11px;color:var(--t2)">
-          <span><span class="ls" style="background:var(--acc)"></span>Engagé</span>
-          <span><span class="ls" style="background:#185FA5"></span>Projets</span>
-          <span><span class="ls" style="background:var(--s3);border:1px solid var(--b1)"></span>Historique 2025</span>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+        <div class="card-t" style="margin:0">📊 Suivi budgétaire — Prévu · Réel · Écart</div>
+        <div style="display:flex;gap:6px;align-items:center">
+          <button class="btn btn-g btn-sm" onclick="pvrPrev()">‹</button>
+          <span id="pvr-label" style="font-size:13px;font-weight:500;min-width:90px;text-align:center">—</span>
+          <button class="btn btn-g btn-sm" onclick="pvrNext()">›</button>
+          <button class="btn btn-g btn-sm" onclick="renderBudgetPVR()" title="Actualiser" style="font-size:11px">↺</button>
         </div>
       </div>
+      <div id="pvr-sync-status" style="font-size:11px;color:var(--t2);margin-bottom:8px"></div>
       <div style="overflow-x:auto">
-        <table id="vars-12-table">
-          <thead id="vars-12-head"></thead>
-          <tbody id="vars-12-body"></tbody>
+        <table id="pvr-table" style="width:100%;border-collapse:collapse;font-size:12px">
+          <thead id="pvr-head"></thead>
+          <tbody id="pvr-body"></tbody>
+          <tfoot id="pvr-foot"></tfoot>
         </table>
       </div>
     </div>
 
-    <!-- BLOC 5 : PRÉVU VS RÉEL WISE -->
-    <div style="background:var(--s1);border:1px solid var(--b1);border-radius:10px;margin-bottom:12px;padding:1.1rem;box-sizing:border-box;width:100%;overflow-x:auto">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px">
-        <div style="font-size:13px;font-weight:600;color:var(--t1)">📊 Prévu vs Réel — Wise perso</div>
-        <div style="display:flex;gap:8px;align-items:center">
-          <button class="btn btn-g btn-sm" onclick="pvrPrev()">‹</button>
-          <span id="pvr-label" style="font-size:13px;font-weight:500;min-width:120px;text-align:center"></span>
-          <button class="btn btn-g btn-sm" onclick="pvrNext()">›</button>
-          <button class="btn btn-g btn-sm" onclick="loadPVR()" style="font-size:11px">↺</button>
-        </div>
-      </div>
-      <div id="pvr-status" style="font-size:12px;color:var(--t2);margin-bottom:10px"></div>
-      <div id="pvr-table-wrap" style="overflow-x:auto">
-        <table style="width:100%;border-collapse:collapse;font-size:12px" id="pvr-table">
-          <thead>
-            <tr>
-              <th style="text-align:left;padding:8px;border-bottom:2px solid var(--b1);color:var(--t2);font-size:11px;text-transform:uppercase">Poste</th>
-              <th style="text-align:right;padding:8px;border-bottom:2px solid var(--b1);color:var(--t2);font-size:11px;text-transform:uppercase">Prévu</th>
-              <th style="text-align:right;padding:8px;border-bottom:2px solid var(--b1);color:var(--t2);font-size:11px;text-transform:uppercase">Réel Wise</th>
-              <th style="text-align:right;padding:8px;border-bottom:2px solid var(--b1);color:var(--t2);font-size:11px;text-transform:uppercase">Écart</th>
-              <th style="text-align:center;padding:8px;border-bottom:2px solid var(--b1);color:var(--t2);font-size:11px;text-transform:uppercase">Statut</th>
-            </tr>
-          </thead>
-          <tbody id="pvr-body"></tbody>
-          <tfoot>
-            <tr id="pvr-foot" style="font-weight:700;border-top:2px solid var(--b1)"></tr>
-          </tfoot>
-        </table>
-      </div>
-      <!-- Détail transactions Wise -->
-      <div style="margin-top:16px">
-        <div style="font-size:12px;font-weight:600;color:var(--t2);margin-bottom:8px;text-transform:uppercase;letter-spacing:.3px">Transactions Wise du mois</div>
-        <div id="pvr-txns" style="font-size:12px"></div>
-      </div>
-    </div>
 
     <!-- BLOC 4 : CALENDRIER -->
     <div style="background:var(--s1);border:1px solid var(--b1);border-radius:10px;margin-bottom:12px;padding:1.1rem;box-sizing:border-box;width:100%;overflow-x:auto">
@@ -631,8 +599,7 @@ async function loadAll(){
   document.getElementById('conn-dot').style.background='#18A85A';
   document.getElementById('conn-lbl').textContent='Connecté';
   renderAll();
-  loadWise(); // charger les soldes Wise en parallèle
-  loadPVR(); // Prévu vs Réel
+  loadWise();
 }
 
 async function loadWise(){
@@ -1965,280 +1932,211 @@ const CAT_NAT = {
   'Shopping':'vetements','Beauté':'autre','Divers':'autre'
 };
 
-async function render12Mois(){
-  // Charger dépenses validées depuis expense_requests
-  const{data:reqs} = await sb.from('expense_requests').select('*').eq('statut','valide');
-  const validated = reqs||[];
+// ── SUIVI BUDGÉTAIRE PRÉVU vs RÉEL ────────────────────────────────────────
+let pvrYear = new Date().getFullYear();
+let pvrMonth = new Date().getMonth(); // 0-based
 
-  const MN2=['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
-  const now2 = new Date();
-  const cols = Array.from({length:12},(_,i)=>new Date(now2.getFullYear(),now2.getMonth()+i,1));
-  const colLabels = cols.map(d=>MN2[d.getMonth()]+'&nbsp;'+String(d.getFullYear()).slice(2));
+function pvrPrev() { pvrMonth--; if(pvrMonth<0){pvrMonth=11;pvrYear--;} renderBudgetPVR(); }
+function pvrNext() { pvrMonth++; if(pvrMonth>11){pvrMonth=0;pvrYear++;} renderBudgetPVR(); }
 
-  document.getElementById('vars-12-head').innerHTML =
-    '<tr><th style="min-width:150px">Poste</th>'+colLabels.map(l=>'<th style="text-align:right;min-width:65px;font-size:10px">'+l+'</th>').join('')+'<th style="text-align:right;font-size:10px">Total/an</th></tr>';
+// Stub pour compatibilité avec les appels existants
+async function render12Mois(){ return renderBudgetPVR(); }
 
-  const rows = [];
-
-  // ── Source A : recurring_expenses existantes (données Candice + relevés) ──
-  // Grouper par nature/catégorie avec montant mensuel 2026
-  const natAgg = {}; // nature → montant mensuel
-  D.vars.forEach(v=>{
-    if(!v.active)return;
-    const nat = CAT_NAT[v.category]||'autre';
-    const mMensuel = v.frequency==='mensuel' ? Number(v.amount_2026||0)/12
-      : v.frequency==='annuel' ? Number(v.amount_2026||0)/12
-      : 0;
-    if(mMensuel>0){
-      if(!natAgg[nat])natAgg[nat]=0;
-      natAgg[nat]+=mMensuel;
-    }
-  });
-
-  // Ordre d'affichage des natures
-  const NATURES_ORDER=['alimentation','transport','sante','loisirs','vetements','maison','enfants','autre'];
-  const NATURES_LABEL={alimentation:'🛒 Alimentation',transport:'🚗 Transport',sante:'💊 Santé',
-    loisirs:'🎭 Loisirs',vetements:'👕 Vêtements / Shopping',maison:'🏠 Maison',
-    enfants:'👶 Enfants',autre:'📦 Divers'};
-
-  NATURES_ORDER.forEach(nat=>{
-    let base = natAgg[nat]||0;
-
-    // ── Source B : expense_requests validées récurrentes pour cette nature ──
-    const reqsNat = validated.filter(r=>r.recurrent&&r.nature===nat);
-
-    const mois = cols.map((m,i)=>{
-      let total = base; // recurring_expenses comme base
-      // Ajouter les validées récurrentes qui ont démarré
-      reqsNat.forEach(r=>{
-        if(!r.date_prevue)total+=Number(r.montant);
-        else{
-          const dp=new Date(r.date_prevue);
-          if(m>=new Date(dp.getFullYear(),dp.getMonth(),1))total+=Number(r.montant);
-        }
-      });
-      return Math.round(total);
-    });
-    const tot = mois.reduce((a,b)=>a+b,0);
-    if(tot>0) rows.push({label:NATURES_LABEL[nat], mois, tot, color:CAT_COLOR[nat]||'var(--t2)'});
-  });
-
-  // ── Source C : ponctuelles validées ──
-  const ponctuelles = validated.filter(r=>!r.recurrent);
-  if(ponctuelles.length){
-    const mois = cols.map(m=>ponctuelles.filter(r=>{
-      if(!r.date_prevue)return false;
-      const dp=new Date(r.date_prevue);
-      return dp.getFullYear()===m.getFullYear()&&dp.getMonth()===m.getMonth();
-    }).reduce((s,r)=>s+Number(r.montant),0));
-    const tot=mois.reduce((a,b)=>a+b,0);
-    if(tot>0) rows.push({label:'⚡ Ponctuelles',mois,tot,color:'var(--t2)'});
-  }
-
-  // ── Dettes & impôts à apurer ──
-  const dettesMois12 = cols.map(m=>{
-    const mY=m.getFullYear(), mM=m.getMonth();
-    return D.dettes.filter(d=>{
-      if(d.frequency!=='monthly')return false;
-      if(d.start_date){const s=new Date(d.start_date);if(mY<s.getUTCFullYear()||(mY===s.getUTCFullYear()&&mM<s.getUTCMonth()))return false;}
-      if(d.end_date){const e=new Date(d.end_date);if(mY>e.getUTCFullYear()||(mY===e.getUTCFullYear()&&mM>e.getUTCMonth()))return false;}
-      return true;
-    }).reduce((s,d)=>s+Number(d.monthly_amount||0),0);
-  });
-  const totDettes12=dettesMois12.reduce((a,b)=>a+b,0);
-  if(totDettes12>0) rows.push({label:'🔴 Dettes & impôts à apurer',mois:dettesMois12.map(v=>Math.round(v)),tot:Math.round(totDettes12),color:'var(--red)'});
-
-  // ── Impôts année en cours (PAS mensuel) ──
-  const impotsMois12 = cols.map(m=>{
-    const k=m.getFullYear()+'-'+String(m.getMonth()+1).padStart(2,'0');
-    return D.mensuel[k]?.impots_pas ? Number(D.mensuel[k].impots_pas) : 0;
-  });
-  const totImpots12=impotsMois12.reduce((a,b)=>a+b,0);
-  if(totImpots12>0) rows.push({label:'🏛️ Impôts année en cours',mois:impotsMois12.map(v=>Math.round(v)),tot:Math.round(totImpots12),color:'#9B59B6'});
-
-  // ── Projets ──
-  D.projets.forEach(p=>{
-    const mensuel=p.mensuel||p.monthly_provision||Math.ceil((p.cout_total||p.budget||0)/(p.duree_mois||1));
-    if(!mensuel)return;
-    const mois=cols.map(m=>{
-      if(!p.date_debut||!p.duree_mois) return 0; // pas de date = on n'affiche rien
-      const debut=new Date(p.date_debut);
-      const fin=new Date(debut.getFullYear(),debut.getMonth()+(p.duree_mois||1),1);
-      return(m>=new Date(debut.getFullYear(),debut.getMonth(),1)&&m<fin)?mensuel:0;
-    });
-    const tot=mois.reduce((a,b)=>a+b,0);
-    if(tot>0) rows.push({label:'🎯 '+(p.name||p.nom),mois,tot,color:'#185FA5'});
-  });
-
-  const totLine = Array(12).fill(0);
-  rows.forEach(r=>r.mois.forEach((v,i)=>totLine[i]+=v));
-
-  const tbody = rows.map(r=>`<tr>
-    <td style="font-size:12px;padding:7px 10px"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${r.color};margin-right:6px;vertical-align:middle"></span>${r.label}</td>
-    ${r.mois.map(v=>`<td class="mono" style="text-align:right;font-size:11px;padding:7px 6px;color:${v?'var(--t1)':'var(--t3)'}">${v?fmt(v):'—'}</td>`).join('')}
-    <td class="mono" style="text-align:right;font-size:11px;font-weight:600;padding:7px 10px">${fmt(r.tot)}</td>
-  </tr>`).join('');
-
-  const totRow = `<tr style="background:var(--s3);font-weight:600">
-    <td style="padding:9px 10px;font-size:12px">Total mensuel</td>
-    ${totLine.map(v=>`<td class="mono" style="text-align:right;font-size:12px;padding:9px 6px">${fmt(v)}</td>`).join('')}
-    <td class="mono" style="text-align:right;font-size:12px;padding:9px 10px">${fmt(totLine.reduce((a,b)=>a+b,0))}</td>
-  </tr>`;
-
-  document.getElementById('vars-12-body').innerHTML = tbody + totRow;
-}
-
-function toggleHistorique(){
-  const el=document.getElementById('histo-block');
-  el.style.display=el.style.display==='none'?'block':'none';
-  if(el.style.display==='block') renderHistorique();
-}
-
-function renderHistorique(){
-  // Données 2025 issues de recurring_expenses (amount_2025)
-  const items=D.vars.filter(v=>v.amount_2025>0);
-  const ta=items.reduce((s,v)=>s+Number(v.amount_2025||0),0);
-  const tm=items.filter(v=>v.frequency==='mensuel').reduce((s,v)=>s+Number(v.amount_2025||0)/12,0);
-  document.getElementById('histo-total-an').textContent=fmt(ta);
-  document.getElementById('histo-total-m').textContent=fmt(tm)+'/m';
-  document.getElementById('histo-tbody').innerHTML=items.map(v=>`
-    <tr style="opacity:.7"><td>${v.icon||''} ${v.name}</td><td><span class="badge" style="background:var(--s3);color:var(--t2)">${v.category||'—'}</span></td>
-    <td class="mono" style="text-align:right">${fmt(v.amount_2025||0)}</td>
-    <td class="mono" style="text-align:right">${v.frequency==='mensuel'?fmt((v.amount_2025||0)/12)+'/m':'—'}</td></tr>
-  `).join('')||'<tr><td colspan="4" style="text-align:center;color:var(--t2);padding:1rem">Aucun historique 2025</td></tr>';
-}
-
-// ── Calendrier ──
-let calYear = new Date().getFullYear();
-let calMonth = new Date().getMonth();
-
-function calPrev(){calMonth--;if(calMonth<0){calMonth=11;calYear--;}renderCalendrier();}
-function calNext(){calMonth++;if(calMonth>11){calMonth=0;calYear++;}renderCalendrier();}
-
-// ── PRÉVU VS RÉEL WISE ─────────────────────────────────────────────────────
-const NATURES_PVR = {
-  alimentation:'🛒 Alimentation', transport:'🚗 Transport', sante:'🏥 Santé',
-  loisirs:'🎉 Loisirs', vetements:'👕 Vêtements', maison:'🏠 Maison',
-  enfants:'👶 Enfants', autre:'📦 Autre'
+const NATURES_ORDER_PVR = ['alimentation','transport','sante','loisirs','vetements','maison','enfants','autre'];
+const NATURES_LABEL_PVR = {
+  alimentation:'🛒 Alimentation', transport:'🚗 Transport', sante:'💊 Santé',
+  loisirs:'🎭 Loisirs', vetements:'👕 Vêtements / Shopping', maison:'🏠 Maison',
+  enfants:'👶 Enfants', autre:'📦 Divers'
 };
 
-let pvrYear = new Date().getFullYear();
-let pvrMonth = new Date().getMonth() + 1; // 1-based
+async function renderBudgetPVR() {
+  const MN = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
+  const MFULL = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
 
-function pvrPrev() { pvrMonth--; if(pvrMonth<1){pvrMonth=12;pvrYear--;} loadPVR(); }
-function pvrNext() { pvrMonth++; if(pvrMonth>12){pvrMonth=1;pvrYear++;} loadPVR(); }
+  document.getElementById('pvr-label').textContent = MFULL[pvrMonth] + ' ' + pvrYear;
 
-async function loadPVR() {
-  const MONTHS_FR = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
-  document.getElementById('pvr-label').textContent = MONTHS_FR[pvrMonth-1] + ' ' + pvrYear;
+  // 4 mois : mois courant + 3 suivants
+  const months = Array.from({length:4}, (_,i) => {
+    const m = (pvrMonth + i) % 12;
+    const y = pvrYear + Math.floor((pvrMonth + i) / 12);
+    return { m, y, label: MN[m] + ' ' + String(y).slice(2), isCurrent: i === 0 };
+  });
 
-  const isFuture = new Date(pvrYear, pvrMonth-1, 1) > new Date();
-  const status = document.getElementById('pvr-status');
-  const body = document.getElementById('pvr-body');
-  const foot = document.getElementById('pvr-foot');
-  const txnsEl = document.getElementById('pvr-txns');
+  const now = new Date();
+  const statusEl = document.getElementById('pvr-sync-status');
 
-  status.textContent = '⏳ Chargement...';
-  body.innerHTML = '';
-  txnsEl.innerHTML = '';
-
-  // Calcul du prévu = recurring_expenses + expense_requests validées du mois
-  const monthStr = pvrYear + '-' + String(pvrMonth).padStart(2,'0');
-  const mStart = monthStr + '-01';
-  const mEnd = new Date(pvrYear, pvrMonth, 0).toISOString().substring(0,10);
-
-  const [{ data: reqs }, { data: recs }] = await Promise.all([
-    sb.from('expense_requests').select('*').eq('statut','valide').gte('date_prevue', mStart).lte('date_prevue', mEnd),
-    sb.from('recurring_expenses').select('*').eq('active',true)
+  // Charger données
+  const [{ data: reqs }, wiseResp] = await Promise.all([
+    sb.from('expense_requests').select('*').eq('statut','valide'),
+    fetch('/api/wise-transactions?year=' + pvrYear + '&month=' + (pvrMonth + 1))
+      .then(r => r.json()).catch(() => ({ ok: false, totalDepenses: 0, debits: [] }))
   ]);
+  const validated = reqs || [];
 
-  // Prévu par nature
-  const prevu = {};
-  Object.keys(NATURES_PVR).forEach(n => prevu[n] = 0);
+  const wiseTotal = wiseResp?.totalDepenses || 0;
+  const wiseTxns  = wiseResp?.debits || [];
+  statusEl.textContent = wiseResp?.ok
+    ? '✅ Wise sync · ' + wiseTxns.length + ' transactions · total débits : ' + Math.round(wiseTotal).toLocaleString('fr-FR') + ' €'
+    : '⚠️ Wise non disponible pour ce mois — colonnes Réel vides';
 
-  // Charges récurrentes
-  (recs||[]).forEach(r => {
-    const nat = r.category || 'autre';
-    if (prevu[nat] !== undefined) prevu[nat] += r.amount_2026 || r.amount || 0;
-    else prevu['autre'] += r.amount_2026 || r.amount || 0;
+  // Calculer prévu par nature par mois
+  const natAgg = {}; // nature → mensuel de base (recurring)
+  NATURES_ORDER_PVR.forEach(n => natAgg[n] = 0);
+  D.vars.forEach(v => {
+    if (!v.active) return;
+    const nat = CAT_NAT[v.category] || 'autre';
+    const mMensuel = (v.frequency === 'mensuel' || v.frequency === 'annuel')
+      ? Number(v.amount_2026 || 0) / 12 : 0;
+    if (mMensuel > 0 && natAgg[nat] !== undefined) natAgg[nat] += mMensuel;
   });
 
-  // Dépenses validées du mois
-  (reqs||[]).forEach(r => {
-    const nat = r.nature || 'autre';
-    if (prevu[nat] !== undefined) prevu[nat] += r.montant || 0;
-    else prevu['autre'] += r.montant || 0;
+  // Données par nature par mois
+  const data = {}; // nat → [{ prevu, ponct, reel, ecart }] x 4 mois
+  NATURES_ORDER_PVR.forEach(nat => {
+    data[nat] = months.map((mo, mi) => {
+      const mStart = mo.y + '-' + String(mo.m + 1).padStart(2, '0') + '-01';
+      const mEnd   = new Date(mo.y, mo.m + 1, 0).toISOString().substring(0, 10);
+
+      // Prévu = base récurrente + récurrentes validées démarrées
+      let prevu = natAgg[nat];
+      validated.filter(r => r.recurrent && r.nature === nat).forEach(r => {
+        if (!r.date_prevue) { prevu += Number(r.montant); return; }
+        const dp = new Date(r.date_prevue);
+        if (new Date(mo.y, mo.m, 1) >= new Date(dp.getFullYear(), dp.getMonth(), 1))
+          prevu += Number(r.montant);
+      });
+
+      // Ponctuelles validées de ce mois
+      const ponct = validated.filter(r =>
+        !r.recurrent && r.nature === nat && r.date_prevue >= mStart && r.date_prevue <= mEnd
+      ).reduce((s, r) => s + Number(r.montant), 0);
+
+      // Réel Wise — uniquement mois courant (on n'a pas les données futures ni passées ici)
+      const reel = (mi === 0 && wiseResp?.ok) ? null : null; // null = pas disponible par poste (Wise non catégorisé)
+
+      return { prevu: Math.round(prevu), ponct: Math.round(ponct), reel, ecart: null };
+    });
   });
 
-  const totalPrevu = Object.values(prevu).reduce((s,v)=>s+v, 0);
+  // Dettes & impôts comme ligne séparée
+  const dettesMois = months.map(mo => {
+    const mY = mo.y, mM = mo.m;
+    return Math.round(D.dettes.filter(d => {
+      if (d.frequency !== 'monthly') return false;
+      if (d.start_date) { const s = new Date(d.start_date); if (mY < s.getUTCFullYear() || (mY === s.getUTCFullYear() && mM < s.getUTCMonth())) return false; }
+      if (d.end_date)   { const e = new Date(d.end_date);   if (mY > e.getUTCFullYear() || (mY === e.getUTCFullYear() && mM > e.getUTCMonth())) return false; }
+      return true;
+    }).reduce((s, d) => s + Number(d.monthly_amount || 0), 0));
+  });
 
-  // Réel Wise (seulement si mois passé ou en cours)
-  let wiseData = null;
-  let wiseError = null;
+  const fmt = v => v > 0 ? Math.round(v).toLocaleString('fr-FR') + ' €' : '—';
+  const fmtE = (e, p) => {
+    if (e === null || p === null) return '—';
+    const diff = e - p;
+    const col = diff > 100 ? '#e53935' : diff < -50 ? '#43a047' : 'var(--t2)';
+    const sign = diff > 0 ? '+' : '';
+    return '<span style="color:' + col + '">' + sign + Math.round(diff).toLocaleString('fr-FR') + ' €</span>';
+  };
 
-  if (!isFuture) {
-    try {
-      const resp = await fetch('/api/wise-transactions?year='+pvrYear+'&month='+pvrMonth);
-      wiseData = await resp.json();
-      if (!wiseData.ok) wiseError = wiseData.error;
-    } catch(e) {
-      wiseError = e.message;
-    }
-  }
+  // === HEADER ===
+  // Mois courant : 4 colonnes (Prévu | +Ponct | Réel Wise | Écart)
+  // Mois+1,+2,+3 : 1 colonne chacun (Prévu uniquement, fond grisé)
+  const thStyle = 'text-align:right;padding:6px 8px;font-size:10px;text-transform:uppercase;letter-spacing:.3px;border-bottom:2px solid var(--b1);color:var(--t2);white-space:nowrap';
+  const thCurStyle = thStyle + ';background:#f0f4ff';
 
-  const wiseTotal = wiseData?.totalDepenses || 0;
-  const wiseTxns = wiseData?.debits || [];
+  let headHtml = '<tr>'
+    + '<th style="text-align:left;padding:6px 10px;font-size:11px;border-bottom:2px solid var(--b1);color:var(--t2);min-width:140px">Poste</th>'
+    // Mois courant — 4 colonnes groupées
+    + '<th colspan="4" style="text-align:center;padding:6px 8px;font-size:11px;font-weight:700;border-bottom:2px solid var(--acc);color:var(--acc);background:#f0f4ff">'
+      + months[0].label + ' — mois courant</th>'
+    // Mois suivants
+    + months.slice(1).map(mo =>
+        '<th style="text-align:center;padding:6px 8px;font-size:10px;border-bottom:2px solid var(--b1);color:var(--t2);background:var(--s3)">'
+        + mo.label + '</th>'
+      ).join('')
+    + '</tr><tr>'
+    + '<th style="border-bottom:2px solid var(--b1)"></th>'
+    + '<th style="' + thCurStyle + '">Prévu</th>'
+    + '<th style="' + thCurStyle + '">+Ponct.</th>'
+    + '<th style="' + thCurStyle + '">Réel Wise</th>'
+    + '<th style="' + thCurStyle + '">Écart</th>'
+    + months.slice(1).map(() =>
+        '<th style="' + thStyle + ';background:var(--s3)">Prévu</th>'
+      ).join('')
+    + '</tr>';
 
-  // Tableau
-  status.textContent = isFuture
-    ? '📅 Mois futur — affichage prévisionnel uniquement'
-    : wiseError
-      ? '⚠️ Wise: ' + wiseError + ' — prévisionnel uniquement'
-      : '✅ Wise synchronisé · ' + wiseTxns.length + ' transactions';
+  document.getElementById('pvr-head').innerHTML = headHtml;
 
-  const fmt = v => Math.round(v).toLocaleString('fr-FR') + ' €';
-  const ecartColor = e => e > 0 ? '#e53935' : e < 0 ? '#43a047' : '#6e6e73';
-  const ecartIcon = e => e > 100 ? '🔴' : e > 0 ? '⚠️' : e < -50 ? '✅' : '➖';
+  // === BODY ===
+  const tdBase = 'padding:7px 8px;border-bottom:1px solid var(--b1);text-align:right;font-size:12px';
+  const tdCur  = tdBase + ';background:#f8f9ff';
+  const tdFut  = tdBase + ';background:var(--s3);color:var(--t2)';
 
-  body.innerHTML = Object.keys(NATURES_PVR).map(nat => {
-    const p = Math.round(prevu[nat]);
-    // Pour le réel, on ne peut pas mapper automatiquement par nature sans catégorisation
-    // On affiche le total Wise global sur la ligne "Total" uniquement
-    const r = 0; // réel par poste = 0 tant que Wise n'est pas catégorisé
-    return '<tr>'
-      + '<td style="padding:7px 8px;border-bottom:1px solid var(--b1)">' + NATURES_PVR[nat] + '</td>'
-      + '<td style="padding:7px 8px;border-bottom:1px solid var(--b1);text-align:right">' + (p>0?fmt(p):'—') + '</td>'
-      + '<td style="padding:7px 8px;border-bottom:1px solid var(--b1);text-align:right;color:var(--t2)">—</td>'
-      + '<td style="padding:7px 8px;border-bottom:1px solid var(--b1);text-align:right;color:var(--t2)">—</td>'
-      + '<td style="padding:7px 8px;border-bottom:1px solid var(--b1);text-align:center">—</td>'
+  const totals = { prevu: 0, ponct: 0, reel: 0 };
+  const totFut = months.slice(1).map(() => 0);
+
+  let bodyHtml = NATURES_ORDER_PVR.map(nat => {
+    const d0 = data[nat][0]; // mois courant
+    totals.prevu += d0.prevu;
+    totals.ponct += d0.ponct;
+    const row = '<tr>'
+      + '<td style="padding:7px 10px;border-bottom:1px solid var(--b1);font-size:12px">'
+        + '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' + (CAT_COLOR[nat] || 'var(--t2)') + ';margin-right:6px;vertical-align:middle"></span>'
+        + NATURES_LABEL_PVR[nat] + '</td>'
+      + '<td style="' + tdCur + '">' + fmt(d0.prevu) + '</td>'
+      + '<td style="' + tdCur + ';color:#5856d6">' + (d0.ponct > 0 ? '+' + Math.round(d0.ponct).toLocaleString('fr-FR') + ' €' : '—') + '</td>'
+      + '<td style="' + tdCur + ';color:var(--t2)">—</td>'
+      + '<td style="' + tdCur + '">—</td>'
+      + data[nat].slice(1).map((dm, i) => {
+          totFut[i] += dm.prevu;
+          return '<td style="' + tdFut + '">' + fmt(dm.prevu) + '</td>';
+        }).join('')
       + '</tr>';
+    return row;
   }).join('');
 
-  // Total row avec comparaison Wise global
-  const ecart = wiseTotal - totalPrevu;
-  foot.innerHTML = '<td style="padding:8px">TOTAL</td>'
-    + '<td style="padding:8px;text-align:right">' + fmt(totalPrevu) + '</td>'
-    + '<td style="padding:8px;text-align:right;font-weight:700;color:' + (wiseTotal>0?'var(--t1)':'var(--t2)') + '">' + (wiseTotal>0?fmt(wiseTotal):'—') + '</td>'
-    + '<td style="padding:8px;text-align:right;font-weight:700;color:' + ecartColor(ecart) + '">' + (wiseTotal>0?(ecart>0?'+':'')+fmt(ecart):'—') + '</td>'
-    + '<td style="padding:8px;text-align:center">' + (wiseTotal>0?ecartIcon(ecart):'📅') + '</td>';
+  // Dettes row
+  const d0dette = dettesMois[0];
+  totals.prevu += d0dette;
+  bodyHtml += '<tr>'
+    + '<td style="padding:7px 10px;border-bottom:1px solid var(--b1);font-size:12px">'
+      + '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--red);margin-right:6px;vertical-align:middle"></span>'
+      + '🔴 Dettes &amp; impôts</td>'
+    + '<td style="' + tdCur + '">' + fmt(d0dette) + '</td>'
+    + '<td style="' + tdCur + '">—</td>'
+    + '<td style="' + tdCur + ';color:var(--t2)">—</td>'
+    + '<td style="' + tdCur + '">—</td>'
+    + dettesMois.slice(1).map((v, i) => {
+        totFut[i] += v;
+        return '<td style="' + tdFut + '">' + fmt(v) + '</td>';
+      }).join('')
+    + '</tr>';
 
-  // Liste des transactions Wise
-  if (wiseTxns.length > 0) {
-    txnsEl.innerHTML = '<div style="max-height:300px;overflow-y:auto">'
-      + wiseTxns.map(t => '<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--b1)">'
-        + '<div>'
-          + '<div style="font-weight:500;font-size:12px">' + (t.label||t.description||'Transaction') + '</div>'
-          + '<div style="font-size:11px;color:var(--t2)">' + (t.date?new Date(t.date).toLocaleDateString('fr-FR'):'') + '</div>'
-        + '</div>'
-        + '<div style="font-weight:600;color:#e53935;white-space:nowrap">' + Math.abs(t.amount).toLocaleString('fr-FR') + ' €</div>'
-        + '</div>').join('')
-      + '</div>';
-  } else if (!isFuture && !wiseError) {
-    txnsEl.innerHTML = '<div style="color:var(--t2);font-size:12px;text-align:center;padding:16px">Aucune transaction Wise ce mois</div>';
-  } else if (isFuture) {
-    txnsEl.innerHTML = '<div style="color:var(--t2);font-size:12px;text-align:center;padding:16px">📅 Mois à venir — les transactions apparaîtront automatiquement</div>';
-  }
+  // Réel Wise global (ligne séparée)
+  const ecartTotal = wiseResp?.ok ? wiseTotal - (totals.prevu + totals.ponct) : null;
+  bodyHtml += '<tr style="background:rgba(88,86,214,.04)">'
+    + '<td style="padding:7px 10px;border-bottom:1px solid var(--b1);font-size:12px;color:#5856d6;font-weight:600">💳 Réel Wise (total)</td>'
+    + '<td style="' + tdCur + '">—</td>'
+    + '<td style="' + tdCur + '">—</td>'
+    + '<td style="' + tdCur + ';font-weight:700;color:#5856d6">' + (wiseResp?.ok ? Math.round(wiseTotal).toLocaleString('fr-FR') + ' €' : '—') + '</td>'
+    + '<td style="' + tdCur + '">' + fmtE(wiseResp?.ok ? wiseTotal : null, totals.prevu + totals.ponct) + '</td>'
+    + months.slice(1).map(() => '<td style="' + tdFut + '">—</td>').join('')
+    + '</tr>';
+
+  document.getElementById('pvr-body').innerHTML = bodyHtml;
+
+  // === FOOTER ===
+  const footStyle = 'padding:9px 8px;font-weight:700;font-size:12px;border-top:2px solid var(--b1);text-align:right;background:var(--s3)';
+  document.getElementById('pvr-foot').innerHTML = '<tr>'
+    + '<td style="' + footStyle + ';text-align:left">Total mensuel</td>'
+    + '<td style="' + footStyle + ';background:#f0f4ff">' + Math.round(totals.prevu).toLocaleString('fr-FR') + ' €</td>'
+    + '<td style="' + footStyle + ';background:#f0f4ff;color:#5856d6">' + (totals.ponct > 0 ? '+' + Math.round(totals.ponct).toLocaleString('fr-FR') + ' €' : '—') + '</td>'
+    + '<td style="' + footStyle + ';background:#f0f4ff;color:#5856d6">' + (wiseResp?.ok ? Math.round(wiseTotal).toLocaleString('fr-FR') + ' €' : '—') + '</td>'
+    + '<td style="' + footStyle + ';background:#f0f4ff">' + fmtE(wiseResp?.ok ? wiseTotal : null, totals.prevu + totals.ponct) + '</td>'
+    + totFut.map(t => '<td style="' + footStyle + '">' + Math.round(t).toLocaleString('fr-FR') + ' € </td>').join('')
+    + '</tr>';
 }
+
 
 async function renderCalendrier(){
   const MN2=['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
@@ -2320,7 +2218,7 @@ async function syncGcal(){
 // ── Init section variables ──
 async function initVariablesSection(){
   await loadExpenseRequests();
-  await render12Mois();
+  await renderBudgetPVR();
   await renderCalendrier();
 }
 
