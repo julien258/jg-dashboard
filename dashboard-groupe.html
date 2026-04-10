@@ -6263,11 +6263,14 @@ async function loadApurement(){
     // PIMENTS — toutes dettes pro urgency>0, actives ce mois
     // Comparaison en YYYY-MM pour éviter les problèmes de timezone
     const mKeyYM=mKey.substring(0,7); // format YYYY-MM
+    const nowYM2 = new Date().toISOString().substring(0,7);
+    const isPayeCeMois = d => d.last_paid_date && d.last_paid_date.substring(0,7)===nowYM2;
     const pimentItems=debts
       .filter(d=>{
         if(d.company_id==='perso') return false;
         if((d.urgency_level||0)<1) return false;
         if(['solde','paye','payé'].includes(d.status||'')) return false;
+        if(isPayeCeMois(d)) return false; // Déjà payé ce mois
         // start_date : exclure seulement si commence STRICTEMENT après ce mois
         if(d.start_date && d.start_date.substring(0,7) > mKeyYM) return false;
         // end_date : exclure seulement si terminé STRICTEMENT avant ce mois
@@ -6321,6 +6324,8 @@ async function loadApurement(){
 
     const pimentCards=pimentItems.map(d=>mkApurCard('d_'+d.id,d.debiteur,(co[d.company_id]||d.company_id)+(d.notes?' · '+d.notes.substring(0,30):''),Number(d.monthly_amount||d.amount_remaining||0),pLabels[d.urgency_level||0],d.due_date,d)).join('');
     const bananeCards=bananeItems.map(p=>mkApurCard('p_'+p.id,p.fournisseur,(co[p.company_id]||p.company_id)+(p.invoice_ref?' · '+p.invoice_ref:''),Number(p.amount_ttc||0),bLabels[p.priority||0],p.due_date,null)).join('');
+    const payesCeMois=debts.filter(d=>isPayeCeMois(d)&&d.company_id!=='perso');
+    const payesCards=payesCeMois.map(d=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 10px;margin-bottom:4px;border-radius:6px;border:1px solid var(--grn);background:rgba(24,168,90,.06);font-size:12px"><div><div style="font-weight:500">${d.debiteur}</div><div style="font-size:10px;color:var(--t2)">${co[d.company_id]||d.company_id} · payé le ${new Date(d.last_paid_date).toLocaleDateString('fr-FR')}</div></div><div style="font-weight:600;color:var(--grn)">✅ ${Math.round(d.last_paid_amount||d.monthly_amount||0).toLocaleString('fr-FR')} €</div></div>`).join('');
 
     const societesList=[...new Set([...debts.map(d=>d.company_id),...payables.map(p=>p.company_id)].filter(x=>x&&x!=='perso'))];
     const filterBar=`<div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap">
@@ -6350,7 +6355,11 @@ async function loadApurement(){
         </div>
         <div style="overflow-y:auto;flex:1">${bananeCards||'<div style="font-size:11px;color:var(--t3);text-align:center;padding:12px">Aucune facture en attente ✅</div>'}</div>
       </div>
-    </div>`;
+      ${payesCeMois.length>0?`<div style="margin-top:10px">
+        <div style="font-size:10px;font-weight:700;color:var(--grn);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;padding-bottom:4px;border-bottom:1px solid rgba(24,168,90,.3)">✅ Réglé ce mois — ${payesCeMois.length} · ${Math.round(payesCeMois.reduce((s,d)=>s+(d.last_paid_amount||d.monthly_amount||0),0)).toLocaleString('fr-FR')} €</div>
+        ${payesCards}
+      </div>`:''}
+    </div>`; 
 
     // COL 3 — Panier "Je paye"
     const assignedIds=Object.keys(window._apurAssigned);
