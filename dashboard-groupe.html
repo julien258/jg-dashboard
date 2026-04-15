@@ -604,7 +604,7 @@
               <!-- Bloc 4 : Impayés -->
               <div class="fg"><label>Échéances en retard (nb)</label><input type="number" id="ch-retard-nb" placeholder="0" min="0" oninput="calcRetard()"></div>
               <div class="fg"><label>Frais de retard (€)</label><input type="number" id="ch-retard-frais" placeholder="0" oninput="calcRetard()"></div>
-              <div class="fg"><label>Total dû en retard (€)</label><input type="number" id="ch-retard-total" style="border-color:var(--red)" placeholder="Calculé auto"></div>
+              <div class="fg"><label>Total dû en retard (€) <span id="ch-retard-manual-badge" style="display:none;font-size:10px;background:#FAEEDA;color:#854F0B;border-radius:3px;padding:1px 5px;font-weight:500;cursor:pointer" onclick="resetRetardManual()" title="Revenir au calcul automatique">manuel ↺</span></label><input type="number" id="ch-retard-total" style="border-color:var(--red)" placeholder="Calculé auto" oninput="setRetardManual()"></div>
               <!-- Bloc 5 : Contrat & Résiliation -->
               <div class="fg">
                 <label>Durée contrat (mois)</label>
@@ -9310,7 +9310,9 @@ function toggleChargeForm(){
     document.getElementById('ch-end').value='';
     document.getElementById('ch-retard-nb').value=0;
     document.getElementById('ch-retard-frais').value=0;
-    document.getElementById('ch-retard-total').value='';
+    const _rt=document.getElementById('ch-retard-total');
+    _rt.value=''; _rt._manualOverride=false;
+    document.getElementById('ch-retard-manual-badge').style.display='none';
     // Pré-sélectionner la société courante — évite de sauvegarder sous la mauvaise entité
     if(curCo?.id){
       const sel=document.getElementById('ch-company');
@@ -9355,10 +9357,22 @@ function calcChargeMensuelle(){
 }
 
 function calcRetard(){
+  if(document.getElementById('ch-retard-total')._manualOverride) return;
   const nb=parseFloat(document.getElementById('ch-retard-nb').value)||0;
   const frais=parseFloat(document.getElementById('ch-retard-frais').value)||0;
   const ttc=parseFloat(document.getElementById('ch-ttc').value)||0;
   document.getElementById('ch-retard-total').value=Math.round(nb*ttc+frais);
+}
+function setRetardManual(){
+  const el=document.getElementById('ch-retard-total');
+  el._manualOverride=true;
+  document.getElementById('ch-retard-manual-badge').style.display='inline';
+}
+function resetRetardManual(){
+  const el=document.getElementById('ch-retard-total');
+  el._manualOverride=false;
+  document.getElementById('ch-retard-manual-badge').style.display='none';
+  calcRetard();
 }
 
 async function saveCharge(){
@@ -9699,7 +9713,13 @@ async function editCharge(id){
   document.getElementById('ch-adresse').value=data.adresse||'';
   document.getElementById('ch-retard-nb').value=data.retard_nb||0;
   document.getElementById('ch-retard-frais').value=data.retard_frais||0;
-  document.getElementById('ch-retard-total').value=data.retard_total||0;
+  const _rtEl=document.getElementById('ch-retard-total');
+  _rtEl.value=data.retard_total||0;
+  const nb=data.retard_nb||0; const frais=data.retard_frais||0; const ttc2=parseFloat(document.getElementById('ch-ttc').value)||0;
+  const autoVal=Math.round(nb*ttc2+frais);
+  const isManual=data.retard_total && data.retard_total!==autoVal;
+  _rtEl._manualOverride=!!isManual;
+  document.getElementById('ch-retard-manual-badge').style.display=isManual?'inline':'none';
   document.getElementById('ch-notes').value=data.notes||'';
   // Nouveaux champs contrat
   if(document.getElementById('ch-resiliation-notice'))
