@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Base Transporteurs — Enrichissement TICPE</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 900px; margin: 40px auto; padding: 0 20px; background: #f8f9fa; }
+  h1 { color: #1a1a2e; border-bottom: 3px solid #e63946; padding-bottom: 10px; }
+  .card { background: white; border-radius: 12px; padding: 24px; margin: 20px 0; box-shadow: 0 2px 8px rgba(0,0,0,.08); }
+  .stat { display: inline-block; background: #f0f4ff; border-radius: 8px; padding: 12px 20px; margin: 6px; text-align: center; min-width: 120px; }
+  .stat .n { font-size: 2em; font-weight: 700; color: #1a1a2e; }
+  .stat .l { font-size: .8em; color: #666; }
+  .progress { background: #e9ecef; border-radius: 20px; height: 20px; overflow: hidden; margin: 10px 0; }
+  .progress-bar { background: linear-gradient(90deg, #4361ee, #3a0ca3); height: 100%; border-radius: 20px; transition: width .5s; display: flex; align-items: center; justify-content: center; color: white; font-size: .75em; font-weight: 600; }
+  button { background: #4361ee; color: white; border: none; padding: 10px 22px; border-radius: 8px; cursor: pointer; font-size: 1em; margin: 6px; }
+  button:hover { background: #3a0ca3; }
+  button.danger { background: #e63946; }
+  button.success { background: #2dc653; }
+  button:disabled { background: #aaa; cursor: not-allowed; }
+  .log { background: #1a1a2e; color: #a8ff78; font-family: monospace; font-size: .82em; padding: 16px; border-radius: 8px; max-height: 300px; overflow-y: auto; white-space: pre-wrap; margin-top: 12px; }
+  select, input[type=file] { padding: 8px 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 1em; }
+  label { font-weight: 600; display: block; margin-bottom: 6px; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: .75em; font-weight: 700; }
+  .badge.tpe { background: #d4edda; color: #155724; }
+  .badge.pme { background: #d1ecf1; color: #0c5460; }
+  .steps { counter-reset: step; }
+  .step { counter-increment: step; padding: 12px 16px 12px 56px; position: relative; margin: 8px 0; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #4361ee; }
+  .step::before { content: counter(step); position: absolute; left: 16px; top: 12px; background: #4361ee; color: white; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: .85em; }
+</style>
+</head>
+<body>
+
+<h1>🚛 Base Transporteurs — Enrichissement TICPE</h1>
+
+<!-- STATUT -->
+<div class="card">
+  <h2>📊 Statut de la base</h2>
+  <div id="stats">
+    <div class="stat"><div class="n" id="total-rntr">—</div><div class="l">RNTR importés</div></div>
+    <div class="stat"><div class="n" id="total-enrichi">—</div><div class="l">Enrichis Pappers</div></div>
+    <div class="stat"><div class="n" id="total-reste">—</div><div class="l">Restants</div></div>
+    <div class="stat"><div class="n" id="total-pct">—</div><div class="l">Progression</div></div>
+  </div>
+  <div class="progress"><div class="progress-bar" id="progress-bar" style="width:0%">0%</div></div>
+  <button onclick="loadStatus()">🔄 Actualiser statut</button>
+</div>
+
+<!-- ÉTAPE 1 : IMPORT RNTR -->
+<div class="card">
+  <h2>① Import CSV RNTR → Supabase</h2>
+  <div class="steps">
+    <div class="step">Glisse le fichier <code>base_rntr_FINAL.csv</code> ici</div>
+    <div class="step">Clique "Importer dans Supabase" — s'envoie en chunks automatiques</div>
+    <div class="step">62 521 transporteurs seront chargés en ~2 minutes</div>
+  </div>
+  <br>
+  <label>Fichier CSV RNTR :</label>
+  <input type="file" id="csv-file" accept=".csv">
+  <br><br>
+  <button onclick="importCSV()" id="btn-import">📥 Importer dans Supabase</button>
+  <span id="import-progress" style="margin-left:10px;color:#666;font-size:.9em"></span>
+  <div class="log" id="log-import" style="display:none"></div>
+</div>
+
+<!-- ÉTAPE 2 : ENRICHISSEMENT PAPPERS -->
+<div class="card">
+  <h2>② Enrichissement Pappers</h2>
+  <p>Chaque clic enrichit un batch via l'API Pappers (50 SIRENs, ~10 secondes).<br>
+  Lance en boucle automatique ou manuellement.</p>
+
+  <label>Segment prioritaire :</label>
+  <select id="segment">
+    <option value="tpe">TPE / Indépendants (16 606) — Cible TICPE prioritaire</option>
+    <option value="pme">PME (43 488)</option>
+    <option value="all">Tous (62 521)</option>
+  </select>
+  <br><br>
+
+  <button onclick="enrichBatch()" id="btn-enrich">▶ Enrichir 50 SIRENs</button>
+  <button onclick="startAuto()" id="btn-auto" class="success">⚡ Mode auto (toutes les 15s)</button>
+  <button onclick="stopAuto()" id="btn-stop" class="danger" style="display:none">⏹ Arrêter</button>
+
+  <div class="log" id="log-enrich" style="display:none"></div>
+</div>
+
+<!-- EXPORT -->
+<div class="card">
+  <h2>③ Export final enrichi</h2>
+  <p>Télécharge le CSV final avec données RNTR + Pappers (CA, effectif, dirigeant, téléphone…)</p>
+  <button onclick="exportCSV()">⬇ Télécharger CSV enrichi</button>
+</div>
+
+<script>
+const API = '/api';
+let autoInterval = null;
+let batchCount = 0;
+
+function log(id, msg) {
+  const el = document.getElementById(id);
+  el.style.display = 'block';
+  el.textContent += `[${new Date().toLocaleTimeString()}] ${msg}\n`;
+  el.scrollTop = el.scrollHeight;
+}
+
+async function loadStatus() {
+  const r = await fetch(`${API}/transporteurs-enrich?action=status`).then(r => r.json());
+  if (!r.ok) return;
+  document.getElementById('total-rntr').textContent    = r.total_rntr?.toLocaleString('fr-FR') || '—';
+  document.getElementById('total-enrichi').textContent = r.total_enrichi?.toLocaleString('fr-FR') || '—';
+  document.getElementById('total-reste').textContent   = r.reste?.toLocaleString('fr-FR') || '—';
+  document.getElementById('total-pct').textContent     = r.pct + '%';
+  const bar = document.getElementById('progress-bar');
+  bar.style.width = r.pct + '%';
+  bar.textContent = r.pct + '%';
+}
+
+// ── IMPORT CSV ─────────────────────────────────────────────────
+async function importCSV() {
+  const file = document.getElementById('csv-file').files[0];
+  if (!file) return alert('Sélectionne le fichier base_rntr_FINAL.csv');
+
+  const btn = document.getElementById('btn-import');
+  btn.disabled = true;
+  log('log-import', `Lecture du fichier ${file.name}...`);
+
+  const text = await file.text();
+  const lines = text.trim().split('\n');
+  const headers = lines[0].split(',').map(h => h.replace(/"/g, '').trim());
+  log('log-import', `${lines.length - 1} lignes | Colonnes : ${headers.join(', ')}`);
+
+  const records = lines.slice(1).map(line => {
+    const vals = line.split(',').map(v => v.replace(/"/g, '').trim());
+    const obj = {};
+    headers.forEach((h, i) => obj[h] = vals[i] || '');
+    return obj;
+  }).filter(r => r.siren && r.siren.length === 9);
+
+  log('log-import', `${records.length} records valides. Envoi en chunks de 500...`);
+
+  const CHUNK = 500;
+  let imported = 0;
+  for (let i = 0; i < records.length; i += CHUNK) {
+    const chunk = records.slice(i, i + CHUNK);
+    const res = await fetch(`${API}/transporteurs-import`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ records: chunk })
+    }).then(r => r.json());
+
+    imported += res.imported || 0;
+    const pct = Math.round((i + chunk.length) / records.length * 100);
+    document.getElementById('import-progress').textContent = `${pct}% — ${imported.toLocaleString('fr-FR')} importés`;
+    log('log-import', `Chunk ${Math.floor(i/CHUNK)+1} → ${res.ok ? `OK (${res.imported})` : `ERREUR: ${res.error}`}`);
+  }
+
+  log('log-import', `✅ Import terminé : ${imported.toLocaleString('fr-FR')} transporteurs dans Supabase`);
+  btn.disabled = false;
+  loadStatus();
+}
+
+// ── ENRICHISSEMENT ──────────────────────────────────────────────
+async function enrichBatch() {
+  const segment = document.getElementById('segment').value;
+  const res = await fetch(`${API}/transporteurs-enrich?batch=50&segment=${segment}`, { method: 'POST' })
+    .then(r => r.json()).catch(e => ({ ok: false, error: e.message }));
+
+  batchCount++;
+  log('log-enrich',
+    res.ok
+      ? `Batch #${batchCount} — ✅ ${res.reussis} enrichis | ${res.erreurs} erreurs | ${res.skipped} déjà faits`
+      : `Batch #${batchCount} — ❌ ${res.error}`
+  );
+  if (batchCount % 5 === 0) loadStatus();
+  return res;
+}
+
+function startAuto() {
+  document.getElementById('btn-auto').style.display = 'none';
+  document.getElementById('btn-stop').style.display = 'inline-block';
+  log('log-enrich', '⚡ Mode automatique activé — batch toutes les 15 secondes');
+  enrichBatch();
+  autoInterval = setInterval(async () => {
+    const r = await enrichBatch();
+    if (r?.message?.includes('Aucun')) {
+      log('log-enrich', '🎉 Enrichissement terminé pour ce segment !');
+      stopAuto();
+      loadStatus();
+    }
+  }, 15000);
+}
+
+function stopAuto() {
+  clearInterval(autoInterval);
+  document.getElementById('btn-auto').style.display = 'inline-block';
+  document.getElementById('btn-stop').style.display = 'none';
+  log('log-enrich', '⏹ Mode automatique arrêté');
+}
+
+// ── EXPORT ─────────────────────────────────────────────────────
+async function exportCSV() {
+  const data = await fetch(`${API}/transporteurs-enrich?action=export`).then(r => r.json());
+  if (!data.data?.length) return alert('Aucune donnée enrichie à exporter');
+
+  const rows = data.data;
+  const headers = Object.keys(rows[0]);
+  const csv = [headers.join(','), ...rows.map(r =>
+    headers.map(h => `"${String(r[h] || '').replace(/"/g, '""')}"`).join(',')
+  )].join('\n');
+
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `transporteurs_enrichis_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+}
+
+// Init
+loadStatus();
+</script>
+</body>
+</html>
