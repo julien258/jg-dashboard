@@ -126,8 +126,31 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       <div class="fg"><label>Notes</label><input type="text" id="r-notes" placeholder="Précisions..."></div>
       <div class="fg">
         <label>📎 Justificatif (facture, ticket, garantie)</label>
-        <input type="file" id="r-file" accept="image/*,application/pdf,.heic,.heif" style="font-size:13px;padding:6px;border:1px dashed var(--accent,#5856d6);border-radius:6px;background:rgba(88,86,214,0.04);width:100%;cursor:pointer">
+        <input type="file" id="r-file" accept="image/*,application/pdf,.heic,.heif" style="font-size:13px;padding:6px;border:1px dashed var(--accent,#5856d6);border-radius:6px;background:rgba(88,86,214,0.04);width:100%;cursor:pointer" onchange="onReceiptSelected('r')">
         <div id="r-file-info" style="font-size:11px;color:var(--text-secondary,#666);margin-top:4px;display:none"></div>
+      </div>
+      <div class="fg">
+        <label>Type de document <span id="r-ocr-badge" style="font-size:10px;color:var(--accent,#5856d6);margin-left:6px"></span></label>
+        <select id="r-doctype" onchange="onDocTypeChange('r')">
+          <option value="">— À l'upload, détecté automatiquement —</option>
+          <option value="devis">📋 Devis</option>
+          <option value="bon_commande">📝 Bon de commande</option>
+          <option value="facture">🧾 Facture</option>
+          <option value="facture_acquittee">✅ Facture acquittée</option>
+          <option value="ticket">🎫 Ticket de caisse</option>
+          <option value="livraison">📦 Bon de livraison</option>
+          <option value="autre">📄 Autre</option>
+        </select>
+      </div>
+      <div class="fg" id="r-invoice-block" style="display:none;background:rgba(186,117,23,0.08);border-left:3px solid #BA7517;padding:8px 10px;border-radius:6px">
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
+          <input type="checkbox" id="r-needs-invoice" onchange="document.getElementById('r-expected-invoice-row').style.display=this.checked?'block':'none'">
+          📅 Facture finale à recevoir (relancer si non reçue)
+        </label>
+        <div id="r-expected-invoice-row" style="display:none;margin-top:6px">
+          <label style="font-size:11px">Date prévue de réception facture</label>
+          <input type="date" id="r-expected-invoice-date" style="font-size:12px">
+        </div>
       </div>
       <button class="btn btn-primary" id="r-btn" onclick="doSubmit()">📤 Soumettre</button>
     </div>
@@ -215,8 +238,31 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     <div class="fg"><label>Notes</label><input type="text" id="m-notes" placeholder="Précisions..."></div>
     <div class="fg">
       <label>📎 Justificatif</label>
-      <input type="file" id="m-file" accept="image/*,application/pdf,.heic,.heif" style="font-size:13px;padding:6px;border:1px dashed var(--accent,#5856d6);border-radius:6px;background:rgba(88,86,214,0.04);width:100%;cursor:pointer">
+      <input type="file" id="m-file" accept="image/*,application/pdf,.heic,.heif" style="font-size:13px;padding:6px;border:1px dashed var(--accent,#5856d6);border-radius:6px;background:rgba(88,86,214,0.04);width:100%;cursor:pointer" onchange="onReceiptSelected('m')">
       <div id="m-file-info" style="font-size:11px;color:var(--text-secondary,#666);margin-top:4px;display:none"></div>
+    </div>
+    <div class="fg">
+      <label>Type de document <span id="m-ocr-badge" style="font-size:10px;color:var(--accent,#5856d6);margin-left:6px"></span></label>
+      <select id="m-doctype" onchange="onDocTypeChange('m')">
+        <option value="">— À l'upload, détecté automatiquement —</option>
+        <option value="devis">📋 Devis</option>
+        <option value="bon_commande">📝 Bon de commande</option>
+        <option value="facture">🧾 Facture</option>
+        <option value="facture_acquittee">✅ Facture acquittée</option>
+        <option value="ticket">🎫 Ticket de caisse</option>
+        <option value="livraison">📦 Bon de livraison</option>
+        <option value="autre">📄 Autre</option>
+      </select>
+    </div>
+    <div class="fg" id="m-invoice-block" style="display:none;background:rgba(186,117,23,0.08);border-left:3px solid #BA7517;padding:8px 10px;border-radius:6px">
+      <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
+        <input type="checkbox" id="m-needs-invoice" onchange="document.getElementById('m-expected-invoice-row').style.display=this.checked?'block':'none'">
+        📅 Facture finale à recevoir
+      </label>
+      <div id="m-expected-invoice-row" style="display:none;margin-top:6px">
+        <label style="font-size:11px">Date prévue de réception facture</label>
+        <input type="date" id="m-expected-invoice-date" style="font-size:12px">
+      </div>
     </div>
     <div style="display:flex;gap:8px">
       <button class="btn btn-ghost" style="width:auto;padding:13px 18px" onclick="closeModal()">Annuler</button>
@@ -237,6 +283,91 @@ const SB_URL = 'https://uqpgwypgkwlvrpxtxhia.supabase.co';
 const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVxcGd3eXBna3dsdnJweHR4aGlhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM1ODg2NzAsImV4cCI6MjA4OTE2NDY3MH0.EVdcTLWbkx9X0L16-Az0GmfAVOsB977AAaSCeHiwihE';
 const { createClient } = supabase;
 const sb = createClient(SB_URL, SB_KEY);
+
+// ════════════════════════════════════════════════════════════
+// OCR : détection automatique du type de document via Claude
+// ════════════════════════════════════════════════════════════
+async function detectDocType(file) {
+  if (!file) return null;
+  const reader = new FileReader();
+  const base64 = await new Promise((resolve, reject) => {
+    reader.onload = () => resolve(reader.result.split(',')[1]);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+  try {
+    const r = await fetch('/.netlify/functions/expense-receipt-detect-type', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ base64, mimeType: file.type }),
+    });
+    if (!r.ok) return null;
+    const j = await r.json();
+    return j.success ? j : null;
+  } catch (e) {
+    console.warn('OCR indisponible:', e.message);
+    return null;
+  }
+}
+
+// Quand un fichier est sélectionné : OCR auto + pré-remplit le type
+async function onReceiptSelected(prefix) {
+  const fileInput = document.getElementById(prefix + '-file');
+  const info = document.getElementById(prefix + '-file-info');
+  const badge = document.getElementById(prefix + '-ocr-badge');
+  const select = document.getElementById(prefix + '-doctype');
+  if (!fileInput.files[0]) return;
+  const f = fileInput.files[0];
+  if (info) {
+    info.style.display = 'block';
+    info.textContent = `📎 ${f.name} (${(f.size / 1024).toFixed(0)} ko) · 🔍 Analyse en cours...`;
+  }
+  if (badge) badge.textContent = '🔍 OCR en cours...';
+  const detected = await detectDocType(f);
+  if (detected && detected.doc_type) {
+    if (select) select.value = detected.doc_type;
+    if (badge) badge.textContent = `✅ Détecté: ${detected.doc_type} (${detected.confidence})`;
+    onDocTypeChange(prefix);
+    // Si OCR a détecté date ou fournisseur, pré-remplir
+    if (detected.date_doc) {
+      const dateField = document.getElementById(prefix === 'r' ? 'r-date' : null);
+      if (dateField && !dateField.value) dateField.value = detected.date_doc;
+    }
+    if (info) info.textContent = `📎 ${f.name}${detected.supplier_name ? ' · ' + detected.supplier_name : ''}${detected.total_ttc ? ' · ' + Math.round(detected.total_ttc) + ' €' : ''}`;
+  } else {
+    if (badge) badge.textContent = '⚠️ Type non détecté — sélection manuelle';
+    if (info) info.textContent = `📎 ${f.name} (${(f.size / 1024).toFixed(0)} ko)`;
+  }
+}
+
+// Quand le type change : afficher/masquer le bloc "facture attendue"
+function onDocTypeChange(prefix) {
+  const select = document.getElementById(prefix + '-doctype');
+  const block = document.getElementById(prefix + '-invoice-block');
+  const checkbox = document.getElementById(prefix + '-needs-invoice');
+  const dateRow = document.getElementById(prefix + '-expected-invoice-row');
+  const dateField = document.getElementById(prefix + '-expected-invoice-date');
+  if (!select || !block) return;
+  const t = select.value;
+  // Afficher le bloc dans tous les cas où l'utilisateur peut vouloir attendre une facture
+  const showBlock = ['devis', 'bon_commande', 'facture'].includes(t);
+  block.style.display = showBlock ? 'block' : 'none';
+  // Auto-cocher si devis ou bon_commande
+  if (checkbox && (t === 'devis' || t === 'bon_commande')) {
+    checkbox.checked = true;
+    if (dateRow) dateRow.style.display = 'block';
+    // Auto-remplir date prévue facture = date prestation + 15j
+    if (dateField && !dateField.value) {
+      const baseDate = document.getElementById(prefix === 'r' ? 'r-date' : 'm-date')?.value || new Date().toISOString().substring(0, 10);
+      const d = new Date(baseDate);
+      d.setDate(d.getDate() + 15);
+      dateField.value = d.toISOString().substring(0, 10);
+    }
+  } else if (checkbox && (t === 'facture_acquittee' || t === 'ticket' || t === 'livraison')) {
+    checkbox.checked = false;
+    if (dateRow) dateRow.style.display = 'none';
+  }
+}
 
 // ════════════════════════════════════════════════════════════
 // Upload justificatif : Supabase Storage (primaire) + Drive (best-effort)
@@ -379,7 +510,11 @@ async function doSubmit(dateOverride) {
     file_name:  attachment?.file_name  || null,
     file_path:  attachment?.file_path  || null,
     drive_url:  attachment?.drive_url  || null,
-    drive_id:   attachment?.drive_id   || null
+    drive_id:   attachment?.drive_id   || null,
+    doc_type:              document.getElementById('r-doctype').value || null,
+    needs_invoice:         document.getElementById('r-needs-invoice')?.checked || false,
+    expected_invoice_date: document.getElementById('r-needs-invoice')?.checked ? (document.getElementById('r-expected-invoice-date').value||null) : null,
+    invoice_received:      false
   });
   btn.disabled=false; btn.textContent='📤 Soumettre';
   if (error) { toast('Erreur: '+error.message); return; }
@@ -505,7 +640,11 @@ async function submitModal() {
     file_name:  attachment?.file_name  || null,
     file_path:  attachment?.file_path  || null,
     drive_url:  attachment?.drive_url  || null,
-    drive_id:   attachment?.drive_id   || null
+    drive_id:   attachment?.drive_id   || null,
+    doc_type:              document.getElementById('m-doctype').value || null,
+    needs_invoice:         document.getElementById('m-needs-invoice')?.checked || false,
+    expected_invoice_date: document.getElementById('m-needs-invoice')?.checked ? (document.getElementById('m-expected-invoice-date').value||null) : null,
+    invoice_received:      false
   });
   btn.disabled=false; btn.textContent='📤 Soumettre';
   if (error) { toast('Erreur: '+error.message); return; }
