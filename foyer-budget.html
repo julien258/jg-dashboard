@@ -369,6 +369,7 @@
           </select>
           <button class="btn btn-g btn-sm" onclick="exportGarantiesCSV()" style="font-size:11px" title="Export CSV pour assurance">📥 CSV</button>
           <button class="btn btn-g btn-sm" onclick="diagnoseDrive()" style="font-size:11px" title="Tester le sync Google Drive et afficher l'erreur exacte">🔧 Tester Drive</button>
+          <button class="btn btn-g btn-sm" onclick="resyncDrive()" style="font-size:11px" title="Rattraper les justificatifs Supabase non encore sur Drive">🔄 Re-sync Drive</button>
           <button class="btn btn-g btn-sm" onclick="loadGaranties()" style="font-size:11px">↺</button>
         </div>
       </div>
@@ -2492,6 +2493,71 @@ async function diagnoseDrive() {
 
 function closeDriveDiag() {
   document.getElementById('drive-diag-overlay').style.display = 'none';
+}
+
+async function resyncDrive() {
+  if (!confirm('Lancer le rattrapage Drive ?\n\nTous les justificatifs sur Supabase non encore syncés seront uploadés sur Drive. Cela peut prendre du temps si beaucoup de fichiers.\n\nAssure-toi que le test Drive est ✅ avant.')) return;
+
+  const overlay = document.getElementById('drive-diag-overlay');
+  const content = document.getElementById('drive-diag-content');
+  if (!overlay || !content) return;
+  overlay.style.display = 'flex';
+  content.innerHTML = '<div style="padding:20px;text-align:center;color:var(--t2)">⏳ Rattrapage en cours...<br><span style="font-size:11px">Lecture Supabase → Upload Drive → Update DB. Peut prendre plusieurs secondes par fichier.</span></div>';
+
+  try {
+    const r = await fetch('/.netlify/functions/expense-receipts-resync', { method: 'POST' });
+    const report = await r.json();
+
+    if (report.fatal) {
+      content.innerHTML = `<div style="color:var(--red);padding:14px;border:1px solid var(--red);border-radius:6px">
+        ❌ Erreur fatale : ${report.fatal}
+      </div>`;
+      return;
+    }
+
+    if (report.message && report.processed === 0) {
+      content.innerHTML = `<div style="color:var(--grn);padding:14px;border:1px solid var(--grn);border-radius:6px;text-align:center;font-weight:600">
+        ${report.message}
+      </div>`;
+      return;
+    }
+
+    let html = `<div style="margin-bottom:14px;padding:12px;border-radius:6px;background:${report.failed === 0 ? 'var(--grn)' : 'var(--amb)'};color:white;text-align:center;font-weight:600">
+      ${report.failed === 0 ? '✅' : '⚠️'} Rattrapage terminé : ${report.success}/${report.processed} succès
+    </div>`;
+
+    html += '<div style="margin-bottom:14px;font-size:13px;display:flex;gap:14px;justify-content:center">';
+    html += `<span><strong>${report.processed}</strong> traités</span>`;
+    html += `<span style="color:var(--grn)">✅ <strong>${report.success}</strong> succès</span>`;
+    if (report.failed) html += `<span style="color:var(--red)">❌ <strong>${report.failed}</strong> échecs</span>`;
+    html += '</div>';
+
+    html += '<div style="font-size:11px;color:var(--t2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Détails par fichier</div>';
+    html += '<div style="max-height:300px;overflow-y:auto">';
+    report.details.forEach(d => {
+      const isOk = d.status === 'success';
+      const bg = isOk ? 'rgba(24,168,90,.06)' : 'rgba(229,57,53,.06)';
+      const border = isOk ? 'var(--grn)' : 'var(--red)';
+      html += `<div style="padding:8px 10px;margin-bottom:5px;border-radius:5px;background:${bg};border-left:3px solid ${border}">
+        <div style="font-size:12px;font-weight:600">${isOk ? '✅' : '❌'} ${d.name || '(sans nom)'}</div>`;
+      if (d.drive_id) html += `<div style="font-size:10px;color:var(--t2)">Drive ID : <code>${d.drive_id}</code></div>`;
+      if (d.error) html += `<div style="font-size:10px;color:var(--red);font-family:monospace;margin-top:3px">${d.error}</div>`;
+      html += '</div>';
+    });
+    html += '</div>';
+
+    html += `<div style="margin-top:14px;padding:10px;background:var(--s2);border-radius:6px;font-size:11px;color:var(--t2);text-align:center">
+      Test effectué : ${new Date(report.timestamp).toLocaleString('fr-FR')}
+    </div>`;
+
+    content.innerHTML = html;
+    // Recharger la liste pour afficher les compteurs Drive à jour
+    if (typeof loadGaranties === 'function') loadGaranties();
+  } catch (e) {
+    content.innerHTML = `<div style="color:var(--red);padding:14px;border:1px solid var(--red);border-radius:6px">
+      ❌ Erreur : ${e.message}
+    </div>`;
+  }
 }
 
 // ════════════════════════════════════════════════════════════
