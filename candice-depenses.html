@@ -124,6 +124,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
         <div class="fg"><label>Jour prélévement</label><input type="number" id="r-prelev" placeholder="Ex: 5" min="1" max="31"></div>
       </div>
       <div class="fg"><label>Notes</label><input type="text" id="r-notes" placeholder="Précisions..."></div>
+      <div class="fg">
+        <label>📎 Justificatif (facture, ticket, garantie)</label>
+        <input type="file" id="r-file" accept="image/*,application/pdf,.heic,.heif" style="font-size:13px;padding:6px;border:1px dashed var(--accent,#5856d6);border-radius:6px;background:rgba(88,86,214,0.04);width:100%;cursor:pointer">
+        <div id="r-file-info" style="font-size:11px;color:var(--text-secondary,#666);margin-top:4px;display:none"></div>
+      </div>
       <button class="btn btn-primary" id="r-btn" onclick="doSubmit()">📤 Soumettre</button>
     </div>
     <div class="card">
@@ -208,6 +213,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       <div class="fg"><label>Jour</label><input type="number" id="m-prelev" placeholder="Ex: 5" min="1" max="31"></div>
     </div>
     <div class="fg"><label>Notes</label><input type="text" id="m-notes" placeholder="Précisions..."></div>
+    <div class="fg">
+      <label>📎 Justificatif</label>
+      <input type="file" id="m-file" accept="image/*,application/pdf,.heic,.heif" style="font-size:13px;padding:6px;border:1px dashed var(--accent,#5856d6);border-radius:6px;background:rgba(88,86,214,0.04);width:100%;cursor:pointer">
+      <div id="m-file-info" style="font-size:11px;color:var(--text-secondary,#666);margin-top:4px;display:none"></div>
+    </div>
     <div style="display:flex;gap:8px">
       <button class="btn btn-ghost" style="width:auto;padding:13px 18px" onclick="closeModal()">Annuler</button>
       <button class="btn btn-primary" id="m-btn" onclick="submitModal()">📤 Soumettre</button>
@@ -227,6 +237,71 @@ const SB_URL = 'https://uqpgwypgkwlvrpxtxhia.supabase.co';
 const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVxcGd3eXBna3dsdnJweHR4aGlhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM1ODg2NzAsImV4cCI6MjA4OTE2NDY3MH0.EVdcTLWbkx9X0L16-Az0GmfAVOsB977AAaSCeHiwihE';
 const { createClient } = supabase;
 const sb = createClient(SB_URL, SB_KEY);
+
+// ════════════════════════════════════════════════════════════
+// Upload justificatif : Supabase Storage (primaire) + Drive (best-effort)
+// Retourne { file_url, file_name, file_path, drive_url, drive_id }
+// ════════════════════════════════════════════════════════════
+async function uploadExpenseReceipt(file, nature, dateStr) {
+  if (!file) return null;
+  const safeName = file.name.replace(/[^a-zA-Z0-9._\-]/g, '_');
+  const ts = Date.now();
+  const path = `expense-receipts/${(dateStr || '').substring(0, 7) || new Date().toISOString().substring(0, 7)}/${ts}_${safeName}`;
+
+  // 1. Upload Supabase Storage (bucket: documents)
+  const { data: upData, error: upErr } = await sb.storage.from('documents').upload(path, file, {
+    contentType: file.type || 'application/octet-stream',
+    upsert: false,
+  });
+  if (upErr) {
+    console.error('Supabase upload failed:', upErr);
+    throw new Error('Upload Supabase échoué : ' + upErr.message);
+  }
+  const { data: urlData } = sb.storage.from('documents').getPublicUrl(path);
+  const fileUrl = urlData?.publicUrl || null;
+
+  const result = {
+    file_url: fileUrl,
+    file_name: file.name,
+    file_path: path,
+    drive_url: null,
+    drive_id: null,
+  };
+
+  // 2. Sync Drive en arrière-plan (best-effort, non bloquant)
+  try {
+    const reader = new FileReader();
+    const base64 = await new Promise((resolve, reject) => {
+      reader.onload = () => resolve(reader.result.split(',')[1]);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+    const driveRes = await fetch('/.netlify/functions/expense-receipt-drive-sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        base64,
+        fileName: file.name,
+        mimeType: file.type,
+        nature: nature || 'autre',
+        dateStr: dateStr || new Date().toISOString().substring(0, 10),
+      }),
+    });
+    if (driveRes.ok) {
+      const dj = await driveRes.json();
+      if (dj.success) {
+        result.drive_url = dj.drive_url;
+        result.drive_id = dj.drive_id;
+      } else {
+        console.warn('Drive sync indisponible :', dj.error);
+      }
+    }
+  } catch (e) {
+    console.warn('Drive sync erreur (non bloquant) :', e.message);
+  }
+
+  return result;
+}
 
 const MONTHS = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
 const NATURES = { alimentation:'🛒 Alimentation', transport:'🚗 Transport', sante:'🏥 Santé',
@@ -273,19 +348,45 @@ async function doSubmit(dateOverride) {
   if (!nom||!montant) { toast('Remplissez le nom et le montant'); return; }
   const btn = document.getElementById('r-btn');
   btn.disabled=true; btn.textContent='⏳ Envoi...';
+
+  // Upload du justificatif si présent
+  let attachment = null;
+  const fileInput = document.getElementById('r-file');
+  if (fileInput && fileInput.files && fileInput.files[0]) {
+    btn.textContent='⏳ Upload justificatif...';
+    try {
+      attachment = await uploadExpenseReceipt(
+        fileInput.files[0],
+        document.getElementById('r-nature').value,
+        date
+      );
+    } catch (e) {
+      btn.disabled=false; btn.textContent='📤 Soumettre';
+      toast('❌ ' + e.message);
+      return;
+    }
+    btn.textContent='⏳ Enregistrement...';
+  }
+
   const { error } = await sb.from('expense_requests').insert({
     submitted_by:'candice', nature:document.getElementById('r-nature').value,
     nom, montant, date_prevue:date||null,
     recurrent:document.getElementById('r-recurrent').value==='true',
     frequence:document.getElementById('r-recurrent').value==='true'?document.getElementById('r-frequence').value:null,
     date_prelevement:parseInt(document.getElementById('r-prelev').value)||null,
-    notes:document.getElementById('r-notes').value||null, statut:'en_attente'
+    notes:document.getElementById('r-notes').value||null, statut:'en_attente',
+    file_url:   attachment?.file_url   || null,
+    file_name:  attachment?.file_name  || null,
+    file_path:  attachment?.file_path  || null,
+    drive_url:  attachment?.drive_url  || null,
+    drive_id:   attachment?.drive_id   || null
   });
   btn.disabled=false; btn.textContent='📤 Soumettre';
   if (error) { toast('Erreur: '+error.message); return; }
   document.getElementById('r-nom').value=''; document.getElementById('r-montant').value='';
   document.getElementById('r-notes').value=''; document.getElementById('r-date').value=new Date().toISOString().substring(0,10);
-  toast('✅ Dépense soumise — Julien va valider');
+  if (fileInput) { fileInput.value=''; const info=document.getElementById('r-file-info'); if(info)info.style.display='none'; }
+  toast('✅ Dépense soumise — Julien va valider' + (attachment ? ' · 📎 justificatif joint' : ''));
   await reload();
 }
 
@@ -294,12 +395,15 @@ function renderPending() {
   const list = document.getElementById('p-list'), badge = document.getElementById('p-badge');
   if (!pending.length) { list.innerHTML='<div class="empty">Aucune dépense en attente ✅</div>'; badge.style.display='none'; return; }
   badge.style.display='inline-flex'; badge.textContent=pending.length;
-  list.innerHTML = pending.map(r=>`
+  list.innerHTML = pending.map(r=>{
+    const fileLink = r.file_url ? `<a href="${r.file_url}" target="_blank" title="Voir ${r.file_name||'justificatif'}" style="text-decoration:none;font-size:16px;margin-right:6px">📎</a>` : '';
+    return `
     <div class="item">
-      <div><div style="font-weight:600;font-size:14px">${r.nom}</div>
-      <div class="meta">${NATURES[r.nature]||r.nature} ${r.date_prevue?'· 📅 '+fmtD(r.date_prevue):''} ${r.notes?'· '+r.notes:''}</div></div>
+      <div><div style="font-weight:600;font-size:14px">${fileLink}${r.nom}</div>
+      <div class="meta">${NATURES[r.nature]||r.nature} ${r.date_prevue?'· 📅 '+fmtD(r.date_prevue):''} ${r.notes?'· '+r.notes:''}${r.file_name?' · 📎 '+r.file_name:''}</div></div>
       <div class="amt">${fmtE(r.montant)}</div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 }
 
 // ── Calendrier ─────────────────────────────────────────────────────────────
@@ -371,18 +475,43 @@ async function submitModal() {
   if (!nom||!montant) { toast('Remplissez le nom et le montant'); return; }
   const btn = document.getElementById('m-btn');
   btn.disabled=true; btn.textContent='⏳...';
+
+  // Upload du justificatif si présent
+  let attachment = null;
+  const fileInput = document.getElementById('m-file');
+  if (fileInput && fileInput.files && fileInput.files[0]) {
+    btn.textContent='⏳ Upload...';
+    try {
+      attachment = await uploadExpenseReceipt(
+        fileInput.files[0],
+        document.getElementById('m-nature').value,
+        modalDate
+      );
+    } catch (e) {
+      btn.disabled=false; btn.textContent='📤 Soumettre';
+      toast('❌ ' + e.message);
+      return;
+    }
+  }
+
   const { error } = await sb.from('expense_requests').insert({
     submitted_by:'candice', nature:document.getElementById('m-nature').value,
     nom, montant, date_prevue:modalDate,
     recurrent:document.getElementById('m-rec').value==='true',
     frequence:document.getElementById('m-rec').value==='true'?document.getElementById('m-frequence').value:null,
     date_prelevement:parseInt(document.getElementById('m-prelev').value)||null,
-    notes:document.getElementById('m-notes').value||null, statut:'en_attente'
+    notes:document.getElementById('m-notes').value||null, statut:'en_attente',
+    file_url:   attachment?.file_url   || null,
+    file_name:  attachment?.file_name  || null,
+    file_path:  attachment?.file_path  || null,
+    drive_url:  attachment?.drive_url  || null,
+    drive_id:   attachment?.drive_id   || null
   });
   btn.disabled=false; btn.textContent='📤 Soumettre';
   if (error) { toast('Erreur: '+error.message); return; }
+  if (fileInput) fileInput.value='';
   document.getElementById('overlay').classList.remove('show');
-  toast('✅ Soumis pour le '+fmtD(modalDate));
+  toast('✅ Soumis pour le '+fmtD(modalDate) + (attachment ? ' · 📎' : ''));
   await reload(); renderCal();
 }
 

@@ -245,6 +245,9 @@
         <div class="fg" style="grid-column:span 3"><label>Notes (optionnel)</label>
           <input type="text" id="req-notes" placeholder="Précisions...">
         </div>
+        <div class="fg" style="grid-column:span 3"><label>📎 Justificatif (facture, ticket, garantie)</label>
+          <input type="file" id="req-file" accept="image/*,application/pdf,.heic,.heif" style="font-size:13px;padding:6px;border:1px dashed var(--acc);border-radius:6px;background:rgba(55,138,221,0.04);width:100%;cursor:pointer">
+        </div>
       </div>
       <div style="display:flex;gap:8px;margin-top:4px">
         <button class="btn btn-p" onclick="submitExpenseRequest()">📤 Soumettre</button>
@@ -265,6 +268,37 @@
         <button class="btn btn-g btn-sm" onclick="loadHistoriqueDepenses()" style="font-size:11px">↺ Actualiser</button>
       </div>
       <div id="historique-depenses" style="max-height:280px;overflow-y:auto">
+        <div style="color:var(--t2);font-size:12px;padding:8px">Chargement...</div>
+      </div>
+    </div>
+
+    <!-- BLOC 2bis : GARANTIES & JUSTIFICATIFS -->
+    <div class="card" style="border-left:3px solid #6B46C1">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px">
+        <div class="card-t" style="margin:0">🏠 Garanties & justificatifs</div>
+        <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+          <input type="text" id="gar-search" placeholder="🔍 Recherche libellé/notes..." oninput="renderGaranties()" style="font-size:11px;padding:5px 8px;border:1px solid var(--b1);border-radius:5px;background:var(--s1);color:var(--t1);min-width:160px">
+          <select id="gar-nature" onchange="renderGaranties()" style="font-size:11px;padding:5px 7px;border:1px solid var(--b1);border-radius:5px;background:var(--s1);color:var(--t1)">
+            <option value="">Toutes natures</option>
+            <option value="alimentation">🛒 Alimentation</option>
+            <option value="transport">🚗 Transport</option>
+            <option value="sante">🏥 Santé</option>
+            <option value="loisirs">🎉 Loisirs</option>
+            <option value="vetements">👕 Vêtements</option>
+            <option value="maison" selected>🏠 Maison</option>
+            <option value="enfants">👶 Enfants</option>
+            <option value="autre">📦 Autre</option>
+          </select>
+          <select id="gar-annee" onchange="renderGaranties()" style="font-size:11px;padding:5px 7px;border:1px solid var(--b1);border-radius:5px;background:var(--s1);color:var(--t1)">
+            <option value="">Toutes années</option>
+          </select>
+          <button class="btn btn-g btn-sm" onclick="exportGarantiesCSV()" style="font-size:11px" title="Export CSV pour assurance">📥 CSV</button>
+          <button class="btn btn-g btn-sm" onclick="loadGaranties()" style="font-size:11px">↺</button>
+        </div>
+      </div>
+      <div style="font-size:11px;color:var(--t2);margin-bottom:8px">Toutes les dépenses avec justificatif joint — utile pour garanties (5-10 ans) et déclarations assurance.</div>
+      <div id="gar-kpis" style="display:flex;gap:14px;font-size:12px;margin-bottom:10px;flex-wrap:wrap"></div>
+      <div id="gar-list" style="max-height:380px;overflow-y:auto">
         <div style="color:var(--t2);font-size:12px;padding:8px">Chargement...</div>
       </div>
     </div>
@@ -1865,12 +1899,63 @@ function toggleRecurrentFields(){
   if(el) el.value = new Date().toISOString().split('T')[0];
 })();
 
+// ════════════════════════════════════════════════════════════
+// Upload justificatif : Supabase Storage (primaire) + Drive (best-effort)
+// ════════════════════════════════════════════════════════════
+async function uploadExpenseReceipt(file, nature, dateStr) {
+  if (!file) return null;
+  const safeName = file.name.replace(/[^a-zA-Z0-9._\-]/g, '_');
+  const ts = Date.now();
+  const path = `expense-receipts/${(dateStr || '').substring(0, 7) || new Date().toISOString().substring(0, 7)}/${ts}_${safeName}`;
+  const { data: upData, error: upErr } = await sb.storage.from('documents').upload(path, file, {
+    contentType: file.type || 'application/octet-stream',
+    upsert: false,
+  });
+  if (upErr) throw new Error('Upload Supabase échoué : ' + upErr.message);
+  const { data: urlData } = sb.storage.from('documents').getPublicUrl(path);
+  const result = { file_url: urlData?.publicUrl||null, file_name: file.name, file_path: path, drive_url: null, drive_id: null };
+  // Drive sync best-effort
+  try {
+    const reader = new FileReader();
+    const base64 = await new Promise((resolve, reject) => {
+      reader.onload = () => resolve(reader.result.split(',')[1]);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+    const driveRes = await fetch('/.netlify/functions/expense-receipt-drive-sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ base64, fileName: file.name, mimeType: file.type, nature: nature||'autre', dateStr: dateStr||new Date().toISOString().substring(0,10) }),
+    });
+    if (driveRes.ok) {
+      const dj = await driveRes.json();
+      if (dj.success) { result.drive_url = dj.drive_url; result.drive_id = dj.drive_id; }
+    }
+  } catch (e) { console.warn('Drive sync (non bloquant):', e.message); }
+  return result;
+}
+
 // ── Soumission ──
 async function submitExpenseRequest(){
   const nom = document.getElementById('req-nom').value.trim();
   const montant = parseFloat(document.getElementById('req-montant').value)||0;
   const date = document.getElementById('req-date').value;
   if(!nom||!montant){toast('Remplissez le nom et le montant');return;}
+
+  // Upload justificatif si présent
+  let attachment = null;
+  const fileInput = document.getElementById('req-file');
+  if (fileInput && fileInput.files && fileInput.files[0]) {
+    toast('⏳ Upload justificatif...');
+    try {
+      attachment = await uploadExpenseReceipt(
+        fileInput.files[0],
+        document.getElementById('req-nature').value,
+        date
+      );
+    } catch (e) { toast('❌ ' + e.message); return; }
+  }
+
   const payload = {
     submitted_by: document.getElementById('req-submitted-by').value,
     nature: document.getElementById('req-nature').value,
@@ -1879,14 +1964,20 @@ async function submitExpenseRequest(){
     frequence: document.getElementById('req-recurrent').value==='true' ? document.getElementById('req-frequence').value : null,
     date_prelevement: parseInt(document.getElementById('req-prelevement')?.value)||null,
     notes: document.getElementById('req-notes').value||null,
-    statut: 'en_attente'
+    statut: 'en_attente',
+    file_url:   attachment?.file_url   || null,
+    file_name:  attachment?.file_name  || null,
+    file_path:  attachment?.file_path  || null,
+    drive_url:  attachment?.drive_url  || null,
+    drive_id:   attachment?.drive_id   || null
   };
   const{error} = await sb.from('expense_requests').insert(payload);
   if(error){toast('Erreur: '+error.message);return;}
   document.getElementById('req-nom').value='';
   document.getElementById('req-montant').value='';
   document.getElementById('req-notes').value='';
-  toast('✅ Dépense soumise — en attente de validation');
+  if (fileInput) fileInput.value='';
+  toast('✅ Dépense soumise — en attente de validation' + (attachment ? ' · 📎' : ''));
   loadExpenseRequests();
 }
 
@@ -1899,13 +1990,18 @@ async function loadExpenseRequests(){
   if(!pending.length){block.style.display='none';return;}
   block.style.display='block';
   count.textContent = pending.length;
-  document.getElementById('pending-list').innerHTML = pending.map(r=>`
+  document.getElementById('pending-list').innerHTML = pending.map(r=>{
+    const fileLink = r.file_url
+      ? `<a href="${r.file_url}" target="_blank" title="Voir ${r.file_name||'justificatif'}" style="text-decoration:none;font-size:16px;margin-right:6px">📎</a>`
+      : '';
+    return `
     <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--b1);font-size:12px">
       <div>
-        <span style="font-weight:600">${r.nom}</span>
+        ${fileLink}<span style="font-weight:600">${r.nom}</span>
         <span class="badge bb" style="margin-left:6px">${r.nature}</span>
         <span style="color:var(--t2);margin-left:6px">${r.submitted_by}</span>
         ${r.recurrent?'<span class="badge ba" style="margin-left:4px">récurrent</span>':''}
+        ${r.file_name?`<div style="font-size:10px;color:var(--t2);margin-top:2px">📎 ${r.file_name}${r.drive_url?' · <a href="'+r.drive_url+'" target="_blank" style="color:var(--acc)">Drive</a>':''}</div>`:''}
       </div>
       <div style="display:flex;align-items:center;gap:8px">
         <span class="mono" style="font-weight:600">${fmt(r.montant)}</span>
@@ -1914,7 +2010,8 @@ async function loadExpenseRequests(){
         <button class="btn btn-r btn-sm" onclick="validateRequest('${r.id}',false)">✕</button>
         <button class="btn btn-g btn-sm" onclick="deleteRequest('${r.id}')" title="Supprimer définitivement" style="padding:4px 8px">🗑️</button>
       </div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
   // Charger aussi l'historique (validées + refusées)
   loadHistoriqueDepenses();
 }
@@ -1955,12 +2052,16 @@ async function loadHistoriqueDepenses() {
   el.innerHTML = items.map(r => {
     const statColor = r.statut === 'valide' ? '#18A85A' : '#E53935';
     const statLabel = r.statut === 'valide' ? 'Validée' : 'Refusée';
+    const fileLink = r.file_url
+      ? `<a href="${r.file_url}" target="_blank" title="Voir ${r.file_name||'justificatif'}" style="text-decoration:none;font-size:14px;margin-right:6px">📎</a>`
+      : '';
     return `<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--b1);font-size:12px">
       <div>
-        <span style="font-weight:600">${r.nom}</span>
+        ${fileLink}<span style="font-weight:600">${r.nom}</span>
         <span class="badge bb" style="margin-left:6px">${r.nature}</span>
         <span style="color:var(--t2);margin-left:6px">${r.submitted_by}</span>
         <span style="margin-left:6px;font-size:11px;color:${statColor};font-weight:600">${statLabel}</span>
+        ${r.file_name?`<div style="font-size:10px;color:var(--t2);margin-top:2px">📎 ${r.file_name}${r.drive_url?' · <a href="'+r.drive_url+'" target="_blank" style="color:var(--acc)">Drive</a>':''}</div>`:''}
       </div>
       <div style="display:flex;align-items:center;gap:8px">
         <span class="mono" style="font-weight:600">${fmt(r.montant)}</span>
@@ -1969,6 +2070,120 @@ async function loadHistoriqueDepenses() {
       </div>
     </div>`;
   }).join('');
+}
+
+// ════════════════════════════════════════════════════════════
+// 🏠 GARANTIES & JUSTIFICATIFS — toutes les dépenses avec PJ
+// ════════════════════════════════════════════════════════════
+let allGaranties = [];
+
+async function loadGaranties(){
+  const{data, error} = await sb.from('expense_requests')
+    .select('*')
+    .not('file_path','is',null)
+    .order('date_prevue',{ascending:false});
+  if(error){console.error(error);return;}
+  allGaranties = data||[];
+  // Remplir le filtre années
+  const annees = [...new Set(allGaranties.map(g=>(g.date_prevue||g.created_at||'').substring(0,4)).filter(y=>y))].sort().reverse();
+  const selA = document.getElementById('gar-annee');
+  if(selA){
+    const cur = selA.value;
+    selA.innerHTML = '<option value="">Toutes années</option>'+annees.map(a=>`<option value="${a}"${a===cur?' selected':''}>${a}</option>`).join('');
+  }
+  renderGaranties();
+}
+
+function renderGaranties(){
+  const list = document.getElementById('gar-list');
+  const kpis = document.getElementById('gar-kpis');
+  if(!list)return;
+  const search = (document.getElementById('gar-search')?.value||'').toLowerCase();
+  const nature = document.getElementById('gar-nature')?.value||'';
+  const annee = document.getElementById('gar-annee')?.value||'';
+  let items = allGaranties;
+  if(nature) items = items.filter(g=>g.nature===nature);
+  if(annee) items = items.filter(g=>(g.date_prevue||g.created_at||'').substring(0,4)===annee);
+  if(search) items = items.filter(g=>(g.nom||'').toLowerCase().includes(search)||(g.notes||'').toLowerCase().includes(search)||(g.file_name||'').toLowerCase().includes(search));
+
+  // KPIs
+  const total = items.reduce((s,g)=>s+Number(g.montant||0),0);
+  const driveOk = items.filter(g=>g.drive_url).length;
+  if(kpis){
+    kpis.innerHTML = `
+      <div><span style="color:var(--t2)">Justificatifs</span> · <strong>${items.length}</strong></div>
+      <div><span style="color:var(--t2)">Montant total</span> · <strong>${Math.round(total).toLocaleString('fr-FR')} €</strong></div>
+      <div><span style="color:var(--t2)">Synchronisés Drive</span> · <strong style="color:${driveOk===items.length?'var(--grn)':'var(--amb)'}">${driveOk}/${items.length}</strong></div>
+    `;
+  }
+
+  if(!items.length){
+    list.innerHTML = '<div style="color:var(--t2);font-size:12px;padding:20px;text-align:center">Aucun justificatif joint pour ces critères</div>';
+    return;
+  }
+
+  const NAT_ICONS = {alimentation:'🛒',transport:'🚗',sante:'🏥',loisirs:'🎉',vetements:'👕',maison:'🏠',enfants:'👶',autre:'📦'};
+  list.innerHTML = items.map(g=>{
+    const dt = g.date_prevue ? new Date(g.date_prevue).toLocaleDateString('fr-FR',{day:'2-digit',month:'short',year:'2-digit'}) : '—';
+    const ic = NAT_ICONS[g.nature]||'📦';
+    const driveBadge = g.drive_url
+      ? `<a href="${g.drive_url}" target="_blank" title="Ouvrir dans Google Drive" style="font-size:10px;padding:2px 6px;border-radius:4px;background:rgba(24,168,90,.15);color:var(--grn);text-decoration:none;font-weight:600">Drive ↗</a>`
+      : `<span style="font-size:10px;padding:2px 6px;border-radius:4px;background:rgba(186,117,23,.12);color:var(--amb)" title="Pas synchronisé sur Drive">Drive ⏳</span>`;
+    return `<div style="display:flex;align-items:center;gap:10px;padding:10px;margin-bottom:6px;border-radius:6px;border:1px solid var(--b1);background:var(--s1)">
+      <a href="${g.file_url}" target="_blank" title="Ouvrir le justificatif" style="font-size:24px;text-decoration:none;flex-shrink:0">📎</a>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:600;color:var(--t1)">${ic} ${g.nom}</div>
+        <div style="font-size:11px;color:var(--t2);margin-top:2px">
+          ${dt} · ${g.submitted_by||'—'} · ${g.file_name||''}
+          ${g.notes?` · <span style="color:var(--t3)">${g.notes}</span>`:''}
+        </div>
+      </div>
+      <div style="text-align:right;flex-shrink:0;display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+        <span style="font-family:monospace;font-size:13px;font-weight:600">${Math.round(g.montant).toLocaleString('fr-FR')} €</span>
+        <div style="display:flex;gap:4px">
+          <a href="${g.file_url}" target="_blank" style="font-size:10px;padding:2px 6px;border-radius:4px;background:rgba(55,138,221,.12);color:var(--acc);text-decoration:none;font-weight:600">Ouvrir ↗</a>
+          ${driveBadge}
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function exportGarantiesCSV(){
+  const items = allGaranties;
+  if(!items.length){toast('Aucun justificatif à exporter');return;}
+  const search = (document.getElementById('gar-search')?.value||'').toLowerCase();
+  const nature = document.getElementById('gar-nature')?.value||'';
+  const annee = document.getElementById('gar-annee')?.value||'';
+  let filtered = items;
+  if(nature) filtered = filtered.filter(g=>g.nature===nature);
+  if(annee) filtered = filtered.filter(g=>(g.date_prevue||g.created_at||'').substring(0,4)===annee);
+  if(search) filtered = filtered.filter(g=>(g.nom||'').toLowerCase().includes(search)||(g.notes||'').toLowerCase().includes(search));
+
+  const escape = v => `"${String(v||'').replace(/"/g,'""')}"`;
+  const rows = [
+    ['Date','Soumis par','Nature','Libellé','Montant','Notes','Fichier','URL Supabase','URL Drive'],
+    ...filtered.map(g=>[
+      g.date_prevue||'',
+      g.submitted_by||'',
+      g.nature||'',
+      g.nom||'',
+      g.montant||0,
+      g.notes||'',
+      g.file_name||'',
+      g.file_url||'',
+      g.drive_url||''
+    ])
+  ];
+  const csv = '\uFEFF' + rows.map(r=>r.map(escape).join(';')).join('\n');
+  const blob = new Blob([csv], {type:'text/csv;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `garanties_justificatifs_${new Date().toISOString().substring(0,10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+  toast(`✅ ${filtered.length} justificatif(s) exporté(s)`);
 }
 
 // ── Tableau 12 mois ──
