@@ -1243,6 +1243,7 @@
           <span><span style="display:inline-block;width:12px;height:12px;background:#E67E2288;border-radius:2px;margin-right:4px"></span>Dettes financières</span>
           <span><span style="display:inline-block;width:12px;height:12px;background:#F39C1288;border-radius:2px;margin-right:4px"></span>Charges fixes</span>
           <span><span style="display:inline-block;width:12px;height:12px;background:#7F8C8D88;border-radius:2px;margin-right:4px"></span>Fournisseurs</span>
+          <span><span style="display:inline-block;width:12px;height:12px;background:#6B46C188;border-radius:2px;margin-right:4px"></span>🗓️ Engagements à venir</span>
           <span><span style="display:inline-block;width:12px;height:12px;background:#3D8EF088;border-radius:2px;margin-right:4px"></span>Besoin perso (SARL→LIVING)</span>
           <span style="border-left:1px solid var(--b1);padding-left:10px;color:var(--grn);font-weight:600">── Entrées prévues</span>
           <span style="color:var(--grn)">- - Encaissé réel</span>
@@ -1254,7 +1255,7 @@
         <div style="max-height:300px;overflow-y:auto">
           <table>
             <thead style="position:sticky;top:0;background:var(--s1);z-index:1">
-              <tr><th>Mois</th><th style="text-align:right">CA brut</th><th style="text-align:right;color:var(--red)">Fact. SARL GJ</th><th style="text-align:right;color:var(--grn)">CA net</th><th style="text-align:right">Dépenses</th><th style="text-align:right;color:var(--acc)">💰 Placé</th><th style="text-align:right">Solde mois</th><th style="text-align:right;color:var(--acc)">Cumulé</th><th style="text-align:right;color:var(--amb)">⚠ TVA nette</th><th>Statut</th></tr>
+              <tr><th>Mois</th><th style="text-align:right">CA brut</th><th style="text-align:right;color:var(--red)">Fact. SARL GJ</th><th style="text-align:right;color:var(--grn)">CA net</th><th style="text-align:right">Dépenses</th><th style="text-align:right;color:#6B46C1">🗓️ Engag.</th><th style="text-align:right;color:var(--acc)">💰 Placé</th><th style="text-align:right">Solde mois</th><th style="text-align:right;color:var(--acc)">Cumulé</th><th style="text-align:right;color:var(--amb)">⚠ TVA nette</th><th>Statut</th></tr>
             </thead>
             <tbody id="treso-detail-table"></tbody>
           </table>
@@ -7669,14 +7670,15 @@ async function loadTresoChart(){
   }
 
   // Charge toutes les données en parallèle
-  const[{data:contracts},{data:debts},{data:placements},{data:payables},{data:receivables},{data:charges},{data:forecasts}]=await Promise.all([
+  const[{data:contracts},{data:debts},{data:placements},{data:payables},{data:receivables},{data:charges},{data:forecasts},{data:engagements}]=await Promise.all([
     sb.from('contracts').select('*,products(category,trailing_rate,trailing_frequency)').not('status','eq','termine'),
     sb.from('debts').select('*').eq('status','en_cours').not('company_id','eq','sarl-guiraud'), // dettes SARL déjà déduites via intraGroupe
     sb.from('placements').select('*').eq('statut','actif'),
     sb.from('payables').select('*').eq('status','a_payer'),
     sb.from('receivables').select('*').not('status','eq','payee'),
     sb.from('recurring_charges').select('*').eq('status','actif'),
-    sb.from('cash_forecast').select('*').eq('company_id','sas-living')
+    sb.from('cash_forecast').select('*').eq('company_id','sas-living'),
+    sb.from('engagements_pro').select('*').in('statut',['prevu','en_cours'])
   ]);
 
   // Stocker dans window pour accès depuis les tooltips
@@ -7907,6 +7909,25 @@ async function loadTresoChart(){
     });
   });
 
+  // ── ENGAGEMENTS PRO À VENIR (provisions juridiques, frais déplacement, conseil...) ──
+  // Pour chaque engagement actif (prevu/en_cours), on étale ses mensualités sur les bons mois
+  const engagementsParMois=new Array(12).fill(0);
+  (engagements||[]).forEach(e=>{
+    const dStart=new Date(e.date_prevue);
+    const duree=Math.max(1,Number(e.duree_mois)||1);
+    const mens=Number(e.montant_total||0)/duree;
+    for(let k=0;k<duree;k++){
+      const d=new Date(dStart.getFullYear(),dStart.getMonth()+k,1);
+      months.forEach((m,i)=>{
+        if(m.getFullYear()===d.getFullYear()&&m.getMonth()===d.getMonth()){
+          engagementsParMois[i]+=mens;
+          depenses[i]+=mens;
+        }
+      });
+    }
+  });
+  window._tresoEngagementsParMois=engagementsParMois;
+
   // Factures émises à encaisser (revenus attendus) + compensation (déduit des dépenses)
   const encaissements=new Array(12).fill(0);
   (receivables||[]).forEach(r=>{
@@ -8039,6 +8060,7 @@ async function loadTresoChart(){
         <td style="text-align:right;font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--red)">-${Math.round(intraGroupe[i]).toLocaleString('fr-FR')} €</td>
         <td style="text-align:right;font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--grn);font-weight:600">${Math.round(net).toLocaleString('fr-FR')} €</td>
         <td style="text-align:right;font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--red)">${Math.round(dep).toLocaleString('fr-FR')} €</td>
+        <td style="text-align:right;font-family:'IBM Plex Mono',monospace;font-size:11px;color:#6B46C1">${engagementsParMois[i]>0?Math.round(engagementsParMois[i]).toLocaleString('fr-FR')+' €':'—'}</td>
         <td style="text-align:right;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--acc)">${placementsEntrees[i]>0?Math.round(placementsEntrees[i]).toLocaleString('fr-FR')+' €':'—'}</td>
         <td style="text-align:right;font-family:'IBM Plex Mono',monospace;font-weight:600;color:${solde>=0?'var(--grn)':'var(--red)'}">${(solde>=0?'+':'')+Math.round(solde).toLocaleString('fr-FR')} €</td>
         <td style="text-align:right;font-family:'IBM Plex Mono',monospace;font-weight:600;color:${cumul>=0?'var(--acc)':'var(--red)'}">${(cumul>=0?'+':'')+Math.round(cumul).toLocaleString('fr-FR')} €</td>
@@ -8431,6 +8453,7 @@ async function loadTresoChart(){
           {label:'Dettes financières',data:catDettesF,backgroundColor:'#E67E2288',stack:'s',order:2},
           {label:'Charges fixes',data:catChargesF,backgroundColor:'#F39C1288',stack:'s',order:2},
           {label:'Fournisseurs',data:catFourn,backgroundColor:'#7F8C8D88',stack:'s',order:2},
+          {label:'🗓️ Engagements à venir',data:(window._tresoEngagementsParMois||new Array(12).fill(0)),backgroundColor:'#6B46C188',stack:'s',order:2},
           {label:'Besoin perso',data:catPerso,backgroundColor:'#3D8EF088',stack:'s',order:2},
           {label:'Entrées prévues',data:totalEntreesMois,type:'line',borderColor:'#2ECC71',backgroundColor:'rgba(46,204,113,0.05)',borderWidth:2.5,pointRadius:4,fill:false,tension:0.3,order:0,stack:undefined},
           {label:'Encaissé réel',data:encaisseReelLine,type:'line',borderColor:'#2ECC71',backgroundColor:'transparent',borderWidth:2,borderDash:[5,4],pointRadius:6,pointBackgroundColor:'#2ECC71',fill:false,tension:0,order:0,stack:undefined}
