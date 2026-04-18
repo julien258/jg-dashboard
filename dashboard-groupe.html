@@ -286,12 +286,14 @@
           <button onclick="showCCTab('payables')" id="cc-tab-payables" class="btn btn-g btn-sm">📄 À payer</button>
           <button onclick="showCCTab('emises')" id="cc-tab-emises" class="btn btn-g btn-sm">📤 Émises</button>
           <button onclick="showCCTab('charges')" id="cc-tab-charges" class="btn btn-g btn-sm">🔄 Charges récurrentes</button>
+          <button onclick="showCCTab('engagements')" id="cc-tab-engagements" class="btn btn-g btn-sm">🗓️ Engagements à venir</button>
         </div>
         <div style="display:flex;gap:6px">
           <button id="cc-btn-add-interco" class="btn btn-p btn-sm" onclick="toggleCCForm()">+ Inter-sociétés</button>
           <button id="cc-btn-add-payable" class="btn btn-p btn-sm" style="display:none" onclick="togglePayableForm()">+ Facture à payer</button>
           <button id="cc-btn-add-emise" class="btn btn-p btn-sm" style="display:none" onclick="toggleEmiseForm()">+ Facture émise</button>
           <button id="cc-btn-add-charge" class="btn btn-p btn-sm" style="display:none" onclick="toggleChargeForm()">+ Charge récurrente</button>
+          <button id="cc-btn-add-engagement" class="btn btn-p btn-sm" style="display:none" onclick="toggleEngagementForm()">+ Engagement à venir</button>
           <button id="cc-btn-import-charge" class="btn btn-g btn-sm" style="display:none" onclick="document.getElementById('charge-import-input').click()">📥 Importer CSV/Excel</button>
           <input type="file" id="charge-import-input" accept=".csv,.xlsx,.xls" style="display:none" onchange="importCharges(this)">
         </div>
@@ -729,6 +731,102 @@
           <div id="virement-list"></div>
         </div>
       </div>
+
+      <!-- ══ SECTION ENGAGEMENTS À VENIR ══ -->
+      <div id="cc-section-engagements" style="display:none">
+        <!-- Formulaire création -->
+        <div id="engagement-form" style="display:none;margin-bottom:1rem">
+          <div class="card">
+            <div id="eng-form-title" style="font-size:13px;font-weight:600;margin-bottom:12px;color:var(--acc)">Nouvel engagement à venir</div>
+            <input type="hidden" id="eng-id" value="">
+            <div class="g2">
+              <div>
+                <div class="fg"><label>Libellé *</label><input type="text" id="eng-libelle" placeholder="Provision Me Beaufils — Carrefour"></div>
+                <div class="fg"><label>Catégorie *</label><select id="eng-categorie">
+                  <option value="juridique">⚖️ Juridique</option>
+                  <option value="comptable">📊 Comptable</option>
+                  <option value="conseil_fiscal">💼 Conseil fiscal</option>
+                  <option value="deplacement">✈️ Déplacement</option>
+                  <option value="constitution">🏗️ Constitution / Formalités</option>
+                  <option value="expertise">🔍 Expertise</option>
+                  <option value="autre">📋 Autre</option>
+                </select></div>
+                <div class="fg"><label>Fournisseur</label><input type="text" id="eng-fournisseur" placeholder="RECCI / Air France / Notaire..."></div>
+                <div class="fg"><label>Société de prise en charge</label><select id="eng-company">
+                  <option value="sas-living">SAS LIVING</option>
+                  <option value="sarl-guiraud">SARL GUIRAUD</option>
+                  <option value="meulette">La Meulette</option>
+                  <option value="real-gains">Real Gains</option>
+                  <option value="spv-monikaza">Monikaza SPV</option>
+                </select></div>
+              </div>
+              <div>
+                <div class="fg"><label>Montant total TTC (€) *</label><input type="number" id="eng-montant" step="0.01" placeholder="30000"></div>
+                <div class="fg"><label>Date prévue (1ère échéance) *</label><input type="date" id="eng-date"></div>
+                <div class="fg"><label>Étalement</label>
+                  <div style="display:flex;gap:8px;align-items:center">
+                    <select id="eng-mode" onchange="document.getElementById('eng-duree-wrap').style.display=this.value==='etale'?'flex':'none'">
+                      <option value="ponctuel">Ponctuel (1 paiement)</option>
+                      <option value="etale">Étalé sur N mois</option>
+                    </select>
+                    <div id="eng-duree-wrap" style="display:none;align-items:center;gap:6px">
+                      <input type="number" id="eng-duree" min="2" max="60" value="3" style="width:60px"> mois
+                    </div>
+                  </div>
+                </div>
+                <div class="fg"><label>Notes</label><textarea id="eng-notes" style="min-height:50px" placeholder="Provision honoraires audience MEE 7 avril, dossier NREF 20252161..."></textarea></div>
+              </div>
+            </div>
+            <div style="display:flex;gap:8px;margin-top:8px">
+              <button class="btn btn-p btn-sm" onclick="saveEngagement()">💾 Enregistrer</button>
+              <button class="btn btn-g btn-sm" onclick="toggleEngagementForm()">Annuler</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- KPIs + filtres -->
+        <div class="card mb">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px">
+            <div style="display:flex;gap:14px;font-size:12px">
+              <div><span style="color:var(--t2)">Total prévu</span> · <strong id="eng-kpi-total">—</strong></div>
+              <div><span style="color:var(--t2)">À échoir 30j</span> · <strong id="eng-kpi-30j" style="color:var(--amb)">—</strong></div>
+              <div><span style="color:var(--t2)">À échoir 90j</span> · <strong id="eng-kpi-90j">—</strong></div>
+              <div><span style="color:var(--t2)">En cours</span> · <strong id="eng-kpi-count">—</strong></div>
+            </div>
+            <div style="display:flex;gap:6px;align-items:center">
+              <select id="eng-f-categorie" onchange="filterEngagements()" style="font-size:12px;padding:4px 8px;border:1px solid var(--b1);border-radius:5px;background:var(--s1);color:var(--t1)">
+                <option value="">Toutes catégories</option>
+                <option value="juridique">⚖️ Juridique</option>
+                <option value="comptable">📊 Comptable</option>
+                <option value="conseil_fiscal">💼 Conseil fiscal</option>
+                <option value="deplacement">✈️ Déplacement</option>
+                <option value="constitution">🏗️ Constitution</option>
+                <option value="expertise">🔍 Expertise</option>
+                <option value="autre">📋 Autre</option>
+              </select>
+              <select id="eng-f-statut" onchange="filterEngagements()" style="font-size:12px;padding:4px 8px;border:1px solid var(--b1);border-radius:5px;background:var(--s1);color:var(--t1)">
+                <option value="">Tous statuts</option>
+                <option value="prevu" selected>Prévu</option>
+                <option value="en_cours">En cours</option>
+                <option value="converti_payable">Converti</option>
+                <option value="annule">Annulé</option>
+                <option value="solde">Soldé</option>
+              </select>
+              <button onclick="resetEngFilters()" class="btn btn-g btn-sm" style="font-size:11px">↺</button>
+            </div>
+          </div>
+          <div style="overflow-x:auto"><table>
+            <thead><tr>
+              <th>Catégorie</th><th>Libellé</th><th>Fournisseur</th>
+              <th style="text-align:right">Montant TTC</th>
+              <th style="text-align:right">Mensualité</th>
+              <th>Date prévue</th><th>Étalement</th><th>Statut</th><th></th>
+            </tr></thead>
+            <tbody id="eng-tbody"><tr><td colspan="9" style="text-align:center;color:var(--t2);padding:2rem">Chargement…</td></tr></tbody>
+          </table></div>
+        </div>
+      </div>
+
     </div>
 
 
@@ -6128,13 +6226,14 @@ async function loadApurement(){
   const mLabel=now.toLocaleDateString('fr-FR',{month:'long',year:'numeric'});
 
   // Chargement données
-  const [debts,payables,forecasts,receivables,charges,contracts] = await Promise.all([
+  const [debts,payables,forecasts,receivables,charges,contracts,engagements] = await Promise.all([
     safeQ(sb.from('debts').select('*').eq('status','en_cours').neq('monthly_amount',0)),
     safeQ(sb.from('payables').select('*').eq('status','a_payer')),
     safeQ(sb.from('cash_forecast').select('*')),
     safeQ(sb.from('receivables').select('*').in('status',['envoyee','en_attente'])),
     safeQ(sb.from('recurring_charges').select('*').eq('status','actif')),
-    safeQ(sb.from('contracts').select('id,billing_company_id,client_id,commission_amount,tva_taux,payment_expected_date,recurrence,status,signed_date').not('status','eq','termine'))
+    safeQ(sb.from('contracts').select('id,billing_company_id,client_id,commission_amount,tva_taux,payment_expected_date,recurrence,status,signed_date').not('status','eq','termine')),
+    safeQ(sb.from('engagements_pro').select('*').in('statut',['prevu','en_cours']))
   ]);
   const payeRes=await sb.from('settings').select('value').eq('key','paye_perso').single();
   const payePerso=parseFloat(payeRes.data?.value||0);
@@ -6144,6 +6243,7 @@ async function loadApurement(){
   window._apurDebts=debts;
   window._apurPayables=payables;
   window._apurCharges=charges;
+  window._apurEngagements=engagements;
 
   // Calculs
   const soldeQonto=window._qontoData?.totalEur||0;
@@ -6206,7 +6306,23 @@ async function loadApurement(){
   const getAssignedTotal=()=>Object.values(window._apurAssigned).reduce((s,x)=>s+x.amount,0);
   // Dettes pro non-critiques actives ce mois
   const dettesProMois=debts.filter(d=>d.company_id!=='perso'&&d.urgency_level<3&&d.urgency_level>0).reduce((s,d)=>s+Number(d.monthly_amount||0),0);
-  const getTotalSorties=()=>pimentsTotal+dettesProMois+prelevRestants+factureSarl+getAssignedTotal();
+  // Engagements à venir : mensualités échues ce mois (non encore converties en payable)
+  const mKeyYM_calc=mKey;
+  const engagementsTotal=(engagements||[]).reduce((s,e)=>{
+    if(e.statut==='converti_payable'||e.statut==='annule'||e.statut==='solde')return s;
+    // Helper inline (sans dépendance externe) — réplique engagementMontantPourMois
+    const dStart=new Date(e.date_prevue);
+    const duree=Math.max(1,Number(e.duree_mois)||1);
+    const mens=Number(e.montant_total||0)/duree;
+    for(let k=0;k<duree;k++){
+      const d=new Date(dStart);
+      d.setMonth(d.getMonth()+k);
+      const ym=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+      if(ym===mKeyYM_calc)return s+mens;
+    }
+    return s;
+  },0);
+  const getTotalSorties=()=>pimentsTotal+dettesProMois+prelevRestants+factureSarl+engagementsTotal+getAssignedTotal();
   const getDispo=()=>soldeQonto+totalEntrees-getTotalSorties();
 
   // === FRISE ===
@@ -6255,7 +6371,7 @@ async function loadApurement(){
 
     // COL 1 SITUATION — Entrées / Déductions / Solde si tout payé
     const totalSorties=getTotalSorties();
-    const col1='<div class="card" style="border-left:3px solid var(--acc);font-size:12px;position:sticky;top:0">'      +'<div style="font-size:13px;font-weight:700;margin-bottom:10px;color:var(--acc)">Situation '+mLabel+'</div>'      +'<div style="font-size:10px;font-weight:600;color:var(--t2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px;padding-bottom:3px;border-bottom:1px solid var(--b1)">📥 Entrées</div>'      +'<div style="display:flex;justify-content:space-between;margin-bottom:3px"><span style="color:var(--t2)">Solde Qonto+Wise</span><span style="font-weight:600;color:var(--acc)">'+(soldeQonto>=0?'+':'')+Math.round(soldeQonto).toLocaleString('fr-FR')+' €</span></div>'      +'<div style="display:flex;justify-content:space-between;margin-bottom:3px"><span style="color:var(--t2)">Factures émises (en attente)</span><span style="color:var(--grn)">'+(facturesEmises>0?'+'+Math.round(facturesEmises).toLocaleString('fr-FR')+' €':'—')+'</span></div>'      +'<div style="display:flex;justify-content:space-between;margin-bottom:3px"><span style="color:var(--t2)">Attendu en règlement ce mois</span><span style="color:var(--grn)">'+(rentreesRec>0?'+'+Math.round(rentreesRec).toLocaleString('fr-FR')+' €':'—')+'</span></div>'      +(rentreesForecast>0?'<div style="display:flex;justify-content:space-between;margin-bottom:3px"><span style="color:var(--t2)">Prévisions / Trails</span><span style="color:var(--grn)">+'+Math.round(rentreesForecast).toLocaleString('fr-FR')+' €</span></div>':'')      +'<div style="display:flex;justify-content:space-between;font-weight:700;border-top:1px solid var(--b1);padding-top:4px;margin:3px 0 8px"><span>Total entrées ce mois</span><span style="color:var(--grn)">'+Math.round(soldeQonto+totalEntrees).toLocaleString('fr-FR')+' €</span></div>'      +'<div style="font-size:10px;font-weight:600;color:var(--t2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px;padding-bottom:3px;border-bottom:1px solid var(--b1)">📤 Déductions</div>'      +'<div style="display:flex;justify-content:space-between;margin-bottom:3px"><span style="color:var(--t2)">Besoin perso (dont dettes perso)</span><span style="color:var(--red)">−'+Math.round(factureSarl).toLocaleString('fr-FR')+' €</span></div>'      +'<div style="display:flex;justify-content:space-between;margin-bottom:3px"><span style="color:var(--t2)">🌶️ Dettes pro critiques</span><span style="color:var(--red)">−'+Math.round(pimentsTotal).toLocaleString('fr-FR')+' €</span></div>'      +(dettesProMois>0?'<div style="display:flex;justify-content:space-between;margin-bottom:3px"><span style="color:var(--t2)">Dettes pro (autres)</span><span style="color:var(--amb)">−'+Math.round(dettesProMois).toLocaleString('fr-FR')+' €</span></div>':'')      +'<div style="display:flex;justify-content:space-between;margin-bottom:3px"><span style="color:var(--t2)">🔄 Prélèvements restants</span><span style="color:var(--amb)">−'+Math.round(prelevRestants).toLocaleString('fr-FR')+' €</span></div>'      +'<div style="display:flex;justify-content:space-between;margin-bottom:3px"><span style="color:var(--t2)">✅ Factures cochées</span><span id="sit-at" style="color:var(--red)">−'+Math.round(at).toLocaleString('fr-FR')+' €</span></div>'      +'<div style="display:flex;justify-content:space-between;font-weight:700;border-top:1px solid var(--b1);padding-top:4px;margin:3px 0 8px"><span>Total enveloppe</span><span id="sit-total-sorties" style="color:var(--red)">−'+Math.round(totalSorties).toLocaleString('fr-FR')+' €</span></div>'      +'<div style="padding:10px;border-radius:8px;border:2px solid '+dispColor+';text-align:center;margin:8px 0 10px">'      +'<div style="font-size:9px;color:var(--t2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">Solde si tout payé</div>'      +'<div id="sit-dispo" style="font-size:20px;font-weight:700;color:'+dispColor+'">'+(dispo>=0?'+':'')+Math.round(dispo).toLocaleString('fr-FR')+' €</div>'      +'</div>'      +'<div style="background:var(--s2);border-radius:6px;padding:7px 10px">'      +'<div style="font-size:9px;color:var(--t2);text-transform:uppercase;letter-spacing:.5px">Stock dettes total</div>'      +'<div style="font-size:14px;font-weight:600;margin-top:2px">'+Math.round(stockDettes+stockFact).toLocaleString('fr-FR')+' €</div>'      +'<div style="font-size:10px;color:var(--t2)">'+Math.round(stockDettes).toLocaleString('fr-FR')+' € dettes · '+Math.round(stockFact).toLocaleString('fr-FR')+' € factures</div>'      +'</div>'      +'</div>';
+    const col1='<div class="card" style="border-left:3px solid var(--acc);font-size:12px;position:sticky;top:0">'      +'<div style="font-size:13px;font-weight:700;margin-bottom:10px;color:var(--acc)">Situation '+mLabel+'</div>'      +'<div style="font-size:10px;font-weight:600;color:var(--t2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px;padding-bottom:3px;border-bottom:1px solid var(--b1)">📥 Entrées</div>'      +'<div style="display:flex;justify-content:space-between;margin-bottom:3px"><span style="color:var(--t2)">Solde Qonto+Wise</span><span style="font-weight:600;color:var(--acc)">'+(soldeQonto>=0?'+':'')+Math.round(soldeQonto).toLocaleString('fr-FR')+' €</span></div>'      +'<div style="display:flex;justify-content:space-between;margin-bottom:3px"><span style="color:var(--t2)">Factures émises (en attente)</span><span style="color:var(--grn)">'+(facturesEmises>0?'+'+Math.round(facturesEmises).toLocaleString('fr-FR')+' €':'—')+'</span></div>'      +'<div style="display:flex;justify-content:space-between;margin-bottom:3px"><span style="color:var(--t2)">Attendu en règlement ce mois</span><span style="color:var(--grn)">'+(rentreesRec>0?'+'+Math.round(rentreesRec).toLocaleString('fr-FR')+' €':'—')+'</span></div>'      +(rentreesForecast>0?'<div style="display:flex;justify-content:space-between;margin-bottom:3px"><span style="color:var(--t2)">Prévisions / Trails</span><span style="color:var(--grn)">+'+Math.round(rentreesForecast).toLocaleString('fr-FR')+' €</span></div>':'')      +'<div style="display:flex;justify-content:space-between;font-weight:700;border-top:1px solid var(--b1);padding-top:4px;margin:3px 0 8px"><span>Total entrées ce mois</span><span style="color:var(--grn)">'+Math.round(soldeQonto+totalEntrees).toLocaleString('fr-FR')+' €</span></div>'      +'<div style="font-size:10px;font-weight:600;color:var(--t2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px;padding-bottom:3px;border-bottom:1px solid var(--b1)">📤 Déductions</div>'      +'<div style="display:flex;justify-content:space-between;margin-bottom:3px"><span style="color:var(--t2)">Besoin perso (dont dettes perso)</span><span style="color:var(--red)">−'+Math.round(factureSarl).toLocaleString('fr-FR')+' €</span></div>'      +'<div style="display:flex;justify-content:space-between;margin-bottom:3px"><span style="color:var(--t2)">🌶️ Dettes pro critiques</span><span style="color:var(--red)">−'+Math.round(pimentsTotal).toLocaleString('fr-FR')+' €</span></div>'      +(dettesProMois>0?'<div style="display:flex;justify-content:space-between;margin-bottom:3px"><span style="color:var(--t2)">Dettes pro (autres)</span><span style="color:var(--amb)">−'+Math.round(dettesProMois).toLocaleString('fr-FR')+' €</span></div>':'')      +'<div style="display:flex;justify-content:space-between;margin-bottom:3px"><span style="color:var(--t2)">🔄 Prélèvements restants</span><span style="color:var(--amb)">−'+Math.round(prelevRestants).toLocaleString('fr-FR')+' €</span></div>'      +(engagementsTotal>0?'<div style="display:flex;justify-content:space-between;margin-bottom:3px"><span style="color:var(--t2)">🗓️ Engagements prévus</span><span style="color:var(--amb)">−'+Math.round(engagementsTotal).toLocaleString('fr-FR')+' €</span></div>':'')      +'<div style="display:flex;justify-content:space-between;margin-bottom:3px"><span style="color:var(--t2)">✅ Factures cochées</span><span id="sit-at" style="color:var(--red)">−'+Math.round(at).toLocaleString('fr-FR')+' €</span></div>'      +'<div style="display:flex;justify-content:space-between;font-weight:700;border-top:1px solid var(--b1);padding-top:4px;margin:3px 0 8px"><span>Total enveloppe</span><span id="sit-total-sorties" style="color:var(--red)">−'+Math.round(totalSorties).toLocaleString('fr-FR')+' €</span></div>'      +'<div style="padding:10px;border-radius:8px;border:2px solid '+dispColor+';text-align:center;margin:8px 0 10px">'      +'<div style="font-size:9px;color:var(--t2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">Solde si tout payé</div>'      +'<div id="sit-dispo" style="font-size:20px;font-weight:700;color:'+dispColor+'">'+(dispo>=0?'+':'')+Math.round(dispo).toLocaleString('fr-FR')+' €</div>'      +'</div>'      +'<div style="background:var(--s2);border-radius:6px;padding:7px 10px">'      +'<div style="font-size:9px;color:var(--t2);text-transform:uppercase;letter-spacing:.5px">Stock dettes total</div>'      +'<div style="font-size:14px;font-weight:600;margin-top:2px">'+Math.round(stockDettes+stockFact).toLocaleString('fr-FR')+' €</div>'      +'<div style="font-size:10px;color:var(--t2)">'+Math.round(stockDettes).toLocaleString('fr-FR')+' € dettes · '+Math.round(stockFact).toLocaleString('fr-FR')+' € factures</div>'      +'</div>'      +'</div>';
     // COL 2 — Piments + Bananes avec checkboxes
     const searchQ=(window._apurSearch||'').toLowerCase();
     const filterSoc=window._apurFilterSoc||'';
@@ -6332,6 +6448,56 @@ async function loadApurement(){
     };
     const pimentCards=pimentItems.map(d=>mkApurCard('d_'+d.id,d.debiteur,debtSub(d),Number(d.monthly_amount||d.amount_remaining||0),pLabels[d.urgency_level||0],d.due_date,d)).join('');
     const bananeCards=bananeItems.map(p=>mkApurCard('p_'+p.id,p.fournisseur,(co[p.company_id]||p.company_id)+(p.invoice_ref?' · '+p.invoice_ref:''),Number(p.amount_ttc||0),bLabels[p.priority||0],p.due_date,null)).join('');
+
+    // ENGAGEMENTS À VENIR — engagements actifs avec mensualité dans les 60 jours
+    const today60=new Date();
+    const j60=new Date(today60);j60.setDate(j60.getDate()+60);
+    const engCatIcons={juridique:'⚖️',comptable:'📊',conseil_fiscal:'💼',deplacement:'✈️',constitution:'🏗️',expertise:'🔍',autre:'📋'};
+    const engagementItems=(engagements||[])
+      .filter(e=>['prevu','en_cours'].includes(e.statut))
+      .filter(e=>!searchQ||(e.libelle||'').toLowerCase().includes(searchQ)||(e.fournisseur||'').toLowerCase().includes(searchQ))
+      .filter(e=>!filterSoc||e.company_id===filterSoc)
+      .map(e=>{
+        // Trouver la prochaine échéance (mensualité) dans les 60 jours
+        const dStart=new Date(e.date_prevue);
+        const duree=Math.max(1,Number(e.duree_mois)||1);
+        const mens=Number(e.montant_total||0)/duree;
+        let nextDate=null,echNum=0;
+        for(let k=0;k<duree;k++){
+          const d=new Date(dStart);d.setMonth(d.getMonth()+k);
+          if(d<=j60){nextDate=d;echNum=k+1;}
+          if(d>j60)break;
+        }
+        return nextDate?{...e,_nextDate:nextDate,_mens:mens,_echNum:echNum,_duree:duree}:null;
+      })
+      .filter(x=>x)
+      .sort((a,b)=>a._nextDate-b._nextDate);
+
+    const mkEngCard=(e)=>{
+      const id='e_'+e.id;
+      const checked=!!window._apurAssigned[id];
+      const isOverdue=e._nextDate<new Date();
+      const bg=checked?'rgba(55,138,221,.07)':'var(--s2)';
+      const border=checked?'var(--acc)':'var(--b1)';
+      const dateStr=e._nextDate.toLocaleDateString('fr-FR',{day:'2-digit',month:'short'});
+      const cat=engCatIcons[e.categorie]||'📋';
+      const soc=co[e.company_id]||e.company_id;
+      const sub=`${soc}${e.fournisseur?' · '+e.fournisseur:''}${e._duree>1?' · '+e._echNum+'/'+e._duree:''}`;
+      return `<label style="display:flex;align-items:flex-start;gap:9px;padding:8px 10px;margin-bottom:4px;border-radius:6px;border:1px solid ${border};background:${bg};cursor:pointer;transition:all .12s">
+        <input type="checkbox" ${checked?'checked':''} onchange="apurToggle('${id}',this.checked)" style="cursor:pointer;width:14px;height:14px;flex-shrink:0;accent-color:var(--acc);margin-top:2px">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:12px;font-weight:500;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${cat} ${e.libelle}</div>
+          <div style="font-size:10px;color:var(--t2)">${sub}</div>
+        </div>
+        <div style="text-align:right;flex-shrink:0">
+          <div style="font-size:12px;font-weight:600;color:${isOverdue?'var(--red)':'var(--t1)'}">${Math.round(e._mens).toLocaleString('fr-FR')} €</div>
+          <div style="font-size:10px;color:${isOverdue?'var(--red)':'var(--t2)'}">${dateStr}${isOverdue?' ⚠️':''}</div>
+        </div>
+      </label>`;
+    };
+    const engagementCards=engagementItems.map(mkEngCard).join('');
+    const eTotal=Math.round(engagementItems.reduce((s,e)=>s+Number(e._mens||0),0));
+
     const payesCeMois=debts.filter(d=>isPayeCeMois(d)&&d.company_id!=='perso');
     const payesCards=payesCeMois.map(d=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 10px;margin-bottom:4px;border-radius:6px;border:1px solid var(--grn);background:rgba(24,168,90,.06);font-size:12px"><div><div style="font-weight:500">${d.debiteur}</div><div style="font-size:10px;color:var(--t2)">${co[d.company_id]||d.company_id} · payé le ${new Date(d.last_paid_date).toLocaleDateString('fr-FR')}</div></div><div style="font-weight:600;color:var(--grn)">✅ ${Math.round(d.last_paid_amount||d.monthly_amount||0).toLocaleString('fr-FR')} €</div></div>`).join('');
 
@@ -6362,6 +6528,13 @@ async function loadApurement(){
           <span style="font-size:10px;color:var(--t2)">${bananeItems.length} · ${bTotal.toLocaleString('fr-FR')} €</span>
         </div>
         <div style="overflow-y:auto;flex:1">${bananeCards||'<div style="font-size:11px;color:var(--t3);text-align:center;padding:12px">Aucune facture en attente ✅</div>'}</div>
+      </div>
+      <div class="card" style="border-top:3px solid #6b46c1;padding:12px;max-height:35vh;display:flex;flex-direction:column">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-shrink:0">
+          <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.7px;color:#6b46c1">🗓️ Engagements à venir <span style="font-weight:400;color:var(--t3);text-transform:none;letter-spacing:0">· 60j</span></div>
+          <span style="font-size:10px;color:var(--t2)">${engagementItems.length} · ${eTotal.toLocaleString('fr-FR')} €</span>
+        </div>
+        <div style="overflow-y:auto;flex:1">${engagementCards||'<div style="font-size:11px;color:var(--t3);text-align:center;padding:12px">Aucun engagement à échoir dans les 60 jours</div>'}</div>
       </div>
       ${payesCeMois.length>0?`<div style="margin-top:10px">
         <div style="font-size:10px;font-weight:700;color:var(--grn);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;padding-bottom:4px;border-bottom:1px solid rgba(24,168,90,.3)">✅ Réglé ce mois — ${payesCeMois.length} · ${Math.round(payesCeMois.reduce((s,d)=>s+(d.last_paid_amount||d.monthly_amount||0),0)).toLocaleString('fr-FR')} €</div>
@@ -6418,11 +6591,19 @@ function apurToggle(id, checked){
   if(checked){
     const debts=window._apurDebts||[];
     const payables=window._apurPayables||[];
+    const engagements=window._apurEngagements||[];
     const co={'sarl-guiraud':'SARL GUIRAUD','sas-living':'SAS LIVING','meulette':'La Meulette','real-gains':'Real Gains','spv-monikaza':'Monikaza SPV','perso':'Perso'};
     let item=null;
     if(id.startsWith('d_')){
       const d=debts.find(x=>x.id===id.slice(2));
       if(d) item={id,name:d.debiteur,sub:debtSub?debtSub(d):(co[d.company_id]||d.company_id),amount:Number(d.monthly_amount||d.amount_remaining||0),type:'dette',raw:d};
+    } else if(id.startsWith('e_')){
+      const e=engagements.find(x=>x.id===id.slice(2));
+      if(e){
+        const duree=Math.max(1,Number(e.duree_mois)||1);
+        const mens=Number(e.montant_total||0)/duree;
+        item={id,name:'🗓️ '+e.libelle,sub:(co[e.company_id]||e.company_id)+(e.fournisseur?' · '+e.fournisseur:'')+(duree>1?' · mensualité':''),amount:mens,type:'engagement',raw:e};
+      }
     } else {
       const p=payables.find(x=>x.id===id.slice(2));
       if(p) item={id,name:p.fournisseur,sub:(co[p.company_id]||p.company_id)+(p.invoice_ref?' · '+p.invoice_ref:''),amount:Number(p.amount_ttc||0),type:'facture',raw:p};
@@ -6445,19 +6626,66 @@ async function apurPayer(id){
     if(item.type==='facture'){
       const newStatus=mt>=item.amount?'paye':'en_cours';
       await sb.from('payables').update({status:newStatus,amount_paid:(item.raw.amount_paid||0)+mt}).eq('id',item.raw.id);
+    } else if(item.type==='engagement'){
+      // Engagement payé directement (sans passer par payable) :
+      // - étalé : décrémente une mensualité (passe en_cours, solde si dernière)
+      // - ponctuel : passe à 'solde'
+      const e=item.raw;
+      const duree=Math.max(1,Number(e.duree_mois)||1);
+      let newStatut;
+      if(duree<=1){
+        newStatut='solde';
+      } else {
+        // Décrémenter duree_mois et montant_total restant
+        const mensPayee=mt;
+        const newMontant=Math.max(0,Number(e.montant_total||0)-mensPayee);
+        const newDuree=Math.max(0,duree-1);
+        newStatut=newDuree<=0||newMontant<=0?'solde':'en_cours';
+        // Reculer date_prevue d'un mois pour la prochaine échéance
+        const dStart=new Date(e.date_prevue);
+        dStart.setMonth(dStart.getMonth()+1);
+        const newDate=dStart.toISOString().slice(0,10);
+        await sb.from('engagements_pro').update({
+          montant_total:newMontant,
+          duree_mois:newDuree,
+          date_prevue:newDate,
+          statut:newStatut
+        }).eq('id',e.id);
+      }
+      if(duree<=1){
+        await sb.from('engagements_pro').update({statut:newStatut}).eq('id',e.id);
+      }
+      // Créer aussi une trace dans payables (statut paye) pour l'historique compta
+      await sb.from('payables').insert({
+        company_id:e.company_id,
+        fournisseur:e.fournisseur||e.libelle,
+        label:'[Engagement] '+e.libelle,
+        objet:'[Engagement] '+e.libelle,
+        amount_ht:Math.round(mt/1.20*100)/100,
+        amount_ttc:mt,
+        tva_amount:Math.round((mt-mt/1.20)*100)/100,
+        tva_taux:20,
+        due_date:new Date().toISOString().slice(0,10),
+        amount_paid:mt,
+        status:'paye',
+        priority:0,
+        notes:`Paiement direct depuis engagement « ${e.libelle} »`
+      });
     } else {
       const remaining=Math.max(0,(item.raw.amount_remaining||item.amount)-mt);
       const newStatus=remaining<=0?'solde':'en_cours';
       await sb.from('debts').update({amount_remaining:remaining,status:newStatus}).eq('id',item.raw.id);
     }
     delete window._apurAssigned[id];
-    // Recharger les données
-    const [dR,pR]=await Promise.all([
+    // Recharger les données (incluant engagements)
+    const [dR,pR,eR]=await Promise.all([
       sb.from('debts').select('*').neq('status','solde').neq('status','paye'),
-      sb.from('payables').select('*').neq('status','paye')
+      sb.from('payables').select('*').neq('status','paye'),
+      sb.from('engagements_pro').select('*').in('statut',['prevu','en_cours'])
     ]);
     window._apurDebts=dR.data||[];
     window._apurPayables=pR.data||[];
+    window._apurEngagements=eR.data||[];
     toast('✅ '+item.name+' — '+Math.round(mt).toLocaleString('fr-FR')+' € payé');
     window._apurRenderAll&&window._apurRenderAll();
   } catch(e){ toast('Erreur: '+e.message); }
@@ -9276,7 +9504,7 @@ let ccHistObj=null;
 function toggleCCForm(){const f=document.getElementById('cc-form');if(f)f.style.display=f.style.display==='none'?'block':'none';}
 
 function showCCTab(tab){
-  ['interco','payables','emises','charges'].forEach(t=>{
+  ['interco','payables','emises','charges','engagements'].forEach(t=>{
     const s=document.getElementById('cc-section-'+t);
     if(s)s.style.display=t===tab?'block':'none';
   });
@@ -9285,13 +9513,278 @@ function showCCTab(tab){
   document.getElementById('cc-btn-add-emise').style.display=tab==='emises'?'':'none';
   document.getElementById('cc-btn-add-charge').style.display=tab==='charges'?'':'none';
   document.getElementById('cc-btn-import-charge').style.display=tab==='charges'?'':'none';
-  ['interco','payables','emises','charges'].forEach(t=>{
+  const engBtn=document.getElementById('cc-btn-add-engagement');
+  if(engBtn)engBtn.style.display=tab==='engagements'?'':'none';
+  ['interco','payables','emises','charges','engagements'].forEach(t=>{
     const btn=document.getElementById('cc-tab-'+t);
     if(btn)btn.className='btn btn-sm '+(t===tab?'btn-p':'btn-g');
   });
   if(tab==='payables')loadPayables();
   if(tab==='emises')loadEmises();
   if(tab==='charges')loadCharges();
+  if(tab==='engagements')loadEngagements();
+}
+
+// ════════════════════════════════════════════════════════════
+// ENGAGEMENTS À VENIR — Dépenses pro prévues, non encore facturées
+// ════════════════════════════════════════════════════════════
+window._engAllData = [];
+
+const ENG_CAT_LABELS = {
+  juridique:'⚖️ Juridique',
+  comptable:'📊 Comptable',
+  conseil_fiscal:'💼 Conseil fiscal',
+  deplacement:'✈️ Déplacement',
+  constitution:'🏗️ Constitution',
+  expertise:'🔍 Expertise',
+  autre:'📋 Autre'
+};
+const ENG_STATUT_LABELS = {
+  prevu:{label:'Prévu',color:'var(--acc)',bg:'rgba(55,138,221,.12)'},
+  en_cours:{label:'En cours',color:'var(--amb)',bg:'rgba(186,117,23,.12)'},
+  converti_payable:{label:'Converti',color:'var(--grn)',bg:'rgba(24,168,90,.12)'},
+  annule:{label:'Annulé',color:'var(--t3)',bg:'var(--s2)'},
+  solde:{label:'Soldé',color:'var(--grn)',bg:'rgba(24,168,90,.18)'}
+};
+
+function toggleEngagementForm(){
+  const f=document.getElementById('engagement-form');
+  if(!f) return;
+  if(f.style.display==='none'){
+    f.style.display='block';
+    document.getElementById('eng-id').value='';
+    document.getElementById('eng-form-title').textContent='Nouvel engagement à venir';
+    document.getElementById('eng-libelle').value='';
+    document.getElementById('eng-categorie').value='juridique';
+    document.getElementById('eng-fournisseur').value='';
+    document.getElementById('eng-montant').value='';
+    document.getElementById('eng-date').value=new Date().toISOString().slice(0,10);
+    document.getElementById('eng-mode').value='ponctuel';
+    document.getElementById('eng-duree').value=3;
+    document.getElementById('eng-duree-wrap').style.display='none';
+    document.getElementById('eng-notes').value='';
+    if(curCo?.id){
+      const sel=document.getElementById('eng-company');
+      if(sel)sel.value=curCo.id;
+    }
+  } else {
+    f.style.display='none';
+  }
+}
+
+async function saveEngagement(){
+  const id=document.getElementById('eng-id').value;
+  const libelle=document.getElementById('eng-libelle').value.trim();
+  const categorie=document.getElementById('eng-categorie').value;
+  const fournisseur=document.getElementById('eng-fournisseur').value.trim()||null;
+  const company_id=document.getElementById('eng-company').value;
+  const montant_total=parseFloat(document.getElementById('eng-montant').value);
+  const date_prevue=document.getElementById('eng-date').value;
+  const mode=document.getElementById('eng-mode').value;
+  const duree_mois=mode==='etale'?parseInt(document.getElementById('eng-duree').value)||1:1;
+  const notes=document.getElementById('eng-notes').value.trim()||null;
+
+  if(!libelle){toast('Libellé requis');return;}
+  if(!montant_total||montant_total<=0){toast('Montant requis');return;}
+  if(!date_prevue){toast('Date prévue requise');return;}
+
+  const payload={
+    company_id,libelle,categorie,fournisseur,
+    montant_total,date_prevue,duree_mois,
+    notes,statut:'prevu'
+  };
+
+  let res;
+  if(id){
+    res=await sb.from('engagements_pro').update(payload).eq('id',id);
+  } else {
+    res=await sb.from('engagements_pro').insert(payload);
+  }
+  if(res.error){toast('Erreur: '+res.error.message);return;}
+  toast(id?'✓ Engagement modifié':'✓ Engagement créé');
+  toggleEngagementForm();
+  loadEngagements();
+  if(typeof loadApurement==='function')loadApurement();
+}
+
+async function loadEngagements(){
+  if(!curCo)return;
+  const{data,error}=await sb.from('engagements_pro')
+    .select('*')
+    .eq('company_id',curCo.id)
+    .order('date_prevue',{ascending:true});
+  if(error){console.error(error);return;}
+  window._engAllData=data||[];
+  filterEngagements();
+}
+
+function filterEngagements(){
+  if(!window._engAllData)return;
+  const cat=document.getElementById('eng-f-categorie')?.value||'';
+  const stat=document.getElementById('eng-f-statut')?.value||'';
+  let filtered=window._engAllData;
+  if(cat)filtered=filtered.filter(e=>e.categorie===cat);
+  if(stat)filtered=filtered.filter(e=>e.statut===stat);
+  renderEngagements(filtered);
+}
+
+function resetEngFilters(){
+  document.getElementById('eng-f-categorie').value='';
+  document.getElementById('eng-f-statut').value='prevu';
+  filterEngagements();
+}
+
+function renderEngagements(data){
+  const tbody=document.getElementById('eng-tbody');
+  if(!tbody)return;
+
+  // KPIs (basés sur tout le dataset, pas seulement filtré)
+  const all=window._engAllData||[];
+  const actifs=all.filter(e=>['prevu','en_cours'].includes(e.statut));
+  const total=actifs.reduce((s,e)=>s+Number(e.montant_total||0),0);
+  const today=new Date();
+  const j30=new Date(today);j30.setDate(j30.getDate()+30);
+  const j90=new Date(today);j90.setDate(j90.getDate()+90);
+  const echeancesEntre=(start,end)=>actifs.reduce((s,e)=>{
+    return s+engagementMontantEntreDates(e,start,end);
+  },0);
+  document.getElementById('eng-kpi-total').textContent=Math.round(total).toLocaleString('fr-FR')+' €';
+  document.getElementById('eng-kpi-30j').textContent=Math.round(echeancesEntre(today,j30)).toLocaleString('fr-FR')+' €';
+  document.getElementById('eng-kpi-90j').textContent=Math.round(echeancesEntre(today,j90)).toLocaleString('fr-FR')+' €';
+  document.getElementById('eng-kpi-count').textContent=actifs.length;
+
+  if(!data?.length){
+    tbody.innerHTML='<tr><td colspan="9" style="text-align:center;color:var(--t2);padding:2rem">Aucun engagement — cliquez sur « + Engagement à venir » pour en ajouter</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML=data.map(e=>{
+    const mens=e.duree_mois>1?Math.round(e.montant_total/e.duree_mois):e.montant_total;
+    const dt=e.date_prevue?new Date(e.date_prevue).toLocaleDateString('fr-FR',{day:'2-digit',month:'short',year:'2-digit'}):'—';
+    const etalement=e.duree_mois>1?`${e.duree_mois} mois`:'Ponctuel';
+    const statut=ENG_STATUT_LABELS[e.statut]||ENG_STATUT_LABELS.prevu;
+    const cat=ENG_CAT_LABELS[e.categorie]||e.categorie;
+    const isOverdue=e.statut==='prevu'&&new Date(e.date_prevue)<new Date();
+    const dateColor=isOverdue?'var(--red)':'var(--t1)';
+    const isConverti=e.statut==='converti_payable';
+    return `<tr data-eng-id="${e.id}">
+      <td style="font-size:12px">${cat}</td>
+      <td style="font-size:12px;font-weight:500">${e.libelle}${e.notes?`<div style="font-size:10px;color:var(--t2);font-weight:400">${e.notes.substring(0,80)}${e.notes.length>80?'…':''}</div>`:''}</td>
+      <td style="font-size:12px;color:var(--t2)">${e.fournisseur||'—'}</td>
+      <td style="text-align:right;font-family:monospace;font-size:12px;font-weight:600">${Math.round(e.montant_total).toLocaleString('fr-FR')} €</td>
+      <td style="text-align:right;font-family:monospace;font-size:11px;color:var(--t2)">${e.duree_mois>1?Math.round(mens).toLocaleString('fr-FR')+' €/m':'—'}</td>
+      <td style="font-size:12px;color:${dateColor}">${dt}${isOverdue?' ⚠️':''}</td>
+      <td style="font-size:11px;color:var(--t2)">${etalement}</td>
+      <td><span style="font-size:10px;padding:2px 7px;border-radius:8px;background:${statut.bg};color:${statut.color};font-weight:600">${statut.label}</span></td>
+      <td style="text-align:right;white-space:nowrap">
+        ${!isConverti?`<button onclick="convertEngagementToPayable('${e.id}')" title="Convertir en facture à payer (la facture est arrivée)" style="font-size:10px;padding:3px 6px;border-radius:4px;border:1px solid var(--grn);background:rgba(24,168,90,.1);color:var(--grn);cursor:pointer;margin-right:3px">📄→</button>`:''}
+        <button onclick="editEngagement('${e.id}')" title="Modifier" style="font-size:10px;padding:3px 6px;border-radius:4px;border:1px solid var(--b1);background:var(--s2);color:var(--t1);cursor:pointer;margin-right:3px">✏️</button>
+        <button onclick="deleteEngagement('${e.id}')" title="Supprimer" style="font-size:10px;padding:3px 6px;border-radius:4px;border:1px solid var(--red);background:transparent;color:var(--red);cursor:pointer">🗑</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function editEngagement(id){
+  const e=window._engAllData.find(x=>x.id===id);
+  if(!e)return;
+  toggleEngagementForm();
+  document.getElementById('eng-id').value=e.id;
+  document.getElementById('eng-form-title').textContent='Modifier l\'engagement';
+  document.getElementById('eng-libelle').value=e.libelle||'';
+  document.getElementById('eng-categorie').value=e.categorie||'autre';
+  document.getElementById('eng-fournisseur').value=e.fournisseur||'';
+  document.getElementById('eng-company').value=e.company_id||'sas-living';
+  document.getElementById('eng-montant').value=e.montant_total||'';
+  document.getElementById('eng-date').value=e.date_prevue||'';
+  if(e.duree_mois>1){
+    document.getElementById('eng-mode').value='etale';
+    document.getElementById('eng-duree').value=e.duree_mois;
+    document.getElementById('eng-duree-wrap').style.display='flex';
+  } else {
+    document.getElementById('eng-mode').value='ponctuel';
+    document.getElementById('eng-duree-wrap').style.display='none';
+  }
+  document.getElementById('eng-notes').value=e.notes||'';
+}
+
+async function deleteEngagement(id){
+  const e=window._engAllData.find(x=>x.id===id);
+  if(!e)return;
+  if(!confirm(`Supprimer l'engagement « ${e.libelle} » (${Math.round(e.montant_total).toLocaleString('fr-FR')} €) ?`))return;
+  const{error}=await sb.from('engagements_pro').delete().eq('id',id);
+  if(error){toast('Erreur: '+error.message);return;}
+  toast('✓ Engagement supprimé');
+  loadEngagements();
+  if(typeof loadApurement==='function')loadApurement();
+}
+
+async function convertEngagementToPayable(id){
+  const e=window._engAllData.find(x=>x.id===id);
+  if(!e)return;
+  // Mensualité : si étalé, on convertit la mensualité courante uniquement
+  const mens=e.duree_mois>1?Math.round(e.montant_total/e.duree_mois*100)/100:e.montant_total;
+  const label=e.duree_mois>1?`${e.libelle} (mensualité)`:e.libelle;
+  if(!confirm(`Convertir en facture « À payer » ?\n\n${label}\nMontant : ${Math.round(mens).toLocaleString('fr-FR')} €\nFournisseur : ${e.fournisseur||'—'}\n\nUne ligne sera créée dans « À payer » et l'engagement sera marqué comme converti.`))return;
+
+  // Créer le payable
+  const payable={
+    company_id:e.company_id,
+    fournisseur:e.fournisseur||e.libelle,
+    label:label,
+    objet:label,
+    amount_ht:Math.round(mens/1.20*100)/100,
+    amount_ttc:mens,
+    tva_amount:Math.round((mens-mens/1.20)*100)/100,
+    tva_taux:20,
+    due_date:new Date().toISOString().slice(0,10),
+    status:'a_payer',
+    priority:1,
+    notes:`Issu de l'engagement « ${e.libelle} » — ${e.notes||''}`
+  };
+  const{data:newPay,error:e1}=await sb.from('payables').insert(payable).select().single();
+  if(e1){toast('Erreur création payable: '+e1.message);return;}
+
+  // Mise à jour engagement
+  const newStatut=e.duree_mois>1?'en_cours':'converti_payable';
+  const{error:e2}=await sb.from('engagements_pro').update({
+    statut:newStatut,
+    payable_id:newPay.id
+  }).eq('id',id);
+  if(e2){console.error(e2);}
+
+  toast(`✓ Converti en facture à payer (${Math.round(mens).toLocaleString('fr-FR')} €)`);
+  loadEngagements();
+  if(typeof loadApurement==='function')loadApurement();
+}
+
+// Helper : montant d'un engagement échu entre deux dates
+// (gère le mode étalé : N mensualités à partir de date_prevue)
+function engagementMontantEntreDates(eng,start,end){
+  const dStart=new Date(eng.date_prevue);
+  const duree=Math.max(1,Number(eng.duree_mois)||1);
+  const mens=Number(eng.montant_total||0)/duree;
+  let total=0;
+  for(let k=0;k<duree;k++){
+    const d=new Date(dStart);
+    d.setMonth(d.getMonth()+k);
+    if(d>=start&&d<=end)total+=mens;
+  }
+  return total;
+}
+
+// Helper : mensualités d'un engagement qui tombent dans un mois donné (YYYY-MM)
+function engagementMontantPourMois(eng,mKeyYM){
+  const dStart=new Date(eng.date_prevue);
+  const duree=Math.max(1,Number(eng.duree_mois)||1);
+  const mens=Number(eng.montant_total||0)/duree;
+  for(let k=0;k<duree;k++){
+    const d=new Date(dStart);
+    d.setMonth(d.getMonth()+k);
+    const ym=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+    if(ym===mKeyYM)return mens;
+  }
+  return 0;
 }
 
 function toggleChargeForm(){
