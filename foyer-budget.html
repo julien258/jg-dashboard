@@ -325,6 +325,17 @@
       </div>
     </div>
 
+    <!-- MODAL DIAGNOSTIC DRIVE -->
+    <div id="drive-diag-overlay" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:1000;align-items:center;justify-content:center" onclick="if(event.target===this)closeDriveDiag()">
+      <div style="background:var(--s1);border-radius:8px;padding:20px;max-width:700px;width:90%;max-height:90vh;overflow-y:auto">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+          <div style="font-size:16px;font-weight:600">🔧 Diagnostic Google Drive</div>
+          <button onclick="closeDriveDiag()" style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--t2)">✕</button>
+        </div>
+        <div id="drive-diag-content" style="font-size:12px"></div>
+      </div>
+    </div>
+
     <!-- BLOC 2B : HISTORIQUE DÉPENSES -->
     <div class="card" style="border-left:3px solid var(--s3)">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
@@ -357,6 +368,7 @@
             <option value="">Toutes années</option>
           </select>
           <button class="btn btn-g btn-sm" onclick="exportGarantiesCSV()" style="font-size:11px" title="Export CSV pour assurance">📥 CSV</button>
+          <button class="btn btn-g btn-sm" onclick="diagnoseDrive()" style="font-size:11px" title="Tester le sync Google Drive et afficher l'erreur exacte">🔧 Tester Drive</button>
           <button class="btn btn-g btn-sm" onclick="loadGaranties()" style="font-size:11px">↺</button>
         </div>
       </div>
@@ -2393,6 +2405,93 @@ async function submitInvoiceUpload() {
   loadFacturesARelancer();
   loadHistoriqueDepenses();
   if (typeof loadGaranties === 'function') loadGaranties();
+}
+
+// ════════════════════════════════════════════════════════════
+// 🔧 DIAGNOSTIC GOOGLE DRIVE
+// ════════════════════════════════════════════════════════════
+async function diagnoseDrive() {
+  const overlay = document.getElementById('drive-diag-overlay');
+  const content = document.getElementById('drive-diag-content');
+  if (!overlay || !content) return;
+  overlay.style.display = 'flex';
+  content.innerHTML = '<div style="padding:20px;text-align:center;color:var(--t2)">⏳ Test en cours...<br><span style="font-size:11px">Refresh token → Access token → Lecture → Écriture → Cleanup</span></div>';
+
+  try {
+    const r = await fetch('/.netlify/functions/drive-diagnose');
+    if (!r.ok) {
+      content.innerHTML = `<div style="color:var(--red);padding:14px;border:1px solid var(--red);border-radius:6px">
+        ❌ Fonction Netlify inaccessible (HTTP ${r.status})<br>
+        <span style="font-size:11px;color:var(--t2)">La fonction drive-diagnose.js n'est peut-être pas encore déployée. Vérifier sur app.netlify.com → Deploys.</span>
+      </div>`;
+      return;
+    }
+    const report = await r.json();
+
+    const overallColor = report.overall === 'success' ? 'var(--grn)' : report.overall === 'partial' ? 'var(--amb)' : 'var(--red)';
+    const overallLabel = report.overall === 'success' ? '✅ SUCCÈS' : report.overall === 'partial' ? '⚠️ PARTIEL' : '❌ ÉCHEC';
+
+    let html = `<div style="margin-bottom:16px;padding:12px;border-radius:6px;background:${overallColor};color:white;text-align:center;font-weight:600">
+      Verdict global : ${overallLabel}
+    </div>`;
+
+    // Variables d'env
+    html += '<div style="margin-bottom:14px"><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--t2);margin-bottom:6px">Variables d\'environnement Netlify</div>';
+    html += '<table style="width:100%;font-size:11px;border-collapse:collapse">';
+    Object.entries(report.env).forEach(([k, v]) => {
+      const ok = !v.includes('MANQUANTE');
+      html += `<tr><td style="padding:4px 8px;color:var(--t2)">${k}</td><td style="padding:4px 8px;color:${ok?'var(--grn)':'var(--red)'};font-family:monospace">${v}</td></tr>`;
+    });
+    html += '</table></div>';
+
+    // Étapes
+    html += '<div style="margin-bottom:14px"><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--t2);margin-bottom:6px">Étapes du test</div>';
+    report.steps.forEach(s => {
+      const isOk = s.status.startsWith('✅');
+      const isWarn = s.status.startsWith('⚠️');
+      const bg = isOk ? 'rgba(24,168,90,.06)' : isWarn ? 'rgba(186,117,23,.06)' : 'rgba(229,57,53,.06)';
+      const border = isOk ? 'var(--grn)' : isWarn ? 'var(--amb)' : 'var(--red)';
+      html += `<div style="padding:10px;margin-bottom:6px;border-radius:6px;background:${bg};border:1px solid ${border}">
+        <div style="font-weight:600;font-size:12px">Étape ${s.step} — ${s.name} ${s.status}</div>`;
+      if (s.details) html += `<div style="font-size:11px;color:var(--t2);margin-top:4px">${s.details}</div>`;
+      if (s.http) html += `<div style="font-size:11px;color:var(--t2);margin-top:4px">HTTP ${s.http}</div>`;
+      if (s.error) html += `<div style="font-size:11px;color:var(--red);margin-top:4px;font-family:monospace">Erreur : ${s.error}</div>`;
+      if (s.error_description) html += `<div style="font-size:11px;color:var(--red);margin-top:2px;font-family:monospace;word-break:break-word">${s.error_description}</div>`;
+      if (s.error_full) html += `<div style="font-size:11px;color:var(--red);margin-top:2px;font-family:monospace;word-break:break-word">${typeof s.error_full === 'object' ? JSON.stringify(s.error_full) : s.error_full}</div>`;
+      if (s.note) html += `<div style="font-size:11px;color:var(--amb);margin-top:4px">${s.note}</div>`;
+      html += '</div>';
+    });
+    html += '</div>';
+
+    // Suggestions
+    if (report.suggestions && report.suggestions.length) {
+      html += '<div style="margin-bottom:14px"><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--t2);margin-bottom:6px">💡 Solutions suggérées</div>';
+      html += '<div style="padding:12px;background:rgba(55,138,221,.06);border-left:3px solid var(--acc);border-radius:6px">';
+      report.suggestions.forEach(s => {
+        html += `<div style="font-size:12px;margin-bottom:4px">${s.startsWith('  →') ? '<span style="margin-left:14px">'+s.substring(4)+'</span>' : s}</div>`;
+      });
+      html += '</div></div>';
+    }
+
+    // Rapport brut
+    html += `<details style="margin-top:14px"><summary style="cursor:pointer;font-size:11px;color:var(--t2)">🔍 Rapport JSON brut</summary>
+      <pre style="font-size:10px;background:var(--s2);padding:8px;border-radius:6px;overflow-x:auto;margin-top:6px">${JSON.stringify(report, null, 2)}</pre>
+    </details>`;
+
+    html += `<div style="margin-top:14px;padding:10px;background:var(--s2);border-radius:6px;font-size:11px;color:var(--t2);text-align:center">
+      Test effectué : ${new Date(report.timestamp).toLocaleString('fr-FR')}
+    </div>`;
+
+    content.innerHTML = html;
+  } catch (e) {
+    content.innerHTML = `<div style="color:var(--red);padding:14px;border:1px solid var(--red);border-radius:6px">
+      ❌ Erreur lors du test : ${e.message}
+    </div>`;
+  }
+}
+
+function closeDriveDiag() {
+  document.getElementById('drive-diag-overlay').style.display = 'none';
 }
 
 // ════════════════════════════════════════════════════════════
