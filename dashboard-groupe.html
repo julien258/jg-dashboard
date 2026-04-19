@@ -7931,7 +7931,6 @@ async function loadTresoChart(){
   // Factures émises à encaisser (revenus attendus) + compensation (déduit des dépenses)
   // Comparaison YYYY-MM en string pour éviter les problèmes de timezone
   const encaissements=new Array(12).fill(0);
-  const _compensLog=[]; // Diagnostic temporaire
   (receivables||[]).forEach(r=>{
     if(!r.due_date)return;
     const rYM = String(r.due_date).substring(0,7); // "YYYY-MM"
@@ -7940,23 +7939,13 @@ async function loadTresoChart(){
       if(mYM===rYM){
         if(r.status==='compensation'){
           const montantComp=Number(r.amount_ttc||0);
-          const avant = depenses[i];
           depenses[i]=Math.max(0,depenses[i]-montantComp);
-          _compensLog.push({mois:mYM, client:r.client, label:r.label, montant:montantComp, depenses_avant:Math.round(avant), depenses_apres:Math.round(depenses[i])});
         } else {
           encaissements[i]+=Number(r.amount_ttc||0);
         }
       }
     });
   });
-  if(_compensLog.length){
-    console.log('💡 COMPENSATIONS APPLIQUÉES (debug tréso) :');
-    console.table(_compensLog);
-    window._tresoCompensLog = _compensLog;
-  } else {
-    console.log('⚠️ AUCUNE COMPENSATION APPLIQUÉE. Receivables reçues :', (receivables||[]).length, ', dont compensation :', (receivables||[]).filter(r=>r.status==='compensation').length);
-    window._tresoReceivablesRaw = receivables;
-  }
 
   // Ajoute les encaissements aux revenus de la société facturante
   // (répartis sur sas-living par défaut)
