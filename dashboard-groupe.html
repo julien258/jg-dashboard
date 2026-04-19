@@ -8401,13 +8401,22 @@ async function loadTresoChart(){
     });
   });
 
-  // Payables → catFourn
+  // Payables → catFourn (avec compensation appliquée, comparaison YYYY-MM)
   (payables||[]).forEach(p=>{
     if(!p.due_date)return;
-    const dd=new Date(p.due_date);
+    const pYM = String(p.due_date).substring(0,7);
     months.forEach((m,i)=>{
-      if(m.getMonth()===dd.getMonth()&&m.getFullYear()===dd.getFullYear())
-        catFourn[i]+=Number(p.amount_ttc||0);
+      const mYM = m.getFullYear()+'-'+String(m.getMonth()+1).padStart(2,'0');
+      if(mYM===pYM) catFourn[i]+=Number(p.amount_ttc||0);
+    });
+  });
+  // Déduire les compensations (receivables status=compensation) de catFourn
+  (receivables||[]).forEach(r=>{
+    if(!r.due_date||r.status!=='compensation')return;
+    const rYM = String(r.due_date).substring(0,7);
+    months.forEach((m,i)=>{
+      const mYM = m.getFullYear()+'-'+String(m.getMonth()+1).padStart(2,'0');
+      if(mYM===rYM) catFourn[i]=Math.max(0,catFourn[i]-Number(r.amount_ttc||0));
     });
   });
 
@@ -9338,8 +9347,24 @@ async function loadCoFlux(coId){
   });
   payables.forEach(p=>{
     if(!p.due_date)return;
-    const dd=new Date(p.due_date);
-    months.forEach((m,i)=>{if(m.getMonth()===dd.getMonth()&&m.getFullYear()===dd.getFullYear()){catFourn[i]+=Number(p.amount_ttc||0);sorties[i]+=Number(p.amount_ttc||0);}});
+    const pYM = String(p.due_date).substring(0,7);
+    months.forEach((m,i)=>{
+      const mYM = m.getFullYear()+'-'+String(m.getMonth()+1).padStart(2,'0');
+      if(mYM===pYM){catFourn[i]+=Number(p.amount_ttc||0);sorties[i]+=Number(p.amount_ttc||0);}
+    });
+  });
+  // Déduire compensations (receivables status=compensation) de catFourn + sorties
+  (receivables||[]).forEach(r=>{
+    if(!r.due_date||r.status!=='compensation')return;
+    const rYM = String(r.due_date).substring(0,7);
+    months.forEach((m,i)=>{
+      const mYM = m.getFullYear()+'-'+String(m.getMonth()+1).padStart(2,'0');
+      if(mYM===rYM){
+        const c=Math.min(catFourn[i],Number(r.amount_ttc||0));
+        catFourn[i]=Math.max(0,catFourn[i]-Number(r.amount_ttc||0));
+        sorties[i]=Math.max(0,sorties[i]-c);
+      }
+    });
   });
 
   // Encaissé réel au jour J (Qonto côté crédit mois courant)
