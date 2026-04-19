@@ -7929,24 +7929,34 @@ async function loadTresoChart(){
   window._tresoEngagementsParMois=engagementsParMois;
 
   // Factures émises à encaisser (revenus attendus) + compensation (déduit des dépenses)
+  // Comparaison YYYY-MM en string pour éviter les problèmes de timezone
   const encaissements=new Array(12).fill(0);
+  const _compensLog=[]; // Diagnostic temporaire
   (receivables||[]).forEach(r=>{
     if(!r.due_date)return;
-    const dd=new Date(r.due_date);
-    months.forEach((_,i)=>{
-      if(months[i].getMonth()===dd.getMonth()&&months[i].getFullYear()===dd.getFullYear()){
+    const rYM = String(r.due_date).substring(0,7); // "YYYY-MM"
+    months.forEach((m,i)=>{
+      const mYM = m.getFullYear()+'-'+String(m.getMonth()+1).padStart(2,'0');
+      if(mYM===rYM){
         if(r.status==='compensation'){
-          // Compensation : cherche la facture à payer du même client (insensible casse)
-          const clientNorm=(r.client||'').toLowerCase().trim();
-          // Déduit des dépenses du mois — cherche dans payables le montant correspondant
           const montantComp=Number(r.amount_ttc||0);
+          const avant = depenses[i];
           depenses[i]=Math.max(0,depenses[i]-montantComp);
+          _compensLog.push({mois:mYM, client:r.client, label:r.label, montant:montantComp, depenses_avant:Math.round(avant), depenses_apres:Math.round(depenses[i])});
         } else {
           encaissements[i]+=Number(r.amount_ttc||0);
         }
       }
     });
   });
+  if(_compensLog.length){
+    console.log('💡 COMPENSATIONS APPLIQUÉES (debug tréso) :');
+    console.table(_compensLog);
+    window._tresoCompensLog = _compensLog;
+  } else {
+    console.log('⚠️ AUCUNE COMPENSATION APPLIQUÉE. Receivables reçues :', (receivables||[]).length, ', dont compensation :', (receivables||[]).filter(r=>r.status==='compensation').length);
+    window._tresoReceivablesRaw = receivables;
+  }
 
   // Ajoute les encaissements aux revenus de la société facturante
   // (répartis sur sas-living par défaut)
