@@ -8116,6 +8116,25 @@ async function loadTresoChart(){
 
   // Détecte les premiers mois où on peut placer 100k€ et 200k€
   const annotations={};
+  // Ligne 0€ — REPÈRE VISUEL CRITIQUE (tréso positive vs négative)
+  annotations.zeroLine = {
+    type: 'line',
+    yMin: 0, yMax: 0,
+    borderColor: 'rgba(0,0,0,0.55)',
+    borderWidth: 2,
+    borderDash: [],
+    label: {
+      content: '0 €',
+      display: true,
+      position: 'end',
+      backgroundColor: 'rgba(0,0,0,0.7)',
+      color: '#fff',
+      font: { size: 10, weight: 'bold' },
+      padding: { x: 6, y: 3 },
+      borderRadius: 4,
+      xAdjust: 6
+    }
+  };
   [{seuil:100000,couleur:'#F39C12',label:'100k€'},{seuil:200000,couleur:'#2ECC71',label:'200k€'}].forEach(({seuil,couleur,label})=>{
     const moisOk=tresoPlagable.findIndex(v=>v>=seuil);
     if(moisOk>=0){
@@ -8139,16 +8158,42 @@ async function loadTresoChart(){
           {
             label:'Tréso cumulée',
             data:tresoCumul,
-            borderColor:'#3D8EF0',
+            borderColor:(ctx)=>{
+              // Segments rouges en négatif, bleus en positif
+              const chart = ctx.chart;
+              const {ctx:c, chartArea} = chart;
+              if(!chartArea) return '#3D8EF0';
+              const yScale = chart.scales.y;
+              const zeroY = yScale.getPixelForValue(0);
+              const gradient = c.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+              const relZero = Math.max(0, Math.min(1, (zeroY - chartArea.top) / (chartArea.bottom - chartArea.top)));
+              gradient.addColorStop(0, '#3D8EF0');
+              gradient.addColorStop(Math.max(0,relZero-0.001), '#3D8EF0');
+              gradient.addColorStop(Math.min(1,relZero+0.001), '#E74C3C');
+              gradient.addColorStop(1, '#E74C3C');
+              return gradient;
+            },
             backgroundColor:(ctx)=>{
-              const gradient=ctx.chart.ctx.createLinearGradient(0,0,0,180);
-              gradient.addColorStop(0,'#3D8EF033');
-              gradient.addColorStop(1,'#3D8EF000');
+              const chart = ctx.chart;
+              const {ctx:c, chartArea} = chart;
+              if(!chartArea) return '#3D8EF033';
+              const yScale = chart.scales.y;
+              const zeroY = yScale.getPixelForValue(0);
+              const gradient = c.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+              const relZero = Math.max(0, Math.min(1, (zeroY - chartArea.top) / (chartArea.bottom - chartArea.top)));
+              // Bleu translucide au-dessus de 0
+              gradient.addColorStop(0, 'rgba(61,142,240,0.25)');
+              gradient.addColorStop(Math.max(0,relZero-0.001), 'rgba(61,142,240,0.08)');
+              // Rouge translucide en-dessous de 0 (alerte visuelle)
+              gradient.addColorStop(Math.min(1,relZero+0.001), 'rgba(231,76,60,0.12)');
+              gradient.addColorStop(1, 'rgba(231,76,60,0.30)');
               return gradient;
             },
             borderWidth:2.5,
             pointRadius:4,
-            pointBackgroundColor:tresoCumul.map((v,i)=>v<seuilSecurite[i]?'#E74C3C':v>seuilPlacement[i]?'#2ECC71':'#3D8EF0'),
+            pointBackgroundColor:tresoCumul.map((v,i)=>v<0?'#E74C3C':v<seuilSecurite[i]?'#F39C12':v>seuilPlacement[i]?'#2ECC71':'#3D8EF0'),
+            pointBorderColor:tresoCumul.map(v=>v<0?'#C0392B':'#fff'),
+            pointBorderWidth:tresoCumul.map(v=>v<0?2:1),
             tension:0.3,
             fill:true
           },
@@ -8243,7 +8288,13 @@ async function loadTresoChart(){
           x:{ticks:{color:'#7A849E',font:{size:11}},grid:{display:false}},
           y:{
             ticks:{callback:v=>(v/1000).toFixed(0)+'k€',color:'#7A849E',font:{size:10}},
-            grid:{color:'rgba(0,0,0,0.05)'}
+            grid:{
+              color:(ctx)=>ctx.tick.value===0?'rgba(0,0,0,0.4)':'rgba(0,0,0,0.05)',
+              lineWidth:(ctx)=>ctx.tick.value===0?1.5:1
+            },
+            // Force l'inclusion de 0 dans le graphique + marges
+            suggestedMin: Math.min(0, ...tresoCumul, ...seuilSecurite) - 50000,
+            suggestedMax: Math.max(0, ...tresoCumul, ...seuilPlacement) + 50000
           }
         }
       }
