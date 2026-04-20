@@ -196,15 +196,15 @@ function findCustomer(customers, tiersName) {
 }
 
 export default async (req) => {
-  const url = new URL(req.url);
-  const dryRun = url.searchParams.get('dry_run') !== 'false'; // défaut = dry run pour sécurité
-
-  const token = getEnv('PENNYLANE_MEULETTE_TOKEN');
-  if (!token) {
-    return Response.json({ ok: false, error: 'PENNYLANE_MEULETTE_TOKEN manquant' }, { status: 500 });
-  }
-
   try {
+    const url = new URL(req.url);
+    const dryRun = url.searchParams.get('dry_run') !== 'false'; // défaut = dry run pour sécurité
+
+    const token = getEnv('PENNYLANE_MEULETTE_TOKEN');
+    if (!token) {
+      return Response.json({ ok: false, error: 'PENNYLANE_MEULETTE_TOKEN manquant' });
+    }
+
     // 1) Récupérer tous les clients Meulette
     const customers = await fetchAllCustomers(token);
 
@@ -318,7 +318,7 @@ export default async (req) => {
     });
 
   } catch (e) {
-    return Response.json({ ok: false, error: e.message, stack: e.stack?.substring(0, 500) }, { status: 500 });
+    return Response.json({ ok: false, error: e.message, stack: e.stack?.substring(0, 1500), where: 'global catch' });
   }
 };
 
