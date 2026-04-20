@@ -198,18 +198,27 @@ function findCustomer(customers, tiersName) {
 export default async (req) => {
   try {
     const url = new URL(req.url);
-    const dryRun = url.searchParams.get('dry_run') !== 'false'; // défaut = dry run pour sécurité
+    const dryRun = url.searchParams.get('dry_run') !== 'false';
+    const step = url.searchParams.get('step') || 'all';
+
+    if (step === '1') return Response.json({ ok: true, step: 1, msg: 'url + params OK' });
 
     const token = getEnv('PENNYLANE_MEULETTE_TOKEN');
     if (!token) {
       return Response.json({ ok: false, error: 'PENNYLANE_MEULETTE_TOKEN manquant' });
     }
 
+    if (step === '2') return Response.json({ ok: true, step: 2, msg: 'token présent', token_len: token.length });
+
     // 1) Récupérer tous les clients Meulette
     const customers = await fetchAllCustomers(token);
 
+    if (step === '3') return Response.json({ ok: true, step: 3, msg: 'customers fetched', count: customers.length });
+
     // 2) Construire la liste
     const invoices = buildInvoiceList();
+
+    if (step === '4') return Response.json({ ok: true, step: 4, msg: 'invoices built', count: invoices.length });
 
     // 3) Résoudre les customer_ids
     const uniqueTiers = [...new Set(invoices.map(i => i.tiers))];
