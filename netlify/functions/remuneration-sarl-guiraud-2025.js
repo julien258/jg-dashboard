@@ -1,6 +1,6 @@
-// remuneration-sarl-guiraud-2025.js
-// Extrait toutes les transactions 2025 de la SARL GUIRAUD
-// Classification automatique : rémunération perso vs CCA vs intra-groupe vs fournisseurs
+// remuneration-sarl-guiraud-2025.js v2
+// Utilise l'endpoint /transactions correct et pagination
+// Nécessite le scope transactions:readonly sur le token PENNYLANE_SARL_TOKEN
 
 export default async (req) => {
   const headers = {
@@ -20,56 +20,85 @@ export default async (req) => {
   const DATE_TO = '2025-12-31';
 
   try {
-    // 1. Récupérer tous les comptes bancaires SARL GUIRAUD dans Pennylane
-    const comptesRes = await fetch(`${PENNYLANE_API}/bank_accounts`, {
+    // 1. Vérification scope via /me
+    const meRes = await fetch(`${PENNYLANE_API}/me`, {
       headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/json' }
     });
-    const comptesData = await comptesRes.json();
-    const comptes = comptesData.bank_accounts || comptesData.items || [];
+    const meData = await meRes.json();
 
-    // 2. Pour chaque compte, pagination complète des transactions 2025
+    // 2. Lister les comptes bancaires
+    const ctsRes = await fetch(`${PENNYLANE_API}/bank_accounts`, {
+      headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/json' }
+    });
+    const ctsData = await ctsRes.json();
+    const comptes = ctsData.bank_accounts || ctsData.items || [];
+
+    // 3. Pagination transactions sur toute l'année 2025
     const allTx = [];
-    for (const compte of comptes) {
-      let page = 1;
-      let hasMore = true;
-      while (hasMore && page <= 20) { // Limite de sécurité à 20 pages
-        try {
-          const txRes = await fetch(
-            `${PENNYLANE_API}/bank_transactions?bank_account_id=${compte.id}&min_date=${DATE_FROM}&max_date=${DATE_TO}&per_page=100&page=${page}&sort=date`,
-            { headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/json' } }
-          );
-          const txData = await txRes.json();
-          const txList = txData.bank_transactions || txData.transactions || txData.items || [];
-          if (txList.length === 0) { hasMore = false; break; }
-          txList.forEach(tx => {
-            allTx.push({
-              id: tx.id,
-              date: tx.date || tx.transaction_date,
-              label: tx.description || tx.label || tx.reference || '',
-              amount: parseFloat(tx.amount ?? 0),
-              account_id: compte.id,
-              account_name: compte.name || compte.label || 'Qonto'
-            });
+    let page = 1;
+    let hasMore = true;
+    let totalPages = 0;
+    let errorDetails = null;
+    
+    while (hasMore && page <= 50) {
+      const filterStr = encodeURIComponent(JSON.stringify([
+        { field: "date", operator: "gteq", value: DATE_FROM },
+        { field: "date", operator: "lteq", value: DATE_TO }
+      ]));
+      const url = `${PENNYLANE_API}/transactions?per_page=100&page=${page}&filter=${filterStr}`;
+      try {
+        const txRes = await fetch(url, {
+          headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/json' }
+        });
+        
+        if (!txRes.ok) {
+          errorDetails = {
+            status: txRes.status,
+            url: url.substring(0, 200),
+            body: (await txRes.text()).substring(0, 300)
+          };
+          break;
+        }
+        
+        const txData = await txRes.json();
+        const txList = txData.transactions || txData.items || txData.data || [];
+        
+        if (txList.length === 0) { hasMore = false; break; }
+        
+        txList.forEach(tx => {
+          allTx.push({
+            id: tx.id,
+            date: tx.date || tx.transaction_date || tx.value_date,
+            label: tx.description || tx.label || tx.reference || tx.narration || '',
+            amount: parseFloat(tx.amount ?? 0),
+            currency: tx.currency || 'EUR',
+            account_id: tx.bank_account_id || tx.account_id,
+            direction: tx.direction || (parseFloat(tx.amount) < 0 ? 'debit' : 'credit'),
           });
-          if (txList.length < 100) hasMore = false;
-          page++;
-        } catch(e) { hasMore = false; }
+        });
+        
+        totalPages = page;
+        if (txList.length < 100) hasMore = false;
+        page++;
+      } catch(e) {
+        errorDetails = { message: e.message, page };
+        break;
       }
     }
 
-    // 3. Classification automatique des sorties (débits = amount < 0)
+    // 4. Classification automatique
     const sorties = allTx.filter(tx => tx.amount < 0);
 
     const categories = {
-      remuneration_julien: [],        // Virements vers Julien GUIRAUD perso
-      wise_eurl_guiraud: [],          // Vers ancien compte Wise EURL GUIRAUD
-      intra_sas_living: [],           // Vers SAS LIVING
-      intra_meulette: [],             // Vers La Meulette
-      intra_pangee: [],               // Vers Pangée / Holding Pangée
-      urssaf: [],                     // URSSAF, cotisations
-      impots: [],                     // DGFiP, IS, IR, TVA
-      fournisseurs: [],               // Tiers
-      leasing_vehicules: [],          // Ayvens, BMW Finance, Viaxel, etc.
+      remuneration_julien: [],
+      wise_eurl_guiraud: [],
+      intra_sas_living: [],
+      intra_meulette: [],
+      intra_pangee: [],
+      urssaf: [],
+      impots: [],
+      fournisseurs: [],
+      leasing_vehicules: [],
       frais_bancaires: [],
       autres: [],
     };
@@ -77,50 +106,39 @@ export default async (req) => {
     sorties.forEach(tx => {
       const label = (tx.label || '').toUpperCase();
       
-      // 1. Virements vers Julien perso (hors SARL) - patterns variés
-      if (/JULIEN\s+GUIRAUD|GUIRAUD\s+JULIEN|JULIEN\s+ANDRE/i.test(label) 
-          && !/EURL|SARL|GUIRAUD\s+JULIEN\s+4|GUIRAUD\s+J\.?\s+LA\s+CROIX/i.test(label)) {
+      if (/JULIEN\s+(ANDRE\s+RENE\s+)?GUIRAUD|GUIRAUD\s+JULIEN(?!\s+EURL|\s+SARL)/i.test(label)
+          && !/EURL|SARL/i.test(label)) {
         categories.remuneration_julien.push(tx);
       }
-      // 2. Wise EURL GUIRAUD (ancien compte)
-      else if (/EURL\s+GUIRAUD|WISE.*GUIRAUD|GUIRAUD.*WISE/i.test(label)) {
+      else if (/EURL\s+GUIRAUD|WISE.*GUIRAUD|GUIRAUD.*EURL/i.test(label)) {
         categories.wise_eurl_guiraud.push(tx);
       }
-      // 3. SAS LIVING
-      else if (/SAS\s+LIVING|LIVING/i.test(label) && !/LIVING\s+ROOM/i.test(label)) {
+      else if (/SAS\s+LIVING|\sLIVING\s/i.test(label)) {
         categories.intra_sas_living.push(tx);
       }
-      // 4. Meulette
       else if (/MEULETTE/i.test(label)) {
         categories.intra_meulette.push(tx);
       }
-      // 5. Pangée
       else if (/PANGEE|PANGÉE|HOLDING\s+GROUPE/i.test(label)) {
         categories.intra_pangee.push(tx);
       }
-      // 6. URSSAF / cotisations
       else if (/URSSAF|COTISATION|CIPAV|RSI|SECURITE\s+SOCIALE|MSA/i.test(label)) {
         categories.urssaf.push(tx);
       }
-      // 7. Impôts
       else if (/DGFIP|IMPOT|TRESOR\s+PUBLIC|FINANCES\s+PUBLIQUES|TVA|CVAE|CFE/i.test(label)) {
         categories.impots.push(tx);
       }
-      // 8. Leasing véhicules
-      else if (/AYVENS|ARVAL|BMW\s+FINANCE|VIAXEL|LLD|LEASEPLAN|ALPHABET|ALD\s+AUTO/i.test(label)) {
+      else if (/AYVENS|ARVAL|BMW\s+FINANCE|VIAXEL|LLD|LEASEPLAN|ALPHABET|ALD\s+AUTO|PORSCHE\s+FINANCE|FERRARI/i.test(label)) {
         categories.leasing_vehicules.push(tx);
       }
-      // 9. Frais bancaires
-      else if (/QONTO|FRAIS\s+BANCAIRES|COMMISSION/i.test(label) && Math.abs(tx.amount) < 100) {
+      else if (/(QONTO|WISE|REVOLUT)\s*(FRAIS|COMMISSION)?/i.test(label) && Math.abs(tx.amount) < 100) {
         categories.frais_bancaires.push(tx);
       }
-      // 10. Autres
       else {
         categories.autres.push(tx);
       }
     });
 
-    // 4. Totaux par catégorie
     const totaux = {};
     for (const [cat, txs] of Object.entries(categories)) {
       totaux[cat] = {
@@ -130,16 +148,18 @@ export default async (req) => {
       };
     }
 
-    // 5. Analyse spéciale : le cumul qui pourrait être qualifié CCA
-    const total_flux_perso_julien = 
-      totaux.remuneration_julien.total + 
-      totaux.wise_eurl_guiraud.total;
+    const total_flux_perso_julien = totaux.remuneration_julien.total + totaux.wise_eurl_guiraud.total;
 
     return new Response(JSON.stringify({
       ok: true,
       period: { from: DATE_FROM, to: DATE_TO },
+      pagination: { pages_loaded: totalPages, error: errorDetails },
+      auth: {
+        me_status: meRes.status,
+        me_keys: meData ? Object.keys(meData) : [],
+      },
       summary: {
-        comptes_analysés: comptes.map(c => ({ id: c.id, name: c.name || c.label })),
+        comptes_pennylane: comptes.length,
         total_transactions_2025: allTx.length,
         total_sorties_2025: sorties.length,
         total_flux_vers_perso_julien: total_flux_perso_julien,
