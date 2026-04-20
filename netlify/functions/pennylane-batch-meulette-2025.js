@@ -229,8 +229,10 @@ export default async (req) => {
         ok: false,
         error: 'Tiers introuvables dans Pennylane',
         unresolved,
-        customers_sample: customers.slice(0, 20).map(c => ({ id: c.id, name: c.name || c.company_name }))
-      }, { status: 400 });
+        resolved: Object.entries(resolution).map(([t, r]) => ({ tiers: t, pennylane_id: r.id, pennylane_name: r.name })),
+        total_customers_pennylane: customers.length,
+        customers_sample: customers.slice(0, 50).map(c => ({ id: c.id, name: c.name || c.company_name }))
+      }, { status: 200 });
     }
 
     // 4) Récap avant création
