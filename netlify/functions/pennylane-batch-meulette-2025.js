@@ -233,6 +233,8 @@ export default async (req) => {
       }
     }
 
+    if (step === '5') return Response.json({ ok: true, step: 5, msg: 'resolution faite', resolved: resolution, unresolved });
+
     if (unresolved.length > 0) {
       return Response.json({
         ok: false,
@@ -241,8 +243,10 @@ export default async (req) => {
         resolved: Object.entries(resolution).map(([t, r]) => ({ tiers: t, pennylane_id: r.id, pennylane_name: r.name })),
         total_customers_pennylane: customers.length,
         customers_sample: customers.slice(0, 50).map(c => ({ id: c.id, name: c.name || c.company_name }))
-      }, { status: 200 });
+      });
     }
+
+    if (step === '6') return Response.json({ ok: true, step: 6, msg: 'all tiers resolved', resolution });
 
     // 4) Récap avant création
     const recap = {
@@ -259,7 +263,7 @@ export default async (req) => {
     }
     recap.total_ht_global = Object.values(recap.par_tiers).reduce((s, x) => s + x.total_ht, 0);
 
-    if (dryRun) {
+    if (step === '7' || dryRun) {
       return Response.json({ ok: true, dry_run: true, recap, first_invoice_preview: invoices[0] });
     }
 
