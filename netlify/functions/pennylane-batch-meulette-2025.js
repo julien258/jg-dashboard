@@ -94,10 +94,10 @@ function buildInvoiceList() {
     });
   }
 
-  // --- HGP : 12 mois 2025 ---
+  // --- HGP (= HOLDING GROUPE PANGEE dans Pennylane) : 12 mois 2025 ---
   for (let mo = 1; mo <= 12; mo++) {
     list.push({
-      tiers: 'HGP',
+      tiers: 'HOLDING GROUPE PANGEE',
       date: dateMois(mo),
       periode: periode(mo),
       lines: [
