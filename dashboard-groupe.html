@@ -2977,8 +2977,7 @@ async function saveAsset(){
     assurance_echeance:document.getElementById('as-assurance-echeance').value||null,
     assurance_valeur_assuree:parseFloat(document.getElementById('as-assurance-valeur').value)||0,
     assurance_contact:document.getElementById('as-assurance-contact').value||null,
-    notes:document.getElementById('as-notes').value||null,
-    statut:'detenu'
+    notes:document.getElementById('as-notes').value||null
   };
   let error,data;
   if(editId){({error}=await sb.from('assets').update(payload).eq('id',editId));data={id:editId};}
