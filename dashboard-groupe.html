@@ -305,7 +305,7 @@
           <div class="card"><div class="g2">
             <div>
               <div class="fg"><label>Type</label><select id="cc-type"><option value="convention_tresorerie">Convention de trésorerie</option><option value="cc_associe">CC associé</option><option value="creance">Créance</option><option value="dette_fournisseur">Dette fournisseur</option><option value="autre">Autre</option></select></div>
-              <div class="fg"><label>Contrepartie</label><select id="cc-counterpart"><option value="meulette">La Meulette</option><option value="sarl-guiraud">SARL Guiraud</option><option value="sas-living">SAS Living</option><option value="real-gains">RG / Monikaza</option><option value="spv-monikaza">SPV Monikaza</option><option value="dubai">Dubai New Holdco</option><option value="externe">Externe</option></select></div>
+              <div class="fg"><label>Contrepartie</label><select id="cc-counterpart"><option value="meulette">La Meulette</option><option value="sarl-guiraud">SARL Guiraud</option><option value="sas-living">ALTIOR C / LIVING</option><option value="real-gains">RG / Monikaza</option><option value="spv-monikaza">SPV Monikaza</option><option value="alpha">ALPHA</option><option value="cfc">CFC</option><option value="lux-holdco">LUX HOLDCO</option><option value="raif-lux">RAIF LUX</option><option value="externe">Externe</option></select></div>
               <div class="fg"><label>Libellé</label><input type="text" id="cc-label" placeholder="Convention trésorerie..."></div>
             </div>
             <div>
@@ -430,15 +430,15 @@
             </div>
             <div class="fg"><label>Société débitrice</label>
               <select id="ocr-company">
-                <option value="sas-living">SAS Living</option>
+                <option value="sas-living">ALTIOR C / LIVING</option>
                 <option value="sarl-guiraud">SARL Guiraud</option>
                 <option value="meulette">La Meulette</option>
                 <optgroup label="Real Gains / Monikaza">
                   <option value="real-gains">Real Gains (nom commercial : Monikaza)</option>
                   <option value="spv-monikaza">Monikaza SPV</option>
                 </optgroup>
-                <optgroup label="Inactif">
-                  <option value="cross-border" disabled>Cross Border Capital / CBC (Dubai — inactif)</option>
+                <optgroup label="International">
+                  <option value="alpha">ALPHA (Dubai OPCO)</option>
                 </optgroup>
               </select>
             </div>
@@ -546,7 +546,7 @@
               <div class="fg"><label>Société débitrice</label>
                 <select id="ch-company" onchange="checkChargeCompany()">
                   <option value="sarl-guiraud">SARL Guiraud</option>
-                  <option value="sas-living">SAS Living</option>
+                  <option value="sas-living">ALTIOR C / LIVING</option>
                   <option value="meulette">La Meulette</option>
                   <option value="real-gains">RG / Monikaza</option>
                 </select>
@@ -753,7 +753,7 @@
                 </select></div>
                 <div class="fg"><label>Fournisseur</label><input type="text" id="eng-fournisseur" placeholder="RECCI / Air France / Notaire..."></div>
                 <div class="fg"><label>Société de prise en charge</label><select id="eng-company">
-                  <option value="sas-living">SAS LIVING</option>
+                  <option value="sas-living">ALTIOR C / LIVING</option>
                   <option value="sarl-guiraud">SARL GUIRAUD</option>
                   <option value="meulette">La Meulette</option>
                   <option value="real-gains">Real Gains</option>
@@ -921,12 +921,15 @@
             <div class="fg"><label>Titulaire</label>
                 <select id="cpt-titulaire">
                   <optgroup label="Sociétés">
-                    <option value="SAS Living">SAS Living</option>
+                    <option value="SAS Living">ALTIOR C / LIVING</option>
                     <option value="SARL Guiraud Julien">SARL Guiraud Julien</option>
                     <option value="SARL de Famille La Meulette">SARL de Famille La Meulette</option>
                     <option value="Real Gains / Monikaza">Real Gains / Monikaza</option>
                     <option value="SPV Monikaza">SPV Monikaza</option>
-                    <option value="Cross Border Capital">Cross Border Capital (CBC)</option>
+                    <option value="ALPHA">ALPHA (Dubai OPCO)</option>
+                    <option value="CFC">CFC (Dubai HoldCo)</option>
+                    <option value="LUX HOLDCO">LUX HOLDCO</option>
+                    <option value="RAIF LUX">RAIF LUX</option>
                   </optgroup>
                   <optgroup label="Personnes">
                     <option value="Julien Guiraud">Julien Guiraud (perso)</option>
@@ -1062,7 +1065,7 @@
           <div class="fg"><label>Société</label><select id="mt-co">
             <option value="group">🏢 Groupe</option>
             <option value="all">📬 Toutes les boîtes</option>
-          <option value="sas-living">💼 SAS Living</option>
+          <option value="sas-living">💼 ALTIOR C / LIVING</option>
             <option value="sarl-guiraud">🏛️ SARL Guiraud</option>
             <option value="meulette">🏠 Meulette</option>
             <option value="real-gains">🌐 Real Gains</option>
@@ -1118,7 +1121,7 @@
       </select>
       <select id="todo-filter-co" onchange="loadTodos('main-todos','group')" style="font-size:11px;padding:5px 8px;border-radius:6px;border:1px solid var(--b1)">
         <option value="">Toutes sociétés</option>
-        <option value="sas-living">SAS Living</option>
+        <option value="sas-living">ALTIOR C / LIVING</option>
         <option value="sarl-guiraud">SARL Guiraud</option>
         <option value="meulette">Meulette</option>
         <option value="real-gains">Real Gains</option>
@@ -1218,7 +1221,7 @@
         <div class="card-t">Flux de trésorerie — 12 mois glissants</div>
         <div style="position:relative;height:380px"><canvas id="tresoChart"></canvas></div>
         <div style="display:flex;gap:14px;margin-top:12px;flex-wrap:wrap;font-size:11px;color:var(--t2)">
-          <span><span style="display:inline-block;width:12px;height:12px;background:#2ECC7188;border-radius:2px;margin-right:4px"></span>SAS Living</span>
+          <span><span style="display:inline-block;width:12px;height:12px;background:#2ECC7188;border-radius:2px;margin-right:4px"></span>ALTIOR C / LIVING</span>
           <span><span style="display:inline-block;width:12px;height:12px;background:#3D8EF088;border-radius:2px;margin-right:4px"></span>SARL Guiraud</span>
           <span><span style="display:inline-block;width:12px;height:12px;background:#9B59B688;border-radius:2px;margin-right:4px"></span>RG / Monikaza</span>
           <span><span style="display:inline-block;width:12px;height:12px;background:#F39C1288;border-radius:2px;margin-right:4px"></span>La Meulette</span>
@@ -1286,7 +1289,7 @@
               <label>Société concernée</label>
               <select id="debt-company">
                 <option value="sarl-guiraud">SARL Guiraud</option>
-                <option value="sas-living">SAS Living</option>
+                <option value="sas-living">ALTIOR C / LIVING</option>
                 <option value="meulette">La Meulette</option>
                 <option value="real-gains">RG / Monikaza</option>
               </select>
@@ -1389,7 +1392,7 @@
             <select id="pl-company">
               <option value="meulette">La Meulette</option>
               <option value="sarl-guiraud">SARL Guiraud</option>
-              <option value="sas-living">SAS Living</option>
+              <option value="sas-living">ALTIOR C / LIVING</option>
             </select>
           </div>
           <div class="fg"><label>Nom du placement</label><input type="text" id="pl-nom" placeholder="CGW Sovereign 95X, Vente Fronsac..."></div>
@@ -1463,7 +1466,7 @@
               <div class="fg"><label>Commission (€)</label><input type="number" id="pl-com-amount" placeholder="Auto" style="border-color:var(--grn)"></div>
               <div class="fg"><label>Facturée par</label>
                 <select id="pl-com-billing">
-                  <option value="sas-living">SAS Living</option>
+                  <option value="sas-living">ALTIOR C / LIVING</option>
                   <option value="sarl-guiraud">SARL Guiraud</option>
                 </select>
               </div>
@@ -1517,7 +1520,7 @@
             <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
               <div class="fg"><label>De</label>
                 <select id="flux-de">
-                  <option value="sas-living">SAS Living</option>
+                  <option value="sas-living">ALTIOR C / LIVING</option>
                   <option value="sarl-guiraud">SARL Guiraud</option>
                   <option value="meulette">La Meulette</option>
                   <option value="real-gains">RG/Monikaza</option>
@@ -1527,7 +1530,7 @@
               <div class="fg"><label>Vers</label>
                 <select id="flux-vers">
                   <option value="sarl-guiraud">SARL Guiraud</option>
-                  <option value="sas-living">SAS Living</option>
+                  <option value="sas-living">ALTIOR C / LIVING</option>
                   <option value="meulette">La Meulette</option>
                   <option value="real-gains">RG/Monikaza</option>
                   <option value="perso">Julien (perso)</option>
@@ -1585,7 +1588,7 @@
             <select id="as-company">
               <option value="meulette">La Meulette</option>
               <option value="sarl-guiraud">SARL Guiraud</option>
-              <option value="sas-living">SAS Living</option>
+              <option value="sas-living">ALTIOR C / LIVING</option>
               <option value="perso">Julien (perso)</option>
               <option value="real-gains">RG / Monikaza</option>
             </select>
@@ -1725,7 +1728,7 @@
         <option value="">Tous les détenteurs</option>
         <option value="meulette">La Meulette</option>
         <option value="sarl-guiraud">SARL Guiraud</option>
-        <option value="sas-living">SAS Living</option>
+        <option value="sas-living">ALTIOR C / LIVING</option>
         <option value="perso">Julien perso</option>
       </select>
       <select id="asset-filter-type" style="font-size:12px;padding:5px 8px;border-radius:6px;border:1px solid var(--b1)" onchange="loadAssets()">
@@ -1944,7 +1947,7 @@
       <div style="display:flex;gap:8px;align-items:center">
         <select id="mail-societe" onchange="loadMails()" style="font-size:12px;padding:6px 10px;border-radius:7px;border:1px solid var(--b1)">
           <option value="all">📬 Toutes les boîtes</option>
-          <option value="sas-living">💼 SAS Living</option>
+          <option value="sas-living">💼 ALTIOR C / LIVING</option>
           <option value="sarl-guiraud">🏛️ SARL Guiraud</option>
           <option value="meulette">🏠 Meulette</option>
         </select>
@@ -2066,7 +2069,7 @@
             <select id="ged-entity" style="width:100%;font-size:12px;padding:6px">
               <option value="perso">👤 Julien (perso)</option>
               <option value="all">📬 Toutes les boîtes</option>
-          <option value="sas-living">💼 SAS Living</option>
+          <option value="sas-living">💼 ALTIOR C / LIVING</option>
               <option value="sarl-guiraud">🏛️ SARL Guiraud</option>
               <option value="meulette">🏠 La Meulette</option>
               <option value="real-gains">🌐 Real Gains (Monikaza)</option>
@@ -2149,7 +2152,7 @@
       <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center">
         <select id="ged-filter-entity" onchange="loadGEDList()" style="font-size:11px;padding:5px 8px;border-radius:6px">
 <option value="">Toutes entités</option>
-          <option value="sas-living">SAS Living</option>
+          <option value="sas-living">ALTIOR C / LIVING</option>
           <option value="sarl-guiraud">SARL Guiraud</option>
           <option value="meulette">La Meulette</option>
           <optgroup label="Real Gains / Monikaza">
@@ -2326,7 +2329,7 @@
               <div class="fg"><label>Téléphone</label><input type="text" id="cl-phone" placeholder="+33 6..."></div>
               <div class="fg"><label>Société facturante</label>
                 <select id="cl-billing">
-                  <option value="sas-living">SAS Living</option>
+                  <option value="sas-living">ALTIOR C / LIVING</option>
                   <option value="sarl-guiraud">SARL Guiraud</option>
                   <option value="real-gains">RG / Monikaza</option>
                 </select>
@@ -2386,7 +2389,7 @@
             <div>
               <div class="fg"><label>Société facturante</label>
                 <select id="ct-billing">
-                  <option value="sas-living">SAS Living</option>
+                  <option value="sas-living">ALTIOR C / LIVING</option>
                   <option value="sarl-guiraud">SARL Guiraud</option>
                   <option value="real-gains">RG / Monikaza</option>
                 </select>
@@ -2522,7 +2525,7 @@
         <div class="fg"><label>Société facturante</label>
           <select id="sf-billing-company">
             <option value="">Toutes</option>
-            <option value="sas-living">SAS Living</option>
+            <option value="sas-living">ALTIOR C / LIVING</option>
             <option value="sarl-guiraud">SARL Guiraud</option>
             <option value="meulette">La Meulette</option>
           </select>
@@ -2561,7 +2564,7 @@
     <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
       <select id="cont-filter-co" onchange="loadContentieux()" style="font-size:11px;padding:5px 8px;border-radius:6px">
         <option value="">Toutes sociétés</option>
-        <option value="sas-living">SAS Living</option>
+        <option value="sas-living">ALTIOR C / LIVING</option>
         <option value="sarl-guiraud">SARL Guiraud</option>
         <option value="meulette">La Meulette</option>
         <option value="real-gains">Real Gains (Monikaza)</option>
@@ -2591,7 +2594,7 @@
           <div class="fg" style="grid-column:1/-1"><label>Titre du dossier *</label><input type="text" id="cont-titre" placeholder="Ex: Real Gains c. Carrefour — T. Commerce Evry"></div>
           <div class="fg"><label>Société</label>
             <select id="cont-co">
-              <option value="sas-living">SAS Living</option>
+              <option value="sas-living">ALTIOR C / LIVING</option>
               <option value="sarl-guiraud">SARL Guiraud</option>
               <option value="meulette">La Meulette</option>
               <option value="real-gains">Real Gains (Monikaza)</option>
@@ -2843,7 +2846,7 @@ const companies=[
      {l:'Dettes fiscales',v:'183 281 €',c:'n',s:'IR + IS à régler'},
      {l:'Dividendes prévus',v:'300 000 €',c:'p',s:'Flat tax 30%'}
    ]},
-  {id:'sas-living',name:'SAS Living',type:'SAS — RCS Toulouse 983940958',color:'#3D8EF0',health:'+810k€ BP',dot:'grn',
+  {id:'sas-living',name:'ALTIOR C / LIVING',type:'SAS Living (marque Altior Capital) — RCS Toulouse 983940958',color:'#3D8EF0',health:'+810k€ BP',dot:'grn',
    kpis:[
      {l:'CA YTD',v:'985 000 €',c:'p',s:'Janv-Mars 2026'},
      {l:'Pipeline LLD',v:'30 M€',c:'p',s:'Velomotion 2026'},
@@ -2859,21 +2862,45 @@ const companies=[
      {l:'Filiale SPV',v:'100%',c:'p',s:'Prêts participatifs'},
      {l:'Statut AMF',v:'À vérifier',c:'w',s:'Encadrement'}
    ]},
-  {id:'spv-monikaza',name:'SPV Monikaza',type:'SPV — Filiale Real Gains',color:'#9B59B6',health:'Futur',dot:'amb',
+  {id:'spv-monikaza',name:'SPV Monikaza',type:'SASU — RCS Paris 989 448 410',color:'#9B59B6',health:'Active',dot:'grn',
    kpis:[
-     {l:'Activité',v:'Pas démarrée',c:'w',s:'Prêts participatifs'},
-     {l:'Capital',v:'—',c:'',s:'À définir'},
-     {l:'Objet',v:'Émission prêts',c:'',s:'Cross-border'},
-     {l:'Mère',v:'Real Gains',c:'',s:'100%'},
-     {l:'Statut',v:'En attente',c:'w',s:'Démarrage activité'}
+     {l:'Statut juridique',v:'Active',c:'p',s:'Inscrite RCS Paris 21/07/2025'},
+     {l:'Dirigeant',v:'REAL GAINS',c:'',s:'100% — mère'},
+     {l:'Activité',v:'Octroi prêts participatifs',c:'',s:'NAF 64.92Z'},
+     {l:'Capital social',v:'1 000 €',c:'',s:'SASU unipersonnelle'},
+     {l:'Compte Qonto',v:'Opérationnel',c:'p',s:'Flux entrants/sortants actifs'}
    ]},
-  {id:'dubai',name:'Dubai New Holdco',type:'UAE — En cours de création',color:'#E74C3C',health:'2027',dot:'red',
+  {id:'alpha',name:'ALPHA',type:'Dubai OPCO — AlphaTMax International FZ-LLC',color:'#E74C3C',health:'Active',dot:'grn',
    kpis:[
-     {l:'Statut',v:'En création',c:'w',s:'Freezone/Mainland'},
-     {l:'Actionnaire',v:'Julien (perso)',c:'p',s:'100% direct'},
-     {l:'Objet',v:'Fact. intl.',c:'',s:'Hors France'},
-     {l:'SPV Immo',v:'Piste rachat',c:'w',s:'La Meulette ?'},
-     {l:'Déménagement',v:'2027',c:'',s:'Julien PP'}
+     {l:'Statut juridique',v:'Active',c:'p',s:'RAKEZ — Lic. 47022508'},
+     {l:'Partenariat Manhattan',v:'DPA signé',c:'p',s:'Black Label S1 + Diamond IV'},
+     {l:'Trésorerie',v:'~80 000 USD',c:'',s:'CCA Benjamin'},
+     {l:'Pacte associés',v:'En cours',c:'w',s:'Julien 50% / Benjamin 50%'},
+     {l:'Pipeline commissions',v:'À projeter',c:'w',s:'Selon placements'}
+   ]},
+  {id:'cfc',name:'CFC',type:'Dubai HoldCo — Cross Frontier Capital',color:'#E67E22',health:'À créer',dot:'amb',
+   kpis:[
+     {l:'Statut juridique',v:'À créer',c:'w',s:'Via Rosmont Partners'},
+     {l:'Structure',v:'DMCC Dubai',c:'',s:'Freezone UAE'},
+     {l:'Actionnaire',v:'100% Julien PP',c:'p',s:'Direct'},
+     {l:'Rôle',v:'Remontée dividendes',c:'',s:'50% ALPHA → CFC'},
+     {l:'Échéance création',v:'Voyage 19-29 mai',c:'w',s:'RDV Rosmont'}
+   ]},
+  {id:'lux-holdco',name:'LUX HOLDCO',type:'Sàrl Luxembourg — Holding européenne',color:'#16A085',health:'À créer',dot:'amb',
+   kpis:[
+     {l:'Statut juridique',v:'À créer',c:'w',s:'Sàrl Luxembourg'},
+     {l:'Nom définitif',v:'À définir',c:'w',s:'Post-structuration'},
+     {l:'Détention',v:'100% CFC',c:'',s:'Chaîne UAE → LUX'},
+     {l:'Actifs futurs',v:'LIVING + Meulette',c:'',s:'Rachat post-cession Fronsac'},
+     {l:'IS',v:'~17%',c:'',s:'Régime LUX'}
+   ]},
+  {id:'raif-lux',name:'RAIF LUX',type:'Fonds d\u0027Investissement Alternatif Réservé',color:'#1ABC9C',health:'À créer',dot:'amb',
+   kpis:[
+     {l:'Statut juridique',v:'À créer',c:'w',s:'Post-structuration holdings'},
+     {l:'Nature',v:'Fonds RAIF',c:'',s:'Réservé investisseurs'},
+     {l:'Détention',v:'100% ALPHA',c:'',s:'50% Julien / 50% Benjamin in fine'},
+     {l:'AUM cible',v:'20M€ → 200M€',c:'',s:'Progression multi-phases'},
+     {l:'IS',v:'0%',c:'p',s:'Au niveau fonds'}
    ]}
 ];
 
@@ -3018,7 +3045,7 @@ async function loadAssets(){
   const grid=document.getElementById('assets-grid');const kpisEl=document.getElementById('patrimoine-kpis');if(!grid)return;
   const tI={immobilier:'🏠',vehicule:'🚗',montre:'⌚',bijou:'💍',art:'🎨',placement:'📈',autre:'📦'};
   const tL={immobilier:'Immobilier',vehicule:'Véhicule',montre:'Montre',bijou:'Bijou',art:'Art',placement:'Placement',autre:'Autre'};
-  const cN={'meulette':'La Meulette','sarl-guiraud':'SARL Guiraud','sas-living':'SAS Living','perso':'Julien perso','real-gains':'RG/Monikaza'};
+  const cN={'meulette':'La Meulette','sarl-guiraud':'SARL Guiraud','sas-living':'ALTIOR C / LIVING','perso':'Julien perso','real-gains':'RG/Monikaza','spv-monikaza':'SPV Monikaza','alpha':'ALPHA','cfc':'CFC','lux-holdco':'LUX HOLDCO','raif-lux':'RAIF LUX'};
   const rL={is:'IS',ir:'IR',lmnp:'LMNP',sci:'SCI',exonere:'Exo.'};
   if(!assets?.length){grid.innerHTML='<div class="card" style="text-align:center;color:var(--t2);padding:2rem;grid-column:1/-1">Aucun actif — cliquez sur "+ Nouvel actif"</div>';if(kpisEl)kpisEl.innerHTML='';return;}
   const tM=assets.reduce((s,a)=>s+Number(a.valeur_marche||0),0);
@@ -3325,7 +3352,7 @@ function renderContentieux(data){
   if(!data.length){el.innerHTML='<div style="text-align:center;color:var(--t2);padding:3rem">Aucun dossier — cliquez sur "+ Nouveau dossier"</div>';return;}
   const statutLabel={mise_en_demeure:'Mise en demeure',en_cours:'En cours',negociation:'Négociation',appel:'Appel',cloture:'Clôturé'};
   const statutColor={mise_en_demeure:'ba',en_cours:'br',negociation:'bz',appel:'ba',cloture:'bg'};
-  const coNames={'sas-living':'SAS Living','sarl-guiraud':'SARL Guiraud','meulette':'La Meulette','real-gains':'Real Gains','spv-monikaza':'Monikaza SPV'};
+  const coNames={'sas-living':'ALTIOR C / LIVING','sarl-guiraud':'SARL Guiraud','meulette':'La Meulette','real-gains':'Real Gains','spv-monikaza':'Monikaza SPV','alpha':'ALPHA','cfc':'CFC','lux-holdco':'LUX HOLDCO','raif-lux':'RAIF LUX'};
   el.innerHTML=data.map(d=>`
     <div style="background:var(--s1);border:1px solid var(--b1);border-radius:10px;padding:16px;margin-bottom:10px">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px">
@@ -5171,7 +5198,7 @@ function showGEDBatchReview(){
   const panel=document.getElementById('ged-classify-panel');
 
   // Construit le formulaire de révision batch
-  const entityOpts=['<option value="sas-living">💼 SAS Living</option>','<option value="sarl-guiraud">🏛️ SARL Guiraud</option>','<option value="meulette">🏠 La Meulette</option>','<option value="real-gains">🌐 Real Gains (Monikaza)</option>','<option value="spv-monikaza">🌐 Monikaza SPV</option>','<option value="perso">👤 Perso</option>'].join('');
+  const entityOpts=['<option value="sas-living">💼 ALTIOR C / LIVING</option>','<option value="sarl-guiraud">🏛️ SARL Guiraud</option>','<option value="meulette">🏠 La Meulette</option>','<option value="real-gains">🌐 Real Gains (Monikaza)</option>','<option value="spv-monikaza">🌐 Monikaza SPV</option>','<option value="perso">👤 Perso</option>'].join('');
   const typeOpts=['<option value="facture_recue">🧾 Facture reçue</option>','<option value="recommande">📮 Recommandé</option>','<option value="recouvrement">⚖️ Recouvrement</option>','<option value="releve">🏦 Relevé</option>','<option value="fiscal">🏛️ Fiscal</option>','<option value="social">👥 Social</option>','<option value="contrat">📋 Contrat</option>','<option value="assurance">🛡️ Assurance</option>','<option value="juridique">⚖️ Juridique</option>','<option value="autre">📄 Autre</option>'].join('');
 
   const entityMap={'SAS Living':'sas-living','SARL Guiraud':'sarl-guiraud','La Meulette':'meulette','Real Gains':'real-gains','Monikaza':'real-gains','RG':'real-gains','SPV Monikaza':'spv-monikaza','Monikaza SPV':'spv-monikaza','Julien':'perso'};
@@ -5712,7 +5739,7 @@ function updateApurCheckByMkey(mkey){
 async function loadSoldesReels() {
   const {data: comptes} = await sb.from('bank_accounts_pro').select('*').order('company_id');
   if (!comptes) return;
-  const coNames = {'sas-living':'SAS Living','sarl-guiraud':'SARL Guiraud','meulette':'La Meulette','real-gains':'Real Gains','spv-monikaza':'Monikaza','perso':'Perso'};
+  const coNames = {'sas-living':'ALTIOR C / LIVING','sarl-guiraud':'SARL Guiraud','meulette':'La Meulette','real-gains':'Real Gains','spv-monikaza':'Monikaza','perso':'Perso','alpha':'ALPHA','cfc':'CFC','lux-holdco':'LUX HOLDCO','raif-lux':'RAIF LUX'};
   const groupe = comptes.filter(c => c.company_id !== 'perso');
   const totalGroupe = groupe.reduce((s,c) => c.type_compte==='pret' ? s-Number(c.solde||0) : s+Number(c.solde||0), 0);
   const totalQonto = groupe.filter(c=>c.source==='qonto').reduce((s,c)=>s+Number(c.solde||0),0);
@@ -6870,9 +6897,10 @@ function toggleDebtForm(){const f=document.getElementById('debt-form');if(f)f.st
 
 // ===== FLUX INTER-SOCIÉTÉS =====
 const coNames={
-  'sas-living':'SAS Living','sarl-guiraud':'SARL Guiraud',
+  'sas-living':'ALTIOR C / LIVING','sarl-guiraud':'SARL Guiraud',
   'meulette':'La Meulette','real-gains':'RG/Monikaza',
-  'spv-monikaza':'SPV Monikaza','perso':'Julien (perso)'
+  'spv-monikaza':'SPV Monikaza','perso':'Julien (perso)',
+  'alpha':'ALPHA','cfc':'CFC','lux-holdco':'LUX HOLDCO','raif-lux':'RAIF LUX'
 };
 const motifLabels={
   management_fees:'Management fees',remb_cc:'Remb. CC',
@@ -7432,7 +7460,7 @@ async function loadDebts(){
     document.getElementById('debt-total-display').textContent='0 €';
     return;
   }
-  const coNames={meulette:'La Meulette','sarl-guiraud':'SARL Guiraud','sas-living':'SAS Living','real-gains':'RG/Monikaza'};
+  const coNames={meulette:'La Meulette','sarl-guiraud':'SARL Guiraud','sas-living':'ALTIOR C / LIVING','real-gains':'RG/Monikaza','alpha':'ALPHA','cfc':'CFC','lux-holdco':'LUX HOLDCO','raif-lux':'RAIF LUX'};
   const freqLabels={monthly:'Mensuelle',quarterly:'Trimestrielle',annual:'Annuelle',ponctuel:'Ponctuel'};
   const statusColors={en_cours:'br',suspendu:'ba',solde:'bg'};
   const total=data.filter(d=>d.status!=='solde').reduce((s,d)=>s+Number(d.amount_remaining||d.amount_total||0),0);
@@ -7622,7 +7650,7 @@ async function loadPlacements(){
     document.getElementById('pl-total-display').textContent='0 €';
     return;
   }
-  const coNames={meulette:'La Meulette','sarl-guiraud':'SARL Guiraud','sas-living':'SAS Living'};
+  const coNames={meulette:'La Meulette','sarl-guiraud':'SARL Guiraud','sas-living':'ALTIOR C / LIVING','alpha':'ALPHA','cfc':'CFC','lux-holdco':'LUX HOLDCO','raif-lux':'RAIF LUX'};
   const freqLabels={monthly:'Mensuelle',quarterly:'Trimestrielle',semi_annual:'Semestrielle',annual:'Annuelle',a_echeance:'À l\'échéance'};
   const statusColors={a_venir:'ba',actif:'bg',termine:'bz'};
   const totalCapital=data.filter(d=>d.statut==='actif').reduce((s,d)=>s+Number(d.capital||0),0);
@@ -7685,7 +7713,7 @@ async function loadTresoChart(){
   window._tresoMonths = months;
   const coColors={'sas-living':'#2ECC71','sarl-guiraud':'#3D8EF0','real-gains':'#9B59B6','meulette':'#F39C12'};
   const coIds=['sas-living','sarl-guiraud','real-gains','meulette'];
-  const coNames={'sas-living':'SAS Living','sarl-guiraud':'SARL Guiraud','real-gains':'RG/Monikaza','meulette':'La Meulette'};
+  const coNames={'sas-living':'ALTIOR C / LIVING','sarl-guiraud':'SARL Guiraud','real-gains':'RG/Monikaza','meulette':'La Meulette','alpha':'ALPHA','cfc':'CFC','lux-holdco':'LUX HOLDCO','raif-lux':'RAIF LUX'};
 
   // Calcul revenus par société par mois
   const revenusParSoc={};
@@ -10090,7 +10118,7 @@ function showChargeDetail(id) {
   const daysLeft = deadline ? Math.ceil((deadline - now) / 86400000) : null;
   const deadlineColor = daysLeft === null ? 'var(--t2)' : daysLeft < 30 ? 'var(--red)' : daysLeft < 90 ? 'var(--amb)' : 'var(--grn)';
   const deadlineStr = deadline ? deadline.toLocaleDateString('fr-FR') + (daysLeft >= 0 ? ` (J-${daysLeft})` : ' ⚠ DÉPASSÉE') : '—';
-  const coNames = {meulette:'La Meulette','sarl-guiraud':'SARL Guiraud','sas-living':'SAS Living','real-gains':'RG/Monikaza'};
+  const coNames = {meulette:'La Meulette','sarl-guiraud':'SARL Guiraud','sas-living':'ALTIOR C / LIVING','real-gains':'RG/Monikaza','alpha':'ALPHA','cfc':'CFC','lux-holdco':'LUX HOLDCO','raif-lux':'RAIF LUX'};
 
   content.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:1.5rem">
@@ -10349,7 +10377,7 @@ async function loadVirements(){
   if(!data?.length){document.getElementById('virement-list').innerHTML='<div style="padding:1rem;color:var(--t2);font-size:13px">Aucune charge active.</div>';return;}
 
   const freqMois={monthly:1,quarterly:3,annual:12};
-  const coNames={meulette:'La Meulette','sarl-guiraud':'SARL Guiraud','sas-living':'SAS Living','real-gains':'RG/Monikaza'};
+  const coNames={meulette:'La Meulette','sarl-guiraud':'SARL Guiraud','sas-living':'ALTIOR C / LIVING','real-gains':'RG/Monikaza','alpha':'ALPHA','cfc':'CFC','lux-holdco':'LUX HOLDCO','raif-lux':'RAIF LUX'};
   const modeIcons={prelevement:'🏦',virement:'💸',cheque:'📝',cb:'💳'};
   const today=new Date();
   today.setHours(0,0,0,0);
@@ -11610,7 +11638,7 @@ async function loadCCBalances(){
 }
 
 async function addCCBalance(){
-  const coName={meulette:'La Meulette','sarl-guiraud':'SARL Guiraud','sas-living':'SAS Living','real-gains':'RG / Monikaza','spv-monikaza':'SPV Monikaza',dubai:'Dubai New Holdco',externe:'Externe'};
+  const coName={meulette:'La Meulette','sarl-guiraud':'SARL Guiraud','sas-living':'ALTIOR C / LIVING','real-gains':'RG / Monikaza','spv-monikaza':'SPV Monikaza','alpha':'ALPHA','cfc':'CFC','lux-holdco':'LUX HOLDCO','raif-lux':'RAIF LUX',externe:'Externe'};
   const cp=document.getElementById('cc-counterpart').value;
   const{error}=await sb.from('interco_balances').insert({
     company_id:curCo.id,
@@ -11723,7 +11751,7 @@ async function loadGrpKpis(){
     // CC tableau
     const ccTbody=document.getElementById('grp-cc-tbody');
     if(ccTbody){
-      const cN={'meulette':'La Meulette','sarl-guiraud':'SARL Guiraud','sas-living':'SAS Living','real-gains':'RG/Monikaza','spv-monikaza':'SPV Monikaza'};
+      const cN={'meulette':'La Meulette','sarl-guiraud':'SARL Guiraud','sas-living':'ALTIOR C / LIVING','real-gains':'RG/Monikaza','spv-monikaza':'SPV Monikaza','alpha':'ALPHA','cfc':'CFC','lux-holdco':'LUX HOLDCO','raif-lux':'RAIF LUX'};
       if(!(cc?.length)){
         ccTbody.innerHTML='<tr><td colspan="5" style="text-align:center;color:var(--t2);padding:1rem">Aucun CC — saisir dans CC & Dettes</td></tr>';
       } else {
@@ -12328,7 +12356,7 @@ async function renderTimelinePaiements(moisOffset){
 
   // Construit les événements de paiement avec leur jour
   const events=[];
-  const coNames={'meulette':'La Meulette','sarl-guiraud':'SARL Guiraud','sas-living':'SAS Living','real-gains':'RG/Monikaza','perso':'Julien perso'};
+  const coNames={'meulette':'La Meulette','sarl-guiraud':'SARL Guiraud','sas-living':'ALTIOR C / LIVING','real-gains':'RG/Monikaza','perso':'Julien perso','alpha':'ALPHA','cfc':'CFC','lux-holdco':'LUX HOLDCO','raif-lux':'RAIF LUX'};
 
   // Depuis recurring_charges
   charges.forEach(c=>{
@@ -12739,55 +12767,43 @@ function showJurTab(tab) {
 function renderStructureCible(step) {
   const periods = [
     'Avril 2026 — Situation actuelle',
-    'Avant Juin 2026 — Dubai + NewHoldLux en creation',
-    'Juin 2026 — Vente Fronsac · NewHoldLux entre dans Meulette',
-    'Juin→Sept 2026 — Creation RAIF Luxembourg',
-    'Fin 2026 et au-dela — Structure cible pleinement deployee'
+    'Mai 2026 — Voyage Dubai : création CFC + cession 50% ALPHA à CFC + vente Fronsac',
+    'Été 2026 — LUX HOLDCO constituée (100% CFC)',
+    'Automne 2026 — RAIF · rachats LIVING + Meulette · liquidation Real Gains/SPV',
+    '2027+ — Structure cible pleinement déployée'
   ];
   const el = document.getElementById('jur-cible-content');
   const lbl = document.getElementById('jur-period-label');
   if (lbl) lbl.textContent = periods[step];
   if (!el) return;
 
-  // Entités visibles selon le step
-  const showSCPCP    = step <= 1;  // existe jusqu'a cloture
-  const showNewHold  = step >= 1;
-  const showDubai    = step >= 1;
-  const showMeulette = true;
-  const showRaif     = step >= 3;
-  const showLiving   = true;
-  const showGuiraud  = true;
-  const showRG       = step <= 2;
-  const showMoni     = step <= 1;
-
   const isDark = matchMedia('(prefers-color-scheme:dark)').matches;
-  const txt = isDark ? '#E8ECF4' : '#1A1A2E';
-  const txt2 = isDark ? '#7A849E' : '#6B7280';
   const bg = isDark ? '#1E2336' : '#F8FAFC';
 
-  // Légende étapes
   const stepDescs = [
-    '<strong>Situation actuelle :</strong> SCPCP LUX en cours de régularisation · SARL GUIRAUD sans revenus · SAS LIVING opérationnelle · La Meulette insolvable (CC 1,2M€ dû à GUIRAUD)',
-    '<strong>Avant juin 2026 :</strong> Dubai OPCO constituée et opérationnelle · Premiers contacts Manhattan · NewHoldLux créée (Sàrl propre, sans historique) · SCPCP en cours de clôture',
-    '<strong>Juin 2026 :</strong> Vente Fronsac (300k€ → remboursement GUIRAUD) · NewHoldLux entre au capital de La Meulette à prix symbolique · Injection CC NewHoldLux → Meulette · SCPCP clôturée',
-    '<strong>Juin-Sept 2026 :</strong> Constitution RAIF Luxembourg (50% NewHoldLux / 50% Benjamin) · Actifs cibles : dettes privées + Manhattan + véhicules + art · Objectif 20M€ AuM',
-    '<strong>Structure cible déployée :</strong> Dubai → NewHoldLux → La Meulette : IS effectif 9% · RAIF sous gestion 50-100M€ · Apurement CC GUIRAUD en cours · La Meulette génère revenus (Candice + prestations)'
+    '<strong>Avril 2026 — Situation actuelle :</strong> ALPHA active (100% Benjamin Castel) · DPA Manhattan signé · ALTIOR C / LIVING opérationnelle · La Meulette (90% Julien + 10% Candice) détient 51% SARL Guiraud · Real Gains + SPV Monikaza actives',
+    '<strong>Mai 2026 — Voyage Dubai 19-29/05 :</strong> CFC créée via Rosmont Partners (100% Julien PP) · Benjamin cède 50% de ses parts ALPHA à CFC → ALPHA = 50% CFC + 50% Benjamin · Vente Fronsac 18/05 → remboursement partiel CCA Julien',
+    '<strong>Été 2026 :</strong> LUX HOLDCO constituée (100% CFC) · CFC détient 50% ALPHA + 100% LUX HOLDCO · Flux Manhattan : ALPHA → dividendes 50% vers CFC → Julien · Préparation rachats LIVING + Meulette',
+    '<strong>Automne 2026 :</strong> RAIF LUX constitué (100% ALPHA, bénéficiaires finaux 50/50 Julien/Benjamin) · LUX HOLDCO rachète 100% ALTIOR C / LIVING et 90% La Meulette (rachat des parts Julien) · Real Gains + SPV Monikaza liquidées',
+    '<strong>Structure cible 2027+ :</strong> Julien → CFC → (50% ALPHA + 100% LUX HOLDCO) · LUX HOLDCO détient 100% LIVING + 90% Meulette · Meulette détient toujours 51% SARL Guiraud · RAIF LUX actif · IS effectif ~9%'
   ];
 
   const colors_map = {
-    pp:    { fill: '#1C3D6B', stroke: '#3D8EF0', text: '#E8ECF4', sub: '#7A849E' },
-    hold:  { fill: '#7D4E0A', stroke: '#F39C12', text: '#FFF3DC', sub: '#F0B060' },
-    hold_new: { fill: '#0A5C3A', stroke: '#2ECC71', text: '#DCFFF0', sub: '#7EEDC0' },
-    opco:  { fill: '#3D1070', stroke: '#9B59B6', text: '#F5E6FF', sub: '#C39BD3' },
-    actif: { fill: '#0A3D2E', stroke: '#2ECC71', text: '#DCFFF0', sub: '#7EEDC0' },
-    arret: { fill: '#2C2C2C', stroke: '#666', text: '#CCC', sub: '#888' },
-    raif:  { fill: '#0D3B6E', stroke: '#3D8EF0', text: '#DCF0FF', sub: '#7AB8E8' },
-    lux:   { fill: '#5C1A00', stroke: '#E74C3C', text: '#FFE0DC', sub: '#E89B90' },
+    pp:       { fill: '#1C3D6B', stroke: '#3D8EF0', text: '#E8ECF4', sub: '#7A849E' },
+    hold:     { fill: '#7D4E0A', stroke: '#F39C12', text: '#FFF3DC', sub: '#F0B060' },
+    lux_hold: { fill: '#0A5C3A', stroke: '#16A085', text: '#DCFFF0', sub: '#7EEDC0' },
+    alpha:    { fill: '#5C1A00', stroke: '#E74C3C', text: '#FFE0DC', sub: '#E89B90' },
+    cfc:      { fill: '#5C3000', stroke: '#E67E22', text: '#FFE8D0', sub: '#EBB88A' },
+    living:   { fill: '#0D3B6E', stroke: '#3D8EF0', text: '#DCF0FF', sub: '#7AB8E8' },
+    rg:       { fill: '#0A3D2E', stroke: '#2ECC71', text: '#DCFFF0', sub: '#7EEDC0' },
+    spv:      { fill: '#3D1070', stroke: '#9B59B6', text: '#F5E6FF', sub: '#C39BD3' },
+    raif:     { fill: '#0A4A44', stroke: '#1ABC9C', text: '#D0F5EE', sub: '#7AD7C3' },
+    ext:      { fill: '#2D2D2D', stroke: '#888', text: '#CCC', sub: '#999' },
   };
 
   const node = (x, y, w, h, label, sub, style, badge='') => {
-    const s = colors_map[style] || colors_map.arret;
-    const dashed = style === 'arret' ? 'stroke-dasharray="6,3"' : '';
+    const s = colors_map[style] || colors_map.ext;
+    const dashed = style === 'ext' ? 'stroke-dasharray="6,3"' : '';
     return `
       <rect x="${x}" y="${y}" width="${w}" height="${h}" rx="8" fill="${s.fill}" stroke="${s.stroke}" stroke-width="2" ${dashed}/>
       ${badge ? `<rect x="${x+w-50}" y="${y-8}" width="52" height="16" rx="4" fill="${s.stroke}"/><text x="${x+w-24}" y="${y+3}" text-anchor="middle" fill="#fff" font-size="9" font-weight="700">${badge}</text>` : ''}
@@ -12799,121 +12815,234 @@ function renderStructureCible(step) {
   const line = (x1,y1,x2,y2,color='#374057',dash=false) =>
     `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${color}" stroke-width="1.5" ${dash?'stroke-dasharray="5,3"':''}/>`;
 
-  const pct = (x,y,txt2,col='#F39C12') =>
-    `<text x="${x}" y="${y}" text-anchor="middle" fill="${col}" font-size="9" font-weight="700">${txt2}</text>`;
+  const pct = (x,y,t,col='#F39C12') =>
+    `<text x="${x}" y="${y}" text-anchor="middle" fill="${col}" font-size="9" font-weight="700">${t}</text>`;
 
-  let svg = `<svg viewBox="0 0 1100 620" xmlns="http://www.w3.org/2000/svg" style="width:100%;min-width:900px;font-family:Inter,sans-serif;background:${bg};border-radius:8px;padding:8px">`;
+  let svg = `<svg viewBox="0 0 1100 640" xmlns="http://www.w3.org/2000/svg" style="width:100%;min-width:900px;font-family:Inter,sans-serif;background:${bg};border-radius:8px;padding:8px">`;
 
-  // JULIEN PP — toujours présent
-  svg += node(430, 20, 240, 55, 'GUIRAUD Julien', 'Personne Physique', 'pp');
-  svg += line(550, 75, 550, 105);
+  // JULIEN PP — toujours présent en haut
+  svg += node(430, 20, 220, 55, 'GUIRAUD Julien', 'Personne Physique', 'pp');
 
   if (step === 0) {
-    // Situation actuelle — 5 entités
-    svg += line(120, 105, 980, 105);
-    svg += line(120, 105, 120, 130); svg += line(300, 105, 300, 130);
-    svg += line(550, 105, 550, 130); svg += line(780, 105, 780, 130);
-    svg += line(980, 105, 980, 130);
-    svg += node(20,  130, 200, 60, 'SCPCP Luxembourg', 'A regulariser - cloturer', 'lux', 'URGENT');
-    svg += node(200, 130, 200, 60, 'SARL GUIRAUD', 'Sans revenus - dettes 443k EUR', 'hold');
-    svg += node(430, 130, 240, 60, 'SAS LIVING', 'CIF/LLD - 2M EUR/an', 'actif');
-    svg += node(680, 130, 200, 60, 'LA MEULETTE', 'Immobilier - CC 1.2M EUR', 'hold');
-    svg += node(880, 130, 200, 60, 'REAL GAINS', 'Monikaza - a l\'arret', 'arret');
-    // CC
-    svg += line(300, 160, 680, 160, '#E74C3C', true);
-    svg += `<text x="490" y="157" text-anchor="middle" fill="#E74C3C" font-size="9" font-weight="600">CC 1,2M€</text>`;
-    svg += pct(120, 122, '100%', '#3D8EF0'); svg += pct(300, 122, '51%+49%');
-    svg += pct(550, 122, '100%', '#3D8EF0'); svg += pct(780, 122, '100%', '#3D8EF0');
-    svg += pct(980, 122, '100% LIVING', '#3D8EF0');
+    // ═══ STEP 0 — AVRIL 2026 : SITUATION ACTUELLE ═══
+    svg += line(540, 75, 540, 100);
+    svg += line(130, 100, 850, 100);
+    svg += line(130, 100, 130, 130);
+    svg += line(380, 100, 380, 130);
+    svg += line(620, 100, 620, 130);
+    svg += line(850, 100, 850, 130);
+
+    svg += node(30,  130, 200, 55, 'La Meulette', 'Immo · CCA 1,2M€', 'hold');
+    svg += node(280, 130, 200, 55, 'Altior C / Living', 'CIF · DPA Manhattan', 'living');
+    svg += node(520, 130, 200, 55, 'Real Gains', 'Monikaza', 'rg');
+    svg += node(750, 130, 200, 55, 'SARL Guiraud', 'Management fees', 'hold');
+
+    svg += pct(130, 122, '90%', '#F39C12');
+    svg += pct(380, 122, '100%', '#3D8EF0');
+    svg += pct(620, 122, '100%', '#2ECC71');
+    svg += pct(850, 122, '49%', '#F39C12');
+
+    svg += line(130, 185, 130, 215);
+    svg += line(130, 215, 850, 215);
+    svg += line(850, 215, 850, 185);
+    svg += `<text x="490" y="212" text-anchor="middle" fill="#F39C12" font-size="9" font-weight="700">Meulette détient 51% SARL Guiraud</text>`;
+
+    svg += line(620, 185, 620, 240);
+    svg += node(520, 240, 200, 50, 'SPV Monikaza', '100% Real Gains', 'spv');
+
+    svg += node(60, 310, 180, 50, 'BENJAMIN', 'Personne Physique', 'ext');
+    svg += line(150, 360, 150, 390);
+    svg += node(50, 390, 200, 65, 'ALPHA', 'Dubai OPCO · DPA Manhattan', 'alpha', 'ACTIVE');
+    svg += pct(150, 382, '100%', '#E74C3C');
+
+    svg += `<text x="150" y="480" text-anchor="middle" fill="#E74C3C" font-size="10" font-weight="700">↑ Commissions Manhattan</text>`;
+    svg += `<text x="150" y="493" text-anchor="middle" fill="#E89B90" font-size="9">Black Label · Diamond IV</text>`;
+
+    svg += line(230, 160, 130, 160, '#E74C3C', true);
+    svg += `<text x="180" y="156" text-anchor="middle" fill="#E74C3C" font-size="9" font-weight="600">CCA 1,2M€</text>`;
+
   } else if (step === 1) {
-    // Dubai + NewHoldLux en création, SCPCP encore là
-    svg += line(120, 105, 980, 105);
-    svg += line(120, 105, 120, 130); svg += line(400, 105, 400, 130);
-    svg += line(700, 105, 700, 130); svg += line(980, 105, 980, 130);
-    svg += node(20,  130, 200, 60, 'SCPCP Luxembourg', 'En cours de clôture', 'lux');
-    svg += node(300, 130, 220, 60, 'SARL GUIRAUD', 'Convention LIVING active', 'hold');
-    svg += node(580, 130, 240, 60, 'NEW HOLD LUX', 'Sarl propre - en creation', 'hold_new', 'NEW');
-    svg += node(880, 130, 200, 60, 'SAS LIVING', 'CIF/LLD - 2M EUR/an', 'actif');
-    // NewHoldLux branches vers Dubai
-    svg += line(700, 190, 700, 230);
-    svg += line(550, 230, 850, 230);
-    svg += line(550, 230, 550, 255); svg += line(850, 230, 850, 255);
-    svg += node(450, 255, 200, 60, 'DUBAI HOLDCO', '100% NewHoldLux', 'opco', 'NEW');
-    svg += node(750, 255, 200, 60, 'LA MEULETTE', 'Immobilier - Fronsac', 'hold');
-    svg += line(550, 285, 750, 285);
-    svg += node(450, 340, 200, 60, 'DUBAI OPCO', 'Manhattan · dettes privées', 'opco', 'NEW');
-    svg += line(550, 315, 550, 340);
-    svg += pct(700, 247, '100%', '#2ECC71'); svg += pct(400, 122, '51%+49%');
-    svg += `<text x="640" y="282" fill="#9B59B6" font-size="9" font-weight="700">50%</text>`;
+    // ═══ STEP 1 — MAI 2026 : VOYAGE DUBAI ═══
+    svg += line(540, 75, 540, 100);
+    svg += line(130, 100, 850, 100);
+    svg += line(130, 100, 130, 130);
+    svg += line(380, 100, 380, 130);
+    svg += line(620, 100, 620, 130);
+    svg += line(850, 100, 850, 130);
+
+    svg += node(30,  130, 200, 55, 'La Meulette', 'Fronsac vendue 18/05', 'hold', 'NEW');
+    svg += node(280, 130, 200, 55, 'Altior C / Living', 'CIF · DPA Manhattan', 'living');
+    svg += node(520, 130, 200, 55, 'Real Gains + SPV', 'Monikaza', 'rg');
+    svg += node(750, 130, 200, 55, 'SARL Guiraud', 'Management fees', 'hold');
+
+    svg += pct(130, 122, '90%', '#F39C12');
+    svg += pct(380, 122, '100%', '#3D8EF0');
+    svg += pct(620, 122, '100%', '#2ECC71');
+    svg += pct(850, 122, '49%', '#F39C12');
+
+    svg += line(130, 185, 130, 210);
+    svg += line(130, 210, 850, 210);
+    svg += line(850, 210, 850, 185);
+
+    svg += line(540, 75, 540, 260);
+    svg += node(430, 260, 220, 55, 'CFC', 'Dubai HoldCo · via Rosmont', 'cfc', 'NEW');
+    svg += pct(540, 252, '100%', '#E67E22');
+
+    svg += line(430, 290, 150, 360);
+    svg += node(50, 360, 200, 65, 'ALPHA', 'Dubai OPCO · DPA Manhattan', 'alpha');
+    svg += pct(290, 330, '50% (cession Benjamin)', '#E67E22');
+
+    svg += node(720, 340, 200, 55, 'BENJAMIN', 'Hors périmètre · 50%', 'ext');
+    svg += line(820, 395, 250, 395, '#888', true);
+    svg += `<text x="535" y="391" text-anchor="middle" fill="#888" font-size="9">50% ALPHA</text>`;
+
+    svg += `<text x="150" y="455" text-anchor="middle" fill="#E74C3C" font-size="10" font-weight="700">↑ Commissions Manhattan</text>`;
+
+    svg += line(230, 160, 130, 160, '#2ECC71', true);
+    svg += `<text x="180" y="156" text-anchor="middle" fill="#2ECC71" font-size="9" font-weight="600">✓ Remb. partiel CCA</text>`;
+
+    svg += `<text x="550" y="560" text-anchor="middle" fill="#E67E22" font-size="11" font-weight="700">🎯 Mission Dubai : création CFC · cession 50% ALPHA · RDV Rosmont Partners</text>`;
+
   } else if (step === 2) {
-    // Vente Fronsac, NewHoldLux entre dans Meulette
-    svg += line(550, 75, 550, 105); svg += line(250, 105, 850, 105);
-    svg += line(250, 105, 250, 130); svg += line(550, 105, 550, 130); svg += line(850, 105, 850, 130);
-    svg += node(150, 130, 200, 60, 'SARL GUIRAUD', 'Dettes en apurement', 'hold');
-    svg += node(430, 130, 240, 60, 'NEW HOLD LUX', 'Holding animation - active', 'hold_new');
-    svg += node(750, 130, 200, 60, 'SAS LIVING', 'CIF/LLD - France', 'actif');
-    // NewHoldLux → 3 branches
-    svg += line(550, 190, 550, 220); svg += line(300, 220, 800, 220);
-    svg += line(300, 220, 300, 245); svg += line(550, 220, 550, 245); svg += line(800, 220, 800, 245);
-    svg += node(200, 245, 200, 65, 'DUBAI HOLDCO', '100%', 'opco');
-    svg += node(430, 245, 240, 65, 'LA MEULETTE', 'NewHoldLux entree / Vente Fronsac 300k EUR', 'hold', '⬅ NEW');
-    svg += node(700, 245, 200, 65, 'RAIF LUX', 'En preparation', 'raif');
-    // Dubai Opco
-    svg += line(300, 310, 300, 340);
-    svg += node(200, 340, 200, 60, 'DUBAI OPCO', 'Manhattan 15-30M EUR/an', 'opco');
-    // CC flux
-    svg += line(430, 277, 200, 277, '#E74C3C', true);
-    svg += `<text x="300" y="272" text-anchor="middle" fill="#2ECC71" font-size="9" font-weight="700">→ CC injection</text>`;
-    svg += line(430, 277, 200, 277);
-    // Labels pct
-    svg += pct(250, 122, '51%+49%'); svg += pct(550, 122, '100%', '#2ECC71'); svg += pct(850, 122, '100%', '#3D8EF0');
-    svg += `<text x="430" y="430" text-anchor="middle" fill="#2ECC71" font-size="11" font-weight="700">✓ Fronsac vendu · 300k€ → GUIRAUD · Dettes partiellement apurées</text>`;
+    // ═══ STEP 2 — ÉTÉ 2026 : LUX HOLDCO ═══
+    svg += line(540, 75, 540, 100);
+    svg += line(130, 100, 850, 100);
+    svg += line(130, 100, 130, 130);
+    svg += line(380, 100, 380, 130);
+    svg += line(620, 100, 620, 130);
+    svg += line(850, 100, 850, 130);
+
+    svg += node(30,  130, 200, 50, 'La Meulette', 'CCA apurement', 'hold');
+    svg += node(280, 130, 200, 50, 'Altior C / Living', 'CIF · LLD', 'living');
+    svg += node(520, 130, 200, 50, 'Real Gains + SPV', 'Monikaza', 'rg');
+    svg += node(750, 130, 200, 50, 'SARL Guiraud', 'Management fees', 'hold');
+
+    svg += pct(130, 122, '90%', '#F39C12');
+    svg += pct(380, 122, '100%', '#3D8EF0');
+    svg += pct(620, 122, '100%', '#2ECC71');
+    svg += pct(850, 122, '49%', '#F39C12');
+
+    svg += line(130, 180, 130, 200);
+    svg += line(130, 200, 850, 200);
+    svg += line(850, 200, 850, 180);
+
+    svg += line(540, 75, 540, 240);
+    svg += node(430, 240, 220, 55, 'CFC', 'Dubai HoldCo', 'cfc');
+    svg += pct(540, 232, '100%', '#E67E22');
+
+    svg += line(540, 295, 540, 325);
+    svg += node(430, 325, 220, 60, 'LUX HOLDCO', 'Sàrl Lux · en constitution', 'lux_hold', 'NEW');
+    svg += pct(540, 317, '100%', '#16A085');
+
+    svg += line(430, 355, 280, 180, '#3D8EF0', true);
+    svg += line(430, 355, 130, 180, '#F39C12', true);
+    svg += `<text x="300" y="275" fill="#3D8EF0" font-size="9" font-weight="700" font-style="italic">Rachats LIVING + Meulette prévus</text>`;
+
+    svg += line(430, 268, 250, 420, '#E67E22');
+    svg += node(50, 420, 200, 60, 'ALPHA', 'Dubai OPCO', 'alpha');
+    svg += pct(260, 360, '50%', '#E67E22');
+
+    svg += node(720, 420, 200, 50, 'BENJAMIN', 'Hors périmètre · 50%', 'ext');
+    svg += line(720, 445, 250, 445, '#888', true);
+    svg += `<text x="485" y="441" text-anchor="middle" fill="#888" font-size="9">50% ALPHA</text>`;
+
+    svg += `<text x="150" y="505" text-anchor="middle" fill="#E74C3C" font-size="10" font-weight="700">↑ Commissions Manhattan (flux actifs)</text>`;
+    svg += `<text x="550" y="580" text-anchor="middle" fill="#16A085" font-size="11" font-weight="700">✓ LUX HOLDCO constituée · Flux : ALPHA → CFC (50%) → Julien</text>`;
+
   } else if (step === 3) {
-    // RAIF créé
-    svg += line(550, 75, 550, 105); svg += line(250, 105, 850, 105);
-    svg += line(250, 105, 250, 130); svg += line(550, 105, 550, 130); svg += line(850, 105, 850, 130);
-    svg += node(150, 130, 200, 60, 'SARL GUIRAUD', 'Apurement en cours', 'hold');
-    svg += node(430, 130, 240, 60, 'NEW HOLD LUX', 'Holding animation', 'hold_new');
-    svg += node(750, 130, 200, 60, 'SAS LIVING', 'CIF/LLD - France', 'actif');
-    svg += line(550, 190, 550, 220); svg += line(250, 220, 900, 220);
-    svg += line(250, 220, 250, 245); svg += line(550, 220, 550, 245); svg += line(900, 220, 900, 245);
-    svg += node(150, 245, 200, 65, 'DUBAI HOLDCO', '100%', 'opco');
-    svg += node(430, 245, 240, 65, 'LA MEULETTE', 'CC apurement progressif - Candice salariee', 'hold');
-    svg += node(800, 245, 200, 65, 'RAIF LUX', '50% NewHoldLux / 50% Benjamin', 'raif', 'NEW');
-    svg += line(250, 310, 250, 340);
-    svg += node(150, 340, 200, 60, 'DUBAI OPCO', 'Manhattan 15-30M EUR/an', 'opco');
-    // BENJAMIN
-    svg += node(870, 130, 160, 55, 'BENJAMIN', 'Associé RAIF · 50%', 'pp');
-    svg += line(950, 185, 900, 245, '#3D8EF0', true);
-    svg += pct(550, 122, '100%', '#2ECC71'); svg += pct(250, 122, '51%+49%');
-    svg += `<text x="550" y="430" text-anchor="middle" fill="#2ECC71" font-size="11" font-weight="700">RAIF constitué · Objectif 20M€ AuM · Actifs : dettes privées + véhicules + art</text>`;
+    // ═══ STEP 3 — AUTOMNE 2026 : RACHATS + LIQUIDATIONS ═══
+    svg += line(540, 75, 540, 105);
+    svg += node(430, 105, 220, 55, 'CFC', 'Dubai HoldCo', 'cfc');
+    svg += pct(540, 97, '100%', '#E67E22');
+
+    svg += line(540, 160, 540, 190);
+    svg += node(430, 190, 220, 60, 'LUX HOLDCO', 'Hub européen actif', 'lux_hold');
+    svg += pct(540, 182, '100%', '#16A085');
+
+    svg += line(540, 250, 540, 280);
+    svg += line(280, 280, 800, 280);
+    svg += line(280, 280, 280, 305);
+    svg += line(800, 280, 800, 305);
+
+    svg += node(180, 305, 200, 55, 'Altior C / Living', 'Rachetée 100% LUX', 'living', 'RACHAT');
+    svg += node(700, 305, 200, 55, 'La Meulette', 'Rachetée 90% LUX', 'hold', 'RACHAT');
+    svg += pct(280, 297, '100%', '#16A085');
+    svg += pct(800, 297, '90%', '#16A085');
+
+    svg += line(800, 360, 800, 390);
+    svg += node(700, 390, 200, 55, 'SARL Guiraud', '51% Meulette · 49% Julien', 'hold');
+    svg += pct(800, 382, '51%', '#F39C12');
+
+    svg += line(650, 47, 900, 390, '#F39C12', true);
+    svg += `<text x="900" y="420" text-anchor="middle" fill="#F39C12" font-size="9">Julien PP 49% direct</text>`;
+
+    svg += node(930, 305, 140, 55, 'Candice', '10% Meulette', 'ext');
+    svg += line(930, 332, 900, 332, '#888', true);
+
+    svg += line(430, 133, 180, 470, '#E67E22');
+    svg += node(80, 470, 200, 60, 'ALPHA', 'Dubai OPCO', 'alpha');
+    svg += `<text x="250" y="315" fill="#E67E22" font-size="9" font-weight="700">50% CFC</text>`;
+
+    svg += node(360, 470, 200, 55, 'BENJAMIN', 'Hors périmètre · 50%', 'ext');
+    svg += line(280, 495, 360, 495, '#888', true);
+
+    svg += line(180, 530, 180, 560);
+    svg += line(180, 560, 750, 560);
+    svg += line(750, 560, 750, 535);
+    svg += node(650, 475, 200, 60, 'RAIF LUX', 'AUM 20M€ cible', 'raif', 'NEW');
+    svg += `<text x="465" y="555" text-anchor="middle" fill="#1ABC9C" font-size="10" font-weight="700">ALPHA détient 100% RAIF LUX</text>`;
+
+    svg += `<text x="180" y="558" text-anchor="middle" fill="#E74C3C" font-size="9" font-weight="700">↑ Manhattan</text>`;
+    svg += `<text x="550" y="615" text-anchor="middle" fill="#2ECC71" font-size="11" font-weight="700">✓ Rachats LIVING + Meulette · RAIF constitué · Real Gains + SPV liquidées</text>`;
+
   } else {
-    // Structure complète
-    svg += line(550, 75, 550, 105); svg += line(250, 105, 900, 105);
-    svg += line(250, 105, 250, 130); svg += line(550, 105, 550, 130); svg += line(900, 105, 900, 130);
-    svg += node(150, 130, 200, 60, 'SARL GUIRAUD', 'Dettes apurees - Stabilise', 'actif');
-    svg += node(430, 130, 240, 60, 'NEW HOLD LUX', 'Holding animation · 100% Julien', 'hold_new');
-    svg += node(800, 130, 200, 60, 'SAS LIVING', 'CIF/LLD - 3M EUR/an', 'actif');
-    svg += line(550, 190, 550, 220); svg += line(200, 220, 950, 220);
-    svg += line(200, 220, 200, 245); svg += line(550, 220, 550, 245); svg += line(950, 220, 950, 245);
-    svg += node(100, 245, 200, 65, 'DUBAI HOLDCO', '100%', 'opco');
-    svg += node(430, 245, 240, 65, 'LA MEULETTE', 'Revenu prestations / CC apure', 'actif');
-    svg += node(850, 245, 200, 65, 'RAIF LUX', '50/50 - 50-100M EUR AuM', 'raif');
-    svg += line(200, 310, 200, 340);
-    svg += node(100, 340, 200, 60, 'DUBAI OPCO', 'Manhattan 20-30M EUR/an', 'opco');
-    svg += node(830, 130, 0, 0, '', '', 'pp'); // Benjamin
-    svg += node(920, 130, 160, 55, 'BENJAMIN', 'Associé RAIF · 50%', 'pp');
-    svg += line(1000, 185, 950, 245, '#3D8EF0', true);
-    // Flux
-    svg += line(200, 370, 430, 277, '#9B59B6', true);
-    svg += `<text x="300" y="340" fill="#9B59B6" font-size="9" font-weight="700">Dubai → LUX → Meulette</text>`;
-    svg += `<text x="310" y="352" fill="#9B59B6" font-size="9">IS effectif : 9%</text>`;
-    svg += `<text x="550" y="530" text-anchor="middle" fill="#2ECC71" font-size="12" font-weight="700">✅ Structure cible pleinement deployée · IS effectif global ~9% · Apurement GUIRAUD complété</text>`;
+    // ═══ STEP 4 — 2027+ : STRUCTURE CIBLE ═══
+    svg += line(540, 75, 540, 105);
+    svg += node(430, 105, 220, 55, 'CFC', 'Dubai HoldCo · 100% Julien', 'cfc');
+    svg += pct(540, 97, '100%', '#E67E22');
+
+    svg += line(540, 160, 540, 190);
+    svg += node(430, 190, 220, 60, 'LUX HOLDCO', 'Hub européen · IS ~17%', 'lux_hold');
+    svg += pct(540, 182, '100%', '#16A085');
+
+    svg += line(540, 250, 540, 280);
+    svg += line(280, 280, 800, 280);
+    svg += line(280, 280, 280, 305);
+    svg += line(800, 280, 800, 305);
+
+    svg += node(180, 305, 200, 55, 'Altior C / Living', 'CIF · LLD · 3M€/an', 'living');
+    svg += node(700, 305, 200, 55, 'La Meulette', 'Revenus Candice', 'hold');
+    svg += pct(280, 297, '100%', '#16A085');
+    svg += pct(800, 297, '90%', '#16A085');
+
+    svg += line(800, 360, 800, 390);
+    svg += node(700, 390, 200, 55, 'SARL Guiraud', '51% Meulette · 49% Julien', 'hold');
+    svg += pct(800, 382, '51%', '#F39C12');
+
+    svg += line(650, 47, 900, 390, '#F39C12', true);
+    svg += `<text x="900" y="420" text-anchor="middle" fill="#F39C12" font-size="9">Julien PP 49% direct</text>`;
+
+    svg += node(930, 305, 140, 55, 'Candice', '10% Meulette', 'ext');
+    svg += line(930, 332, 900, 332, '#888', true);
+
+    svg += line(430, 133, 180, 470, '#E67E22');
+    svg += node(80, 470, 200, 60, 'ALPHA', 'Dubai OPCO', 'alpha');
+    svg += `<text x="250" y="320" fill="#E67E22" font-size="9" font-weight="700">50% CFC</text>`;
+
+    svg += node(360, 470, 200, 55, 'BENJAMIN', '50% ALPHA · hors périmètre', 'ext');
+    svg += line(280, 495, 360, 495, '#888', true);
+
+    svg += line(180, 530, 180, 555);
+    svg += line(180, 555, 750, 555);
+    svg += line(750, 555, 750, 535);
+    svg += node(650, 475, 200, 60, 'RAIF LUX', 'AUM 20-200M€', 'raif');
+    svg += `<text x="465" y="550" text-anchor="middle" fill="#1ABC9C" font-size="10" font-weight="700">ALPHA 100% RAIF LUX</text>`;
+
+    svg += `<text x="550" y="615" text-anchor="middle" fill="#2ECC71" font-size="12" font-weight="700">✅ Structure cible · IS effectif ~9% · RAIF 20→200M€</text>`;
   }
 
   svg += '</svg>';
 
-  // Bloc description
   el.innerHTML = svg + `
     <div style="margin-top:1rem;padding:12px 16px;background:var(--s2);border-radius:8px;border-left:3px solid var(--acc);font-size:12px">
       ${stepDescs[step]}
