@@ -8170,6 +8170,36 @@ async function loadTresoChart(){
   // TVA déductible pour Living = 20% sur HT facture SARL Guiraud
   const tvaDeductibleSarl=months.map((_,i)=>Math.round(intraGroupe[i]/1.20*0.20));
 
+  // Actifs en vente → revenus de cession dans le mois prévu
+  // IMPORTANT : cette boucle doit s'exécuter AVANT le calcul de caNetExterne
+  // pour que les ventes patrimoine (ex : Fronsac 320k Meulette) apparaissent
+  // dans le CA BRUT du tableau détail mensuel
+  try{
+    const{data:assetsEnVente}=await sb.from('assets').select('*').eq('statut','en_vente');
+    (assetsEnVente||[]).forEach(a=>{
+      // Utiliser net_vente_estime si renseigné, sinon calculer
+      let netPercu=Number(a.net_vente_estime||0);
+      if(!netPercu){
+        const vm=Number(a.prix_vente_prevu||a.valeur_marche||0); // prix_vente_prevu en priorité
+        if(!vm)return;
+        const cr=Number(a.capital_restant||0);
+        const fraisA=Math.round(vm*0.05);
+        const fraisN=a.type_asset==='immobilier'?Math.round(vm*0.015):0;
+        const pv=vm-Number(a.valeur_acquisition||0);
+        const impot=pv>0?(a.regime_fiscal==='is'?Math.round(pv*0.25):Math.round(pv*0.36)):0;
+        netPercu=vm-cr-fraisA-fraisN-impot;
+      }
+      if(!netPercu)return;
+      const moisVente=a.date_vente_prevue?new Date(a.date_vente_prevue):new Date(now.getFullYear(),now.getMonth()+3,1);
+      const coId=revenusParSoc[a.company_id]?a.company_id:'meulette';
+      months.forEach((m,i)=>{
+        if(m.getMonth()===moisVente.getMonth()&&m.getFullYear()===moisVente.getFullYear()){
+          if(revenusParSoc[coId])revenusParSoc[coId][i]+=netPercu;
+        }
+      });
+    });
+  }catch(e){}
+
   const caNetExterne=months.map((_,i)=>
     coIds.reduce((s,id)=>s+revenusParSoc[id][i],0)+revenusPlac[i]-intraGroupe[i]+encaissements[i]
   );
@@ -8252,32 +8282,8 @@ async function loadTresoChart(){
     return Math.round(dep3*1.2);
   });
 
-  // Actifs en vente → revenus de cession dans le mois prévu
-  try{
-    const{data:assetsEnVente}=await sb.from('assets').select('*').eq('statut','en_vente');
-    (assetsEnVente||[]).forEach(a=>{
-      // Utiliser net_vente_estime si renseigné, sinon calculer
-      let netPercu=Number(a.net_vente_estime||0);
-      if(!netPercu){
-        const vm=Number(a.prix_vente_prevu||a.valeur_marche||0); // prix_vente_prevu en priorité
-        if(!vm)return;
-        const cr=Number(a.capital_restant||0);
-        const fraisA=Math.round(vm*0.05);
-        const fraisN=a.type_asset==='immobilier'?Math.round(vm*0.015):0;
-        const pv=vm-Number(a.valeur_acquisition||0);
-        const impot=pv>0?(a.regime_fiscal==='is'?Math.round(pv*0.25):Math.round(pv*0.36)):0;
-        netPercu=vm-cr-fraisA-fraisN-impot;
-      }
-      if(!netPercu)return;
-      const moisVente=a.date_vente_prevue?new Date(a.date_vente_prevue):new Date(now.getFullYear(),now.getMonth()+3,1);
-      const coId=revenusParSoc[a.company_id]?a.company_id:'meulette';
-      months.forEach((m,i)=>{
-        if(m.getMonth()===moisVente.getMonth()&&m.getFullYear()===moisVente.getFullYear()){
-          if(revenusParSoc[coId])revenusParSoc[coId][i]+=netPercu;
-        }
-      });
-    });
-  }catch(e){}
+  // Actifs en vente → déjà traités plus haut (avant caNetExterne) pour que
+  // les ventes patrimoine apparaissent correctement dans le CA BRUT du tableau
 
   // Tréso excédentaire plaçable par mois
   const tresoPlagable=tresoCumul.map((v,i)=>Math.max(0,v-seuilPlacement[i]));
