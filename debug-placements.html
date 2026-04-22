@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Debug — Placements & schémas</title>
+<style>
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0F1419;color:#E1E8ED;padding:20px;max-width:1400px;margin:0 auto}
+  h1{color:#1DA1F2;border-bottom:2px solid #1DA1F2;padding-bottom:8px}
+  h2{color:#FFAD1F;margin-top:30px}
+  .panel{background:#192734;border:1px solid #38444D;border-radius:8px;padding:16px;margin:12px 0}
+  table{width:100%;border-collapse:collapse;font-size:12px}
+  th{background:#22303C;text-align:left;padding:8px;border-bottom:2px solid #38444D;color:#1DA1F2;font-weight:600}
+  td{padding:6px 8px;border-bottom:1px solid #38444D;font-family:'IBM Plex Mono',monospace;font-size:11px}
+  tr:hover td{background:#22303C}
+  .num{text-align:right;color:#FFAD1F}
+  .id{color:#8899A6;font-size:10px}
+  .ok{color:#17BF63}
+  .warn{color:#E0245E}
+  pre{background:#0F1419;border:1px solid #38444D;padding:12px;border-radius:6px;overflow-x:auto;font-size:11px}
+  .empty{color:#8899A6;font-style:italic}
+  .count{color:#1DA1F2;font-weight:600}
+</style>
+</head>
+<body>
+<h1>🔍 Debug — Placements, Products, Contracts</h1>
+
+<div class="panel">
+  <h2>📊 Table <code>placements</code></h2>
+  <div id="placements-status">Chargement…</div>
+  <div id="placements-content"></div>
+</div>
+
+<div class="panel">
+  <h2>📦 Table <code>products</code> — schéma & contenu</h2>
+  <div id="products-status">Chargement…</div>
+  <div id="products-content"></div>
+</div>
+
+<div class="panel">
+  <h2>📋 Table <code>contracts</code> — derniers 20 contrats CGW/Manhattan</h2>
+  <div id="contracts-status">Chargement…</div>
+  <div id="contracts-content"></div>
+</div>
+
+<div class="panel">
+  <h2>🏢 Vérification AlphaTMax dans companies</h2>
+  <div id="alpha-status">Chargement…</div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+const SB_URL='https://uqpgwypgkwlvrpxtxhia.supabase.co';
+const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVxcGd3eXBna3dsdnJweHR4aGlhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM1ODg2NzAsImV4cCI6MjA4OTE2NDY3MH0.EVdcTLWbkx9X0L16-Az0GmfAVOsB977AAaSCeHiwihE';
+const sb=supabase.createClient(SB_URL,SB_KEY);
+
+function fmt(v){if(v==null)return '<span class="empty">—</span>';if(typeof v==='number')return v.toLocaleString('fr-FR');if(typeof v==='object')return '<pre style="margin:0;padding:4px">'+JSON.stringify(v,null,2)+'</pre>';return String(v);}
+function fmtMoney(v){return v==null?'—':Math.round(Number(v)).toLocaleString('fr-FR')+' €';}
+function fmtDate(v){return v==null?'—':String(v).slice(0,10);}
+
+async function loadPlacements(){
+  const {data,error}=await sb.from('placements').select('*').order('date_entree',{ascending:true});
+  const status=document.getElementById('placements-status');
+  const content=document.getElementById('placements-content');
+  if(error){status.innerHTML='<span class="warn">❌ Erreur : '+error.message+'</span>';return;}
+  if(!data||!data.length){status.innerHTML='<span class="empty">Table vide</span>';return;}
+  status.innerHTML='<span class="count">'+data.length+' placement(s) trouvé(s)</span>';
+  const cols=Object.keys(data[0]);
+  let html='<table><thead><tr>'+cols.map(c=>'<th>'+c+'</th>').join('')+'</tr></thead><tbody>';
+  data.forEach(row=>{
+    html+='<tr>'+cols.map(c=>{
+      const v=row[c];
+      let cls='';
+      if(c==='capital'||c==='rendement_pct')cls='num';
+      if(c==='id')cls='id';
+      let display=fmt(v);
+      if(c==='capital'&&v!=null)display=fmtMoney(v);
+      if((c==='date_entree'||c==='date_sortie')&&v!=null)display=fmtDate(v);
+      return '<td class="'+cls+'">'+display+'</td>';
+    }).join('')+'</tr>';
+  });
+  html+='</tbody></table>';
+  content.innerHTML=html;
+}
+
+async function loadProducts(){
+  const {data,error}=await sb.from('products').select('*').order('name',{ascending:true});
+  const status=document.getElementById('products-status');
+  const content=document.getElementById('products-content');
+  if(error){status.innerHTML='<span class="warn">❌ Erreur : '+error.message+'</span>';return;}
+  if(!data||!data.length){status.innerHTML='<span class="empty">Table vide</span>';return;}
+  status.innerHTML='<span class="count">'+data.length+' produit(s) trouvé(s)</span> — colonnes : <code>'+Object.keys(data[0]).join(', ')+'</code>';
+  const cols=Object.keys(data[0]);
+  let html='<table><thead><tr>'+cols.map(c=>'<th>'+c+'</th>').join('')+'</tr></thead><tbody>';
+  data.forEach(row=>{
+    html+='<tr>'+cols.map(c=>{
+      const v=row[c];
+      let cls=c==='id'?'id':'';
+      return '<td class="'+cls+'">'+fmt(v)+'</td>';
+    }).join('')+'</tr>';
+  });
+  html+='</tbody></table>';
+  content.innerHTML=html;
+}
+
+async function loadContracts(){
+  const {data,error}=await sb.from('contracts').select('*,products(name,category)').order('signed_date',{ascending:false}).limit(20);
+  const status=document.getElementById('contracts-status');
+  const content=document.getElementById('contracts-content');
+  if(error){status.innerHTML='<span class="warn">❌ Erreur : '+error.message+'</span>';return;}
+  if(!data||!data.length){status.innerHTML='<span class="empty">Aucun contrat</span>';return;}
+  status.innerHTML='<span class="count">'+data.length+' derniers contrats</span> — colonnes : <code>'+Object.keys(data[0]).filter(k=>k!=='products').join(', ')+'</code>';
+  const cols=['id','billing_company_id','client_id','product_id','products','label','amount','commission_amount','status','recurrence','signed_date','start_date','payment_expected_date'];
+  let html='<table><thead><tr>'+cols.map(c=>'<th>'+c+'</th>').join('')+'</tr></thead><tbody>';
+  data.forEach(row=>{
+    html+='<tr>'+cols.map(c=>{
+      const v=row[c];
+      let cls=c==='id'||c==='client_id'||c==='product_id'?'id':'';
+      if(c==='amount'||c==='commission_amount')cls='num';
+      let display=fmt(v);
+      if(c==='id'&&v)display=String(v).slice(0,8)+'…';
+      if((c==='client_id'||c==='product_id')&&v)display=String(v).slice(0,8)+'…';
+      if(c==='products'&&v)display=v.name+' <span class="id">('+v.category+')</span>';
+      if((c==='amount'||c==='commission_amount')&&v!=null)display=fmtMoney(v);
+      if((c==='signed_date'||c==='start_date'||c==='payment_expected_date')&&v)display=fmtDate(v);
+      return '<td class="'+cls+'">'+display+'</td>';
+    }).join('')+'</tr>';
+  });
+  html+='</tbody></table>';
+  content.innerHTML=html;
+}
+
+async function checkAlpha(){
+  const status=document.getElementById('alpha-status');
+  // Test 1 : présence dans une table companies si elle existe
+  const {data:c,error:eC}=await sb.from('companies').select('*').eq('id','alpha').limit(1);
+  let html='';
+  if(eC){
+    html+='<div class="warn">Table <code>companies</code> introuvable ou inaccessible : '+eC.message+'</div>';
+  } else if(!c||!c.length){
+    html+='<div class="warn">⚠ Aucune ligne avec id=alpha dans table companies</div>';
+  } else {
+    html+='<div class="ok">✓ AlphaTMax présent dans table companies</div>';
+    html+='<pre>'+JSON.stringify(c[0],null,2)+'</pre>';
+  }
+  // Test 2 : combien de contrats déjà rattachés à alpha
+  const {count:cAlpha}=await sb.from('contracts').select('*',{count:'exact',head:true}).eq('billing_company_id','alpha');
+  html+='<div>Contrats avec billing_company_id=alpha : <span class="count">'+(cAlpha||0)+'</span></div>';
+  // Test 3 : combien de placements rattachés à alpha
+  const {count:pAlpha}=await sb.from('placements').select('*',{count:'exact',head:true}).eq('company_id','alpha');
+  html+='<div>Placements avec company_id=alpha : <span class="count">'+(pAlpha||0)+'</span></div>';
+  status.innerHTML=html;
+}
+
+(async()=>{
+  await loadPlacements();
+  await loadProducts();
+  await loadContracts();
+  await checkAlpha();
+})();
+</script>
+</body>
+</html>
