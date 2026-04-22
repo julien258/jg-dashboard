@@ -57,17 +57,25 @@ function fmt(v){if(v==null)return '<span class="empty">—</span>';if(typeof v==
 function fmtMoney(v){return v==null?'—':Math.round(Number(v)).toLocaleString('fr-FR')+' €';}
 function fmtDate(v){return v==null?'—':String(v).slice(0,10);}
 
+async function deletePlacement(id){
+  if(!confirm('Supprimer définitivement le placement '+id.slice(0,8)+'… ?\n\nCette action est irréversible.'))return;
+  const {error}=await sb.from('placements').delete().eq('id',id);
+  if(error){alert('❌ Erreur : '+error.message);return;}
+  alert('✓ Supprimé. La page va se recharger.');
+  location.reload();
+}
+
 async function loadPlacements(){
   const {data,error}=await sb.from('placements').select('*').order('date_entree',{ascending:true});
   const status=document.getElementById('placements-status');
   const content=document.getElementById('placements-content');
   if(error){status.innerHTML='<span class="warn">❌ Erreur : '+error.message+'</span>';return;}
-  if(!data||!data.length){status.innerHTML='<span class="empty">Table vide</span>';return;}
+  if(!data||!data.length){status.innerHTML='<span class="empty">✓ Table vide — aucun placement fantôme</span>';return;}
   status.innerHTML='<span class="count">'+data.length+' placement(s) trouvé(s)</span>';
   const cols=Object.keys(data[0]);
-  let html='<table><thead><tr>'+cols.map(c=>'<th>'+c+'</th>').join('')+'</tr></thead><tbody>';
+  let html='<table><thead><tr><th>🗑</th>'+cols.map(c=>'<th>'+c+'</th>').join('')+'</tr></thead><tbody>';
   data.forEach(row=>{
-    html+='<tr>'+cols.map(c=>{
+    html+='<tr><td><button onclick="deletePlacement(\''+row.id+'\')" style="background:#E0245E;color:#fff;border:none;padding:4px 8px;border-radius:4px;cursor:pointer;font-size:10px">Supprimer</button></td>'+cols.map(c=>{
       const v=row[c];
       let cls='';
       if(c==='capital'||c==='rendement_pct')cls='num';
