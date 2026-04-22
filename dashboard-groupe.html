@@ -7816,7 +7816,7 @@ async function loadTresoChart(){
 
   // Charge toutes les données en parallèle
   const[{data:contracts},{data:debts},{data:placements},{data:payables},{data:receivables},{data:charges},{data:forecasts},{data:engagements}]=await Promise.all([
-    sb.from('contracts').select('*,products(category,trailing_rate,trailing_frequency)').not('status','eq','termine'),
+    sb.from('contracts').select('*,products(category,trailing_rate,trailing_frequency),clients(is_group_entity,name)').not('status','eq','termine'),
     sb.from('debts').select('*').eq('status','en_cours').not('company_id','eq','sarl-guiraud'), // dettes SARL déjà déduites via intraGroupe
     sb.from('placements').select('*').eq('statut','actif'),
     sb.from('payables').select('*').eq('status','a_payer'),
@@ -7935,12 +7935,14 @@ async function loadTresoChart(){
 
   // Placements = sortie de tréso au moment de l'entrée (capital placé ce mois)
   // Stratégie A (validée 22/04/2026) : table placements (legacy) + contrats CGW
-  // MAIS UNIQUEMENT pour les contrats dont le CLIENT est une société du groupe
-  // (Meulette, Living, SARL Guiraud, Real Gains, SPV Monikaza, Alpha, CFC, Lux...)
+  // UNIQUEMENT pour les contrats dont le CLIENT est une société du groupe
+  // (flag clients.is_group_entity = TRUE)
   // Les placements faits pour des clients externes (FCR, Velomotion, etc.) n'impactent
   // pas la tréso groupe — seule la commission Living est prise en compte (déjà dans CA)
+  // Les trails (label contenant "Trail") sont ignorés car ce ne sont que des lignes
+  // de commission futures attachées au contrat principal, pas un nouveau placement
   const placementsEntrees=new Array(12).fill(0);
-  // Source 1 : table placements
+  // Source 1 : table placements (legacy, maintenance manuelle)
   (placements||[]).forEach(p=>{
     if(!p.date_entree)return;
     const de=new Date(p.date_entree);
@@ -7950,10 +7952,21 @@ async function loadTresoChart(){
       }
     });
   });
-  // Source 2 : contrats CGW/Manhattan dont le client est une société du groupe
-  // Nécessite un join contracts→clients pour identifier les clients internes
-  // Déclenché de manière asynchrone via une variable window (fetch déjà fait ailleurs)
-  // TODO activé dans l'étape suivante une fois clients identifiés
+  // Source 2 : contrats CGW dont le client EST une société du groupe
+  (contracts||[]).forEach(c=>{
+    if(!c.products||c.products.category!=='cgw')return;
+    if(!c.clients||c.clients.is_group_entity!==true)return; // skip clients externes
+    const label=String(c.label||'');
+    if(label.toLowerCase().includes('trail'))return; // skip trails (commissions futures)
+    const dateRef=c.signed_date||c.start_date;
+    if(!dateRef)return;
+    const sd=new Date(dateRef);
+    months.forEach((m,i)=>{
+      if(m.getFullYear()===sd.getFullYear()&&m.getMonth()===sd.getMonth()){
+        placementsEntrees[i]+=Number(c.amount||0);
+      }
+    });
+  });
 
   // Calcul dépenses par mois — séparé en dettes mensuelles + factures ponctuelles
   const depenses=new Array(12).fill(0);

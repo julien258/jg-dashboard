@@ -181,21 +181,74 @@ async function loadEngagements(){
   content.innerHTML=html;
 }
 
+async function toggleGroupEntity(clientId,currentValue){
+  const newValue=!currentValue;
+  const {error}=await sb.from('clients').update({is_group_entity:newValue}).eq('id',clientId);
+  if(error){alert('❌ Erreur : '+error.message+'\n\nLa colonne is_group_entity existe-t-elle ? Cliquez sur "Créer la colonne" en haut du panel.');return;}
+  location.reload();
+}
+
+async function createIsGroupEntityColumn(){
+  alert('⚠️ Cette opération nécessite un accès Supabase SQL Editor.\n\nLe SQL à exécuter est :\n\nALTER TABLE clients ADD COLUMN IF NOT EXISTS is_group_entity BOOLEAN DEFAULT FALSE;\n\nCopiez-le dans Supabase → SQL Editor → Run. Puis rechargez cette page.');
+}
+
+async function mergeFCR(){
+  if(!confirm('Fusionner "FCR Original" → "FCR" ?\n\n1. Tous les contrats de FCR Original seront réassignés à FCR\n2. FCR Original sera supprimé\n\nContinuer ?'))return;
+  // Récupérer les 2 IDs
+  const {data:fcrs}=await sb.from('clients').select('id,name').in('name',['FCR','FCR Original']);
+  if(!fcrs||fcrs.length!==2){alert('❌ Impossible de trouver les 2 lignes FCR.');return;}
+  const fcrMain=fcrs.find(c=>c.name==='FCR');
+  const fcrOrig=fcrs.find(c=>c.name==='FCR Original');
+  if(!fcrMain||!fcrOrig){alert('❌ Erreur identification.');return;}
+  // 1. Compter les contrats à migrer
+  const {count}=await sb.from('contracts').select('*',{count:'exact',head:true}).eq('client_id',fcrOrig.id);
+  if(!confirm('['+count+'] contrat(s) vont être migrés de FCR Original vers FCR. OK ?'))return;
+  // 2. Migration
+  const {error:eU}=await sb.from('contracts').update({client_id:fcrMain.id}).eq('client_id',fcrOrig.id);
+  if(eU){alert('❌ Erreur migration contrats : '+eU.message);return;}
+  // 3. Suppression de FCR Original
+  const {error:eD}=await sb.from('clients').delete().eq('id',fcrOrig.id);
+  if(eD){alert('⚠ Contrats migrés mais suppression FCR Original échouée : '+eD.message);return;}
+  alert('✓ Fusion réussie. '+count+' contrat(s) migrés, FCR Original supprimé.');
+  location.reload();
+}
+
 async function loadClients(){
   const {data,error}=await sb.from('clients').select('*').order('name',{ascending:true});
   const status=document.getElementById('clients-status');
   const content=document.getElementById('clients-content');
   if(error){status.innerHTML='<span class="warn">❌ Erreur : '+error.message+'</span>';return;}
   if(!data||!data.length){status.innerHTML='<span class="empty">Table vide</span>';return;}
-  status.innerHTML='<span class="count">'+data.length+' client(s) trouvé(s)</span> — colonnes : <code>'+Object.keys(data[0]).join(', ')+'</code>';
-  const cols=Object.keys(data[0]);
+  const hasGroupCol='is_group_entity' in data[0];
+  const nGroup=data.filter(c=>c.is_group_entity===true).length;
+  let statusHtml='<span class="count">'+data.length+' client(s) trouvé(s)</span>';
+  if(hasGroupCol){
+    statusHtml+=' — <span class="ok">✓ colonne is_group_entity présente</span> — <span class="count">'+nGroup+' interne(s)</span>';
+  } else {
+    statusHtml+=' — <span class="warn">⚠ colonne is_group_entity manquante</span> <button onclick="createIsGroupEntityColumn()" style="margin-left:10px;background:#1DA1F2;color:#fff;border:none;padding:4px 10px;border-radius:4px;cursor:pointer">Comment créer la colonne ?</button>';
+  }
+  // Bouton fusion FCR si les 2 existent
+  const hasFCRDouble=data.filter(c=>c.name==='FCR'||c.name==='FCR Original').length===2;
+  if(hasFCRDouble){
+    statusHtml+='<br><br><button onclick="mergeFCR()" style="background:#FFAD1F;color:#000;border:none;padding:6px 12px;border-radius:4px;cursor:pointer;font-weight:600">🔀 Fusionner FCR Original → FCR</button>';
+  }
+  status.innerHTML=statusHtml;
+  // Tableau
+  const baseCols=['id','name','company_name','billing_company_id','category','notes','active'];
+  const cols=hasGroupCol?['is_group_entity',...baseCols]:baseCols;
   let html='<table><thead><tr>'+cols.map(c=>'<th>'+c+'</th>').join('')+'</tr></thead><tbody>';
   data.forEach(row=>{
-    html+='<tr>'+cols.map(c=>{
+    const isGroup=row.is_group_entity===true;
+    const rowStyle=isGroup?'style="background:rgba(23,191,99,0.1)"':'';
+    html+='<tr '+rowStyle+'>'+cols.map(c=>{
       const v=row[c];
       let cls=c==='id'?'id':'';
       let display=fmt(v);
       if(c==='id'&&v)display=String(v).slice(0,8)+'…';
+      if(c==='is_group_entity'){
+        const checked=v===true?'checked':'';
+        display='<label style="cursor:pointer"><input type="checkbox" '+checked+' onchange="toggleGroupEntity(\''+row.id+'\','+(v===true)+')"> '+(v===true?'<span class="ok">✓ Groupe</span>':'<span style="color:#8899A6">Externe</span>')+'</label>';
+      }
       return '<td class="'+cls+'">'+display+'</td>';
     }).join('')+'</tr>';
   });
