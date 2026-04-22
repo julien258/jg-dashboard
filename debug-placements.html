@@ -59,6 +59,12 @@
   <div id="clients-content"></div>
 </div>
 
+<div class="panel">
+  <h2>🧮 Diagnostic CA 12 mois — décomposition par source</h2>
+  <div id="diag-status">Chargement…</div>
+  <div id="diag-content"></div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 const SB_URL='https://uqpgwypgkwlvrpxtxhia.supabase.co';
@@ -256,6 +262,122 @@ async function loadClients(){
   content.innerHTML=html;
 }
 
+async function runDiagnostic(){
+  const now=new Date();
+  const months=[];
+  for(let i=0;i<12;i++)months.push(new Date(now.getFullYear(),now.getMonth()+i,1));
+  // Récupérer tout en parallèle
+  const [c1,c2,c3]=await Promise.all([
+    sb.from('contracts').select('*,products(category,trailing_rate,trailing_frequency,duree_jours),clients(is_group_entity,name)').not('status','eq','termine'),
+    sb.from('assets').select('*').eq('statut','en_vente'),
+    sb.from('cash_forecast').select('*').eq('company_id','sas-living')
+  ]);
+  const contracts=c1.data||[];
+  const assets=c2.data||[];
+  const forecasts=c3.data||[];
+
+  // Fonction utilitaire : est-ce que ce mois entre dans la fenêtre 12 mois ?
+  const inWindow=d=>{
+    const dt=new Date(d);
+    return months.some(m=>m.getFullYear()===dt.getFullYear()&&m.getMonth()===dt.getMonth());
+  };
+
+  // 1. Contrats non-trails (upfront, honoraires, LLD, etc.)
+  let totalNonTrail=0, countNonTrail=0;
+  const detailNonTrail={};
+  contracts.forEach(c=>{
+    if(c.products&&c.products.category==='cgw'&&Number(c.products.trailing_rate||0)>0)return; // CGW trailing traités séparément
+    const label=String(c.label||'');
+    const com=Number(c.commission_amount||0);
+    if(!com)return;
+    const freq={monthly:1,quarterly:3,semi_annual:6,annual:12}[c.recurrence]||0;
+    if(c.recurrence&&freq>0){
+      // Compter les occurrences dans 12 mois
+      const startRef=c.start_date||c.signed_date;
+      if(!startRef)return;
+      const sd=new Date(startRef);
+      let cnt=0;
+      months.forEach(m=>{
+        const diffMois=(m.getFullYear()-sd.getFullYear())*12+(m.getMonth()-sd.getMonth());
+        if(diffMois>=0&&(freq===1||diffMois%freq===0))cnt++;
+      });
+      totalNonTrail+=com*cnt;
+      countNonTrail++;
+      const cat=c.products?.category||'autre';
+      detailNonTrail[cat]=(detailNonTrail[cat]||0)+com*cnt;
+    } else {
+      const dateRef=c.payment_expected_date||c.signed_date;
+      if(!dateRef||!inWindow(dateRef))return;
+      totalNonTrail+=com;
+      countNonTrail++;
+      const cat=c.products?.category||'autre';
+      detailNonTrail[cat]=(detailNonTrail[cat]||0)+com;
+    }
+  });
+
+  // 2. Trails CGW (contrats avec trailing_rate > 0)
+  // Dans le dashboard ils sont comptés via revenusTrailing (coupons rappelés)
+  // Ici on va juste les lister pour voir
+  let totalTrails=0, countTrails=0;
+  contracts.forEach(c=>{
+    if(!c.products||c.products.category!=='cgw')return;
+    if(Number(c.products.trailing_rate||0)===0)return;
+    // Le calcul réel dépend du code dashboard — approximation
+    const trailingRate=Number(c.products.trailing_rate||0)/100;
+    const trailingFreq={monthly:12,quarterly:4,semi_annual:2,annual:1}[c.products.trailing_frequency]||4;
+    const amount=Number(c.amount||0);
+    const trailPerYear=amount*trailingRate*trailingFreq;
+    totalTrails+=trailPerYear;
+    countTrails++;
+  });
+
+  // 3. Ventes patrimoine
+  let totalPatrimoine=0;
+  const detailPatrimoine=[];
+  assets.forEach(a=>{
+    if(!a.date_vente_prevue||!inWindow(a.date_vente_prevue))return;
+    let netPercu=Number(a.net_vente_estime||0);
+    if(!netPercu){
+      const vm=Number(a.prix_vente_prevu||a.valeur_marche||0);
+      if(!vm)return;
+      const cr=Number(a.capital_restant||0);
+      const fraisA=Math.round(vm*0.05);
+      const fraisN=a.type_asset==='immobilier'?Math.round(vm*0.015):0;
+      const pv=vm-Number(a.valeur_acquisition||0);
+      const impot=pv>0?(a.regime_fiscal==='is'?Math.round(pv*0.25):Math.round(pv*0.36)):0;
+      netPercu=vm-cr-fraisA-fraisN-impot;
+    }
+    if(netPercu){
+      totalPatrimoine+=netPercu;
+      detailPatrimoine.push({nom:a.nom||a.type_asset,montant:netPercu,date:a.date_vente_prevue,societe:a.company_id});
+    }
+  });
+
+  // 4. Forecasts (cash_forecast)
+  let totalForecast=0;
+  forecasts.forEach(f=>{
+    if(!f.month_label)return;
+    const [y,m]=f.month_label.split('-').map(Number);
+    if(months.some(mo=>mo.getFullYear()===y&&mo.getMonth()===m-1)&&Number(f.amount)>0){
+      totalForecast+=Math.round(Number(f.amount)*Number(f.probability||100)/100);
+    }
+  });
+
+  const total=totalNonTrail+totalTrails+totalPatrimoine+totalForecast;
+
+  const fmt=v=>Math.round(v).toLocaleString('fr-FR')+' €';
+  let html='<table><thead><tr><th>Source</th><th style="text-align:right">Montant 12 mois</th><th style="text-align:right">Nb</th><th>Détail</th></tr></thead><tbody>';
+  html+='<tr><td><b>Contrats hors trails</b> (upfront, LLD, honoraires, ponctuels…)</td><td class="num">'+fmt(totalNonTrail)+'</td><td class="num">'+countNonTrail+'</td><td>'+Object.entries(detailNonTrail).map(([k,v])=>k+': '+fmt(v)).join(' · ')+'</td></tr>';
+  html+='<tr><td><b>Trails CGW</b> (rappels trimestriels/semestriels)</td><td class="num">'+fmt(totalTrails)+'</td><td class="num">'+countTrails+'</td><td>approximation amount × rate × freq/an</td></tr>';
+  html+='<tr><td><b>Ventes patrimoine</b> (actifs en_vente)</td><td class="num">'+fmt(totalPatrimoine)+'</td><td class="num">'+detailPatrimoine.length+'</td><td>'+detailPatrimoine.map(d=>d.nom+' ('+d.societe+', '+d.date.slice(0,7)+') '+fmt(d.montant)).join('<br>')+'</td></tr>';
+  html+='<tr><td><b>Forecasts</b> (cash_forecast Living)</td><td class="num">'+fmt(totalForecast)+'</td><td>—</td><td>entrées manuelles</td></tr>';
+  html+='<tr style="background:#22303C;font-weight:700;font-size:14px"><td>TOTAL estimé CA 12 mois</td><td class="num" style="color:#17BF63">'+fmt(total)+'</td><td>—</td><td>—</td></tr>';
+  html+='</tbody></table>';
+  html+='<p style="color:#8899A6;font-size:11px;margin-top:10px">⚠️ Cette estimation peut différer légèrement du dashboard (arrondis, règles d\'exclusion). L\'objectif est d\'identifier la source principale de l\'écart 1500k → 2122k.</p>';
+  document.getElementById('diag-status').innerHTML='<span class="count">'+contracts.length+' contrat(s) analysé(s)</span>';
+  document.getElementById('diag-content').innerHTML=html;
+}
+
 async function checkAlpha(){
   const status=document.getElementById('alpha-status');
   // Test 1 : présence dans une table companies si elle existe
@@ -285,6 +407,7 @@ async function checkAlpha(){
   await checkAlpha();
   await loadEngagements();
   await loadClients();
+  await runDiagnostic();
 })();
 </script>
 </body>
