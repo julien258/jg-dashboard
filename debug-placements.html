@@ -47,6 +47,12 @@
   <div id="alpha-status">Chargement…</div>
 </div>
 
+<div class="panel">
+  <h2>🗓️ Table <code>engagements_pro</code> — engagements prévisionnels (4k€ fantôme ?)</h2>
+  <div id="engagements-status">Chargement…</div>
+  <div id="engagements-content"></div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 const SB_URL='https://uqpgwypgkwlvrpxtxhia.supabase.co';
@@ -137,6 +143,38 @@ async function loadContracts(){
   content.innerHTML=html;
 }
 
+async function deleteEngagement(id){
+  if(!confirm('Supprimer cet engagement '+id.slice(0,8)+'… ?\n\nCette action est irréversible.'))return;
+  const {error}=await sb.from('engagements_pro').delete().eq('id',id);
+  if(error){alert('❌ Erreur : '+error.message);return;}
+  alert('✓ Supprimé. La page va se recharger.');
+  location.reload();
+}
+
+async function loadEngagements(){
+  const {data,error}=await sb.from('engagements_pro').select('*').order('date_prevue',{ascending:true});
+  const status=document.getElementById('engagements-status');
+  const content=document.getElementById('engagements-content');
+  if(error){status.innerHTML='<span class="warn">❌ Erreur : '+error.message+'</span>';return;}
+  if(!data||!data.length){status.innerHTML='<span class="empty">Table vide</span>';return;}
+  status.innerHTML='<span class="count">'+data.length+' engagement(s) trouvé(s)</span>';
+  const cols=Object.keys(data[0]);
+  let html='<table><thead><tr><th>🗑</th>'+cols.map(c=>'<th>'+c+'</th>').join('')+'</tr></thead><tbody>';
+  data.forEach(row=>{
+    html+='<tr><td><button onclick="deleteEngagement(\''+row.id+'\')" style="background:#E0245E;color:#fff;border:none;padding:4px 8px;border-radius:4px;cursor:pointer;font-size:10px">Supprimer</button></td>'+cols.map(c=>{
+      const v=row[c];
+      let cls=c==='id'?'id':'';
+      if(c==='montant'||c==='mensualite')cls='num';
+      let display=fmt(v);
+      if((c==='montant'||c==='mensualite')&&v!=null)display=fmtMoney(v);
+      if(c==='date_prevue'&&v)display=fmtDate(v);
+      return '<td class="'+cls+'">'+display+'</td>';
+    }).join('')+'</tr>';
+  });
+  html+='</tbody></table>';
+  content.innerHTML=html;
+}
+
 async function checkAlpha(){
   const status=document.getElementById('alpha-status');
   // Test 1 : présence dans une table companies si elle existe
@@ -164,6 +202,7 @@ async function checkAlpha(){
   await loadProducts();
   await loadContracts();
   await checkAlpha();
+  await loadEngagements();
 })();
 </script>
 </body>
