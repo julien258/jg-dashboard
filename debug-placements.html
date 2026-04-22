@@ -53,6 +53,12 @@
   <div id="engagements-content"></div>
 </div>
 
+<div class="panel">
+  <h2>👥 Table <code>clients</code> — schéma & identification groupe/externe</h2>
+  <div id="clients-status">Chargement…</div>
+  <div id="clients-content"></div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 const SB_URL='https://uqpgwypgkwlvrpxtxhia.supabase.co';
@@ -175,6 +181,28 @@ async function loadEngagements(){
   content.innerHTML=html;
 }
 
+async function loadClients(){
+  const {data,error}=await sb.from('clients').select('*').order('name',{ascending:true});
+  const status=document.getElementById('clients-status');
+  const content=document.getElementById('clients-content');
+  if(error){status.innerHTML='<span class="warn">❌ Erreur : '+error.message+'</span>';return;}
+  if(!data||!data.length){status.innerHTML='<span class="empty">Table vide</span>';return;}
+  status.innerHTML='<span class="count">'+data.length+' client(s) trouvé(s)</span> — colonnes : <code>'+Object.keys(data[0]).join(', ')+'</code>';
+  const cols=Object.keys(data[0]);
+  let html='<table><thead><tr>'+cols.map(c=>'<th>'+c+'</th>').join('')+'</tr></thead><tbody>';
+  data.forEach(row=>{
+    html+='<tr>'+cols.map(c=>{
+      const v=row[c];
+      let cls=c==='id'?'id':'';
+      let display=fmt(v);
+      if(c==='id'&&v)display=String(v).slice(0,8)+'…';
+      return '<td class="'+cls+'">'+display+'</td>';
+    }).join('')+'</tr>';
+  });
+  html+='</tbody></table>';
+  content.innerHTML=html;
+}
+
 async function checkAlpha(){
   const status=document.getElementById('alpha-status');
   // Test 1 : présence dans une table companies si elle existe
@@ -203,6 +231,7 @@ async function checkAlpha(){
   await loadContracts();
   await checkAlpha();
   await loadEngagements();
+  await loadClients();
 })();
 </script>
 </body>

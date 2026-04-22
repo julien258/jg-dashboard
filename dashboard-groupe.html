@@ -7934,11 +7934,11 @@ async function loadTresoChart(){
 
 
   // Placements = sortie de tréso au moment de l'entrée (capital placé ce mois)
-  // Stratégie A (validée 22/04/2026) : 2 sources agrégées
-  //   1. Table placements (ancien système manuel, legacy)
-  //   2. Contrats CGW/Manhattan du CRM (contrat principal uniquement, trails ignorés)
-  // Le contrat principal est détecté par absence du mot "Trail" dans le label
-  // (les trails M+3/M+6/M+9 sont des lignes de commission, pas du capital placé)
+  // Stratégie A (validée 22/04/2026) : table placements (legacy) + contrats CGW
+  // MAIS UNIQUEMENT pour les contrats dont le CLIENT est une société du groupe
+  // (Meulette, Living, SARL Guiraud, Real Gains, SPV Monikaza, Alpha, CFC, Lux...)
+  // Les placements faits pour des clients externes (FCR, Velomotion, etc.) n'impactent
+  // pas la tréso groupe — seule la commission Living est prise en compte (déjà dans CA)
   const placementsEntrees=new Array(12).fill(0);
   // Source 1 : table placements
   (placements||[]).forEach(p=>{
@@ -7950,20 +7950,10 @@ async function loadTresoChart(){
       }
     });
   });
-  // Source 2 : contrats CGW/Manhattan (contrat principal = label sans "Trail")
-  (contracts||[]).forEach(c=>{
-    if(!c.products||c.products.category!=='cgw')return;
-    const label=String(c.label||'');
-    if(label.toLowerCase().includes('trail'))return; // skip trails
-    const dateRef=c.signed_date||c.start_date;
-    if(!dateRef)return;
-    const sd=new Date(dateRef);
-    months.forEach((m,i)=>{
-      if(m.getFullYear()===sd.getFullYear()&&m.getMonth()===sd.getMonth()){
-        placementsEntrees[i]+=Number(c.amount||0);
-      }
-    });
-  });
+  // Source 2 : contrats CGW/Manhattan dont le client est une société du groupe
+  // Nécessite un join contracts→clients pour identifier les clients internes
+  // Déclenché de manière asynchrone via une variable window (fetch déjà fait ailleurs)
+  // TODO activé dans l'étape suivante une fois clients identifiés
 
   // Calcul dépenses par mois — séparé en dettes mensuelles + factures ponctuelles
   const depenses=new Array(12).fill(0);
