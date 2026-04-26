@@ -1948,7 +1948,7 @@
     </div>
 
     <!-- KPIs -->
-    <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:1.5rem">
+    <div style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin-bottom:1.5rem">
       <div class="card" style="padding:.875rem">
         <div style="font-size:12px;color:var(--t2);margin-bottom:4px">Factures émises</div>
         <div id="mf-kpi-emises" style="font-size:22px;font-weight:600;color:var(--grn)">—</div>
@@ -1968,6 +1968,41 @@
         <div style="font-size:12px;color:var(--t2);margin-bottom:4px">Restant à facturer</div>
         <div id="mf-kpi-restant" style="font-size:22px;font-weight:600;color:var(--amb)">—</div>
         <div style="font-size:11px;color:var(--t2)">sur 2026</div>
+      </div>
+      <div class="card" style="padding:.875rem;border-left:3px solid #5856d6">
+        <div style="font-size:12px;color:var(--t2);margin-bottom:4px">Position CC LIVING</div>
+        <div id="mf-kpi-cc" style="font-size:22px;font-weight:600;color:#5856d6">—</div>
+        <div style="font-size:11px;color:var(--t2)" id="mf-kpi-cc-sub">—</div>
+      </div>
+    </div>
+
+    <!-- TABLEAU CC LIVING ↔ SARL GUIRAUD -->
+    <div class="card" style="padding:1rem;margin-bottom:1.5rem">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem">
+        <div>
+          <div style="font-size:14px;font-weight:600">📊 Position CC LIVING ↔ SARL GUIRAUD — 2026</div>
+          <div style="font-size:11px;color:var(--t2);margin-top:2px">Émis cumulé − Payé cumulé + Ouverture 2026 = ce que LIVING doit à GUIRAUD</div>
+        </div>
+        <div style="font-size:11px;color:var(--t2)">
+          Ouverture 01/01/2026 : <span id="mf-cc-ouverture-val" style="font-weight:600;color:var(--t1)">—</span>
+          <button onclick="mfEditOuverture()" class="btn btn-g btn-sm" style="margin-left:6px;font-size:10px;padding:2px 6px">✏️</button>
+        </div>
+      </div>
+      <div style="overflow-x:auto">
+        <table style="width:100%;font-size:12px;border-collapse:collapse" id="mf-cc-table">
+          <thead>
+            <tr style="border-bottom:1px solid var(--b1);color:var(--t2);font-weight:500">
+              <th style="text-align:left;padding:6px 8px">Mois</th>
+              <th style="text-align:right;padding:6px 8px">Émis TTC</th>
+              <th style="text-align:right;padding:6px 8px">Payé TTC</th>
+              <th style="text-align:right;padding:6px 8px">Cumul émis</th>
+              <th style="text-align:right;padding:6px 8px">Cumul payé</th>
+              <th style="text-align:right;padding:6px 8px">Position CC</th>
+              <th style="text-align:center;padding:6px 8px">Action</th>
+            </tr>
+          </thead>
+          <tbody id="mf-cc-tbody"></tbody>
+        </table>
       </div>
     </div>
 
@@ -5102,6 +5137,133 @@ async function loadMgmtFees() {
       </button>
     </div>`;
   }).join('');
+
+  // Calcul et affichage de la position CC LIVING ↔ SARL GUIRAUD
+  await renderMgmtCC(invoices);
+}
+
+// ─── POSITION CC LIVING ↔ SARL GUIRAUD ─────────────────────────────────
+async function renderMgmtCC(invoices) {
+  // Récupérer l'ouverture CC depuis settings
+  let ouverture = 90000;
+  try {
+    const {data:s} = await sb.from('settings').select('value').eq('key','cc_living_guiraud_ouverture').single();
+    if(s?.value) ouverture = Number(s.value) || 90000;
+  } catch(e) { /* défaut */ }
+
+  document.getElementById('mf-cc-ouverture-val').textContent = ouverture.toLocaleString('fr-FR') + ' €';
+
+  // Map factures par mois pour rendu
+  const invMap = {};
+  (invoices||[]).forEach(i => { invMap[i.mois] = i; });
+
+  // Construire la timeline 2026
+  const today = new Date();
+  const moisActuel = today.getFullYear() + '-' + String(today.getMonth()+1).padStart(2,'0');
+  let cumulEmis = 0, cumulPaye = 0;
+  const rows = [];
+
+  for(let m=1; m<=12; m++) {
+    const mois = '2026-' + String(m).padStart(2,'0');
+    const isPasseOuCourant = mois <= moisActuel;
+    const inv = invMap[mois];
+    const emis = inv ? Number(inv.amount_ttc||72000) : 0;
+    const paye = inv ? Number(inv.paiement_recu_ttc||0) : 0;
+    cumulEmis += emis;
+    cumulPaye += paye;
+    const positionCC = ouverture + cumulEmis - cumulPaye;
+    rows.push({
+      mois, label: MF_MOIS_FR[m-1] + ' 2026',
+      emis, paye, cumulEmis, cumulPaye, positionCC,
+      hasInvoice: !!inv,
+      invoiceId: inv?.invoice_id,
+      paymentDate: inv?.paiement_date
+    });
+  }
+
+  // KPI Position CC = dernière ligne avec une facture émise (= position actuelle)
+  const lastWithInvoice = [...rows].reverse().find(r => r.hasInvoice);
+  const positionActuelle = lastWithInvoice ? lastWithInvoice.positionCC : ouverture;
+  document.getElementById('mf-kpi-cc').textContent = positionActuelle.toLocaleString('fr-FR') + ' €';
+  let ccSubLabel;
+  if(positionActuelle > 0) ccSubLabel = `LIVING doit à GUIRAUD`;
+  else if(positionActuelle < 0) ccSubLabel = `GUIRAUD doit à LIVING`;
+  else ccSubLabel = `Soldé`;
+  document.getElementById('mf-kpi-cc-sub').textContent = ccSubLabel;
+
+  // Tableau détaillé
+  const tbody = document.getElementById('mf-cc-tbody');
+  const fmt = v => Math.round(v).toLocaleString('fr-FR') + ' €';
+  tbody.innerHTML = rows.map(r => {
+    const isPasseOuCourant = r.mois <= moisActuel;
+    const ccColor = r.positionCC > 0 ? 'var(--red)' : (r.positionCC < 0 ? 'var(--grn)' : 'var(--t2)');
+    const dim = !r.hasInvoice && !isPasseOuCourant;
+    const rowStyle = dim ? 'opacity:.5' : '';
+    const emisCell = r.emis > 0 ? fmt(r.emis) : '—';
+    const payeCell = r.paye > 0
+      ? `<span style="color:var(--grn)">${fmt(r.paye)}</span>`
+      : (r.hasInvoice ? `<span style="color:var(--red)">0 €</span>` : '—');
+    let actionCell = '—';
+    if(r.hasInvoice && r.paye === 0) {
+      actionCell = `<button onclick="mfMarquerPayee('${r.mois}')" class="btn btn-g btn-sm" style="font-size:10px;padding:3px 8px">💰 Marquer payée</button>`;
+    } else if(r.hasInvoice && r.paye > 0) {
+      const dateLabel = r.paymentDate ? ' · ' + r.paymentDate : '';
+      actionCell = `<span style="font-size:11px;color:var(--grn)">✅${dateLabel}</span> <button onclick="mfMarquerNonPayee('${r.mois}')" style="font-size:10px;padding:1px 4px;border:0;background:none;cursor:pointer;color:var(--t2)" title="Annuler">↩</button>`;
+    }
+    return `<tr style="border-bottom:1px solid var(--b1);${rowStyle}">
+      <td style="padding:6px 8px">${r.label}</td>
+      <td style="text-align:right;padding:6px 8px;font-family:'IBM Plex Mono',monospace">${emisCell}</td>
+      <td style="text-align:right;padding:6px 8px;font-family:'IBM Plex Mono',monospace">${payeCell}</td>
+      <td style="text-align:right;padding:6px 8px;font-family:'IBM Plex Mono',monospace;color:var(--t2)">${fmt(r.cumulEmis)}</td>
+      <td style="text-align:right;padding:6px 8px;font-family:'IBM Plex Mono',monospace;color:var(--t2)">${fmt(r.cumulPaye)}</td>
+      <td style="text-align:right;padding:6px 8px;font-family:'IBM Plex Mono',monospace;font-weight:600;color:${ccColor}">${fmt(r.positionCC)}</td>
+      <td style="text-align:center;padding:6px 8px">${actionCell}</td>
+    </tr>`;
+  }).join('');
+}
+
+async function mfMarquerPayee(mois) {
+  const today = new Date().toISOString().slice(0,10);
+  const montantStr = prompt(`Montant payé reçu pour ${mfMoisLabel(mois)} (TTC en €) :`, '72000');
+  if(montantStr === null) return;
+  const montant = Number(montantStr);
+  if(isNaN(montant) || montant <= 0) { alert('Montant invalide'); return; }
+  try {
+    await sb.from('management_fees_invoices').update({
+      paiement_recu_ttc: montant,
+      paiement_date: today
+    }).eq('mois', mois);
+    await loadMgmtFees();
+  } catch(e) {
+    alert('Erreur : ' + e.message);
+  }
+}
+
+async function mfMarquerNonPayee(mois) {
+  if(!confirm('Annuler le paiement de ' + mfMoisLabel(mois) + ' ?')) return;
+  try {
+    await sb.from('management_fees_invoices').update({
+      paiement_recu_ttc: 0,
+      paiement_date: null
+    }).eq('mois', mois);
+    await loadMgmtFees();
+  } catch(e) {
+    alert('Erreur : ' + e.message);
+  }
+}
+
+async function mfEditOuverture() {
+  const current = document.getElementById('mf-cc-ouverture-val').textContent;
+  const newVal = prompt('Ouverture CC LIVING au 01/01/2026 (€) :\n\n(montant que LIVING doit à GUIRAUD au 31/12/2025)', current.replace(/[^\d]/g,''));
+  if(newVal === null) return;
+  const num = Number(newVal);
+  if(isNaN(num)) { alert('Montant invalide'); return; }
+  try {
+    await sb.from('settings').upsert({key:'cc_living_guiraud_ouverture', value: String(num)}, {onConflict:'key'});
+    await loadMgmtFees();
+  } catch(e) {
+    alert('Erreur : ' + e.message);
+  }
 }
 
 async function mfEmettre(mois) {
