@@ -8154,6 +8154,9 @@ async function loadTresoChart(){
     }).reduce((s,d)=>s+Number(d.monthly_amount||0),0);
   });
 
+  // Stocker le détail par mois pour le tooltip
+  window._tresoBesoinDetail = [];
+
   const intraGroupe=months.map((m,mIdx)=>{
     const mKey2=m.getFullYear()+'-'+String(m.getMonth()+1).padStart(2,'0');
     const mY=m.getFullYear(),mM=m.getMonth();
@@ -8184,8 +8187,21 @@ async function loadTresoChart(){
     const besoinPersoNet=dettesPerso+fixesPersoBase+rattrapage+vars+impots+projets+rav+ponctuelles;
     // Charges SARL Guiraud du mois = frais de fonctionnement récurrents + dettes mensuelles SARL
     const chargesSarl=chargesSarlGuirautBase+dettesSarlGuiraudParMois[mIdx];
+    const totalHT=besoinPersoNet+chargesSarl;
+    const totalTTC=Math.round(totalHT*1.20);
+    // Stocker le détail pour le tooltip
+    window._tresoBesoinDetail[mIdx]={
+      dettesPerso,fixesPersoBase,rattrapage,vars,impots,projets,rav,ponctuelles,
+      besoinPersoNet,
+      chargesSarlBase:chargesSarlGuirautBase,
+      dettesSarl:dettesSarlGuiraudParMois[mIdx],
+      chargesSarl,
+      totalHT,
+      tva:totalTTC-totalHT,
+      totalTTC
+    };
     // Facturation SARL = besoin perso + charges SARL Guiraud → TTC × 1.20
-    return Math.round((besoinPersoNet+chargesSarl)*1.20);
+    return totalTTC;
   });
 
   // TVA déductible pour Living = 20% sur HT facture SARL Guiraud
@@ -8717,7 +8733,34 @@ async function loadTresoChart(){
         interaction:{mode:'index',intersect:false},
         plugins:{
           legend:{position:'bottom',labels:{color:tc,font:{size:10},boxWidth:10,padding:8}},
-          tooltip:{callbacks:{label:ctx=>`${ctx.dataset.label}: ${ctx.parsed.y!==null?Math.round(ctx.parsed.y).toLocaleString('fr-FR')+' €':'—'}`}}
+          tooltip:{callbacks:{
+            label:ctx=>`${ctx.dataset.label}: ${ctx.parsed.y!==null?Math.round(ctx.parsed.y).toLocaleString('fr-FR')+' €':'—'}`,
+            afterLabel:ctx=>{
+              if(!ctx.dataset.label||!ctx.dataset.label.startsWith('Besoin perso'))return null;
+              const det=(window._tresoBesoinDetail||[])[ctx.dataIndex];
+              if(!det)return null;
+              const fmt=v=>Math.round(v).toLocaleString('fr-FR');
+              const lines=[];
+              lines.push('  ── Besoin perso net ──');
+              if(det.dettesPerso>0)lines.push(`  Dettes perso : ${fmt(det.dettesPerso)} €`);
+              if(det.fixesPersoBase>0)lines.push(`  Charges fixes : ${fmt(det.fixesPersoBase)} €`);
+              if(det.rattrapage>0)lines.push(`  Rattrapage charges : ${fmt(det.rattrapage)} €`);
+              if(det.vars>0)lines.push(`  Variables : ${fmt(det.vars)} €`);
+              if(det.impots>0)lines.push(`  Impôts PAS : ${fmt(det.impots)} €`);
+              if(det.projets>0)lines.push(`  Projets : ${fmt(det.projets)} €`);
+              if(det.rav>0)lines.push(`  Reste à vivre : ${fmt(det.rav)} €`);
+              if(det.ponctuelles>0)lines.push(`  Ponctuelles : ${fmt(det.ponctuelles)} €`);
+              lines.push(`  Sous-total perso : ${fmt(det.besoinPersoNet)} €`);
+              lines.push('  ── Charges SARL Guiraud ──');
+              if(det.chargesSarlBase>0)lines.push(`  Frais récurrents : ${fmt(det.chargesSarlBase)} €`);
+              if(det.dettesSarl>0)lines.push(`  Dettes mensuelles : ${fmt(det.dettesSarl)} €`);
+              lines.push(`  Sous-total SARL : ${fmt(det.chargesSarl)} €`);
+              lines.push('  ── TVA ──');
+              lines.push(`  Total HT : ${fmt(det.totalHT)} €`);
+              lines.push(`  TVA 20% : ${fmt(det.tva)} €`);
+              return lines;
+            }
+          }}
         },
         scales:{
           x:{stacked:true,ticks:{color:tc,font:{size:11}},grid:{display:false}},
