@@ -1265,7 +1265,7 @@
       <div class="card mb">
         <div class="card-t">Pilotage des sorties — détail par catégorie</div>
         <div style="font-size:11px;color:var(--t2);margin-bottom:10px">Les barres = sorties planifiées par catégorie · La ligne verte = entrées prévues · La ligne pointillée = encaissé réel au jour J</div>
-        <div style="position:relative;height:320px"><canvas id="sortiesChart"></canvas></div>
+        <div style="position:relative;height:420px;overflow:visible"><canvas id="sortiesChart"></canvas></div>
         <div style="display:flex;gap:10px;margin-top:10px;flex-wrap:wrap;font-size:11px;color:var(--t2)">
           <span><span style="display:inline-block;width:12px;height:12px;background:#E74C3C88;border-radius:2px;margin-right:4px"></span>URSSAF / Cotisations</span>
           <span><span style="display:inline-block;width:12px;height:12px;background:#C0392B88;border-radius:2px;margin-right:4px"></span>Impôts pro</span>
@@ -8753,7 +8753,15 @@ async function loadTresoChart(){
         interaction:{mode:'index',intersect:false},
         plugins:{
           legend:{position:'bottom',labels:{color:tc,font:{size:10},boxWidth:10,padding:8}},
-          tooltip:{callbacks:{
+          tooltip:{
+            position:'nearest',
+            yAlign:'center',
+            xAlign:'left',
+            bodyFont:{size:11},
+            titleFont:{size:12},
+            padding:8,
+            boxPadding:3,
+            callbacks:{
             label:ctx=>`${ctx.dataset.label}: ${ctx.parsed.y!==null?Math.round(ctx.parsed.y).toLocaleString('fr-FR')+' €':'—'}`,
             afterLabel:ctx=>{
               if(!ctx.dataset.label||!ctx.dataset.label.startsWith('Besoin perso'))return null;
