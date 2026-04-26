@@ -5231,14 +5231,19 @@ async function mfMarquerPayee(mois) {
   if(montantStr === null) return;
   const montant = Number(montantStr);
   if(isNaN(montant) || montant <= 0) { alert('Montant invalide'); return; }
-  // Normaliser mois en format date complet pour eviter coercion (la colonne mois est de type DATE)
-  const moisDate = mois.length === 7 ? mois + '-01' : mois;
   try {
-    const {error,count} = await sb.from('management_fees_invoices').update({
+    const {data,error} = await sb.from('management_fees_invoices').update({
       paiement_recu_ttc: montant,
       paiement_date: today
-    },{count:'exact'}).eq('mois', moisDate);
+    }).eq('mois', mois).select();
     if(error) throw error;
+    if(!data || data.length === 0) {
+      alert(`Aucune ligne mise à jour pour ${mois}. Vérifier que la facture existe.`);
+      return;
+    }
+    if(data.length > 1) {
+      alert(`⚠️ ${data.length} lignes ont été mises à jour pour ${mois} ! Vérifier la cohérence en base.`);
+    }
     await loadMgmtFees();
   } catch(e) {
     alert('Erreur : ' + e.message);
@@ -5247,13 +5252,16 @@ async function mfMarquerPayee(mois) {
 
 async function mfMarquerNonPayee(mois) {
   if(!confirm('Annuler le paiement de ' + mfMoisLabel(mois) + ' ?')) return;
-  const moisDate = mois.length === 7 ? mois + '-01' : mois;
   try {
-    const {error} = await sb.from('management_fees_invoices').update({
+    const {data,error} = await sb.from('management_fees_invoices').update({
       paiement_recu_ttc: 0,
       paiement_date: null
-    }).eq('mois', moisDate);
+    }).eq('mois', mois).select();
     if(error) throw error;
+    if(!data || data.length === 0) {
+      alert(`Aucune ligne mise à jour pour ${mois}.`);
+      return;
+    }
     await loadMgmtFees();
   } catch(e) {
     alert('Erreur : ' + e.message);
