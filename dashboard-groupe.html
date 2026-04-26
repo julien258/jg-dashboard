@@ -8136,7 +8136,11 @@ async function loadTresoChart(){
     sb.from('debts').select('*').eq('company_id','sarl-guiraud').eq('status','en_cours')
   ]);
   const settingsMap2={}; (setPRes.data||[]).forEach(s=>settingsMap2[s.key]=s.value);
-  const budgetByMois={}; (bmpRes.data||[]).forEach(b=>budgetByMois[b.mois]=b);
+  const budgetByMois={}; (bmpRes.data||[]).forEach(b=>{
+    // Normaliser la clé : Supabase peut retourner soit "2026-05-01" (date) soit "2026-05" (texte)
+    const k=String(b.mois).substring(0,7); // toujours "YYYY-MM"
+    budgetByMois[k]=b;
+  });
   const ravDefault=parseFloat(settingsMap2['rav_cible']||3000);
   const fixesRetardMap=JSON.parse(settingsMap2['fixes_retard']||'{}');
   const fixesPersoBase=(fxPersoRes.data||[]).reduce((s,f)=>s+Number(f.amount||0),0);
