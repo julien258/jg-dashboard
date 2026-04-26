@@ -5153,9 +5153,12 @@ async function renderMgmtCC(invoices) {
 
   document.getElementById('mf-cc-ouverture-val').textContent = ouverture.toLocaleString('fr-FR') + ' €';
 
-  // Map factures par mois pour rendu
+  // Map factures par mois pour rendu (normaliser la clé : Supabase peut retourner "2026-01-01" ou "2026-01")
   const invMap = {};
-  (invoices||[]).forEach(i => { invMap[i.mois] = i; });
+  (invoices||[]).forEach(i => { 
+    const k = String(i.mois).substring(0,7); // toujours "YYYY-MM"
+    invMap[k] = i; 
+  });
 
   // Construire la timeline 2026
   const today = new Date();
@@ -5228,11 +5231,14 @@ async function mfMarquerPayee(mois) {
   if(montantStr === null) return;
   const montant = Number(montantStr);
   if(isNaN(montant) || montant <= 0) { alert('Montant invalide'); return; }
+  // Normaliser mois en format date complet pour eviter coercion (la colonne mois est de type DATE)
+  const moisDate = mois.length === 7 ? mois + '-01' : mois;
   try {
-    await sb.from('management_fees_invoices').update({
+    const {error,count} = await sb.from('management_fees_invoices').update({
       paiement_recu_ttc: montant,
       paiement_date: today
-    }).eq('mois', mois);
+    },{count:'exact'}).eq('mois', moisDate);
+    if(error) throw error;
     await loadMgmtFees();
   } catch(e) {
     alert('Erreur : ' + e.message);
@@ -5241,11 +5247,13 @@ async function mfMarquerPayee(mois) {
 
 async function mfMarquerNonPayee(mois) {
   if(!confirm('Annuler le paiement de ' + mfMoisLabel(mois) + ' ?')) return;
+  const moisDate = mois.length === 7 ? mois + '-01' : mois;
   try {
-    await sb.from('management_fees_invoices').update({
+    const {error} = await sb.from('management_fees_invoices').update({
       paiement_recu_ttc: 0,
       paiement_date: null
-    }).eq('mois', mois);
+    }).eq('mois', moisDate);
+    if(error) throw error;
     await loadMgmtFees();
   } catch(e) {
     alert('Erreur : ' + e.message);
