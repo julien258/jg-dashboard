@@ -801,6 +801,7 @@ function parseLocalDate(str){
 function dettesMois(i){
   const m=months[i];
   return D.dettes.filter(d=>{
+    if(d.status!=='en_cours')return false;
     if(d.frequency!=='monthly')return false;
     if(d.nature&&d.nature.includes('IR 2025'))return false;
     const s=d.start_date?parseLocalDate(d.start_date):null;
@@ -817,7 +818,7 @@ function ir2025Mois(i){
   const m=months[i];
   const mY=m.getFullYear(),mM=m.getMonth();
   if(mY!==2026||mM<8||mM>11)return 0;
-  const irDette=D.dettes.find(d=>d.nature&&d.nature.includes('IR 2025'));
+  const irDette=D.dettes.find(d=>d.nature&&d.nature.includes('IR 2025')&&d.status==='en_cours');
   return irDette?Number(irDette.monthly_amount||0):0;
 }
 
@@ -2777,6 +2778,7 @@ async function renderBudgetPVR() {
   const dettesMois = months.map(mo => {
     const mY = mo.y, mM = mo.m;
     return Math.round(D.dettes.filter(d => {
+      if (d.status !== 'en_cours') return false;
       if (d.frequency !== 'monthly') return false;
       if (d.start_date) { const s = new Date(d.start_date); if (mY < s.getUTCFullYear() || (mY === s.getUTCFullYear() && mM < s.getUTCMonth())) return false; }
       if (d.end_date)   { const e = new Date(d.end_date);   if (mY > e.getUTCFullYear() || (mY === e.getUTCFullYear() && mM > e.getUTCMonth())) return false; }
