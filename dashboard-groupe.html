@@ -8131,7 +8131,7 @@ async function loadTresoChart(){
     sb.from('settings').select('key,value'),
     sb.from('projets_perso').select('*'),
     sb.from('fixed_expenses').select('*').eq('active',true),
-    sb.from('recurring_charges').select('monthly_amount,amount_ttc').eq('company_id','sarl-guiraud').eq('status','actif'),
+    sb.from('recurring_charges').select('*').eq('company_id','sarl-guiraud'),
     sb.from('expense_requests').select('*').eq('statut','valide'),
     sb.from('debts').select('*').eq('company_id','sarl-guiraud').eq('status','en_cours')
   ]);
@@ -8141,7 +8141,23 @@ async function loadTresoChart(){
   const fixesRetardMap=JSON.parse(settingsMap2['fixes_retard']||'{}');
   const fixesPersoBase=(fxPersoRes.data||[]).reduce((s,f)=>s+Number(f.amount||0),0);
   const fixesRetardMontant=(fxPersoRes.data||[]).reduce((s,f)=>s+Number(f.amount||0)*Number(fixesRetardMap[f.id]||0),0);
-  const chargesSarlGuirautBase=(chSarlRes.data||[]).reduce((s,c)=>s+Number(c.monthly_amount||c.amount_ttc||0),0);
+  // Frais récurrents SARL Guiraud → mensualisé selon la fréquence
+  const chargesSarlGuirautBase=(chSarlRes.data||[]).filter(c=>{
+    // Inclure les charges actives (gère plusieurs conventions de statut)
+    const st=(c.status||'').toLowerCase();
+    if(st==='inactif'||st==='archive'||st==='supprime'||c.active===false)return false;
+    return true;
+  }).reduce((s,c)=>{
+    const mt=Number(c.amount_ttc||0);
+    const freq=(c.frequency||'monthly').toLowerCase();
+    let mensuel=mt;
+    if(freq==='quarterly')mensuel=mt/3;
+    else if(freq==='annual'||freq==='yearly')mensuel=mt/12;
+    else if(freq==='biannual')mensuel=mt/6;
+    // Préférer monthly_amount si défini explicitement
+    if(c.monthly_amount!=null&&Number(c.monthly_amount)>0)mensuel=Number(c.monthly_amount);
+    return s+mensuel;
+  },0);
 
   // Dettes mensuelles SARL Guiraud à payer ce mois — calcul par mois avec respect des dates
   const dettesSarlGuiraudParMois=months.map(m=>{
