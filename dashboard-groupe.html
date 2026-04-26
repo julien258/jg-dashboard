@@ -1268,13 +1268,12 @@
         <div style="position:relative;height:320px"><canvas id="sortiesChart"></canvas></div>
         <div style="display:flex;gap:10px;margin-top:10px;flex-wrap:wrap;font-size:11px;color:var(--t2)">
           <span><span style="display:inline-block;width:12px;height:12px;background:#E74C3C88;border-radius:2px;margin-right:4px"></span>URSSAF / Cotisations</span>
-          <span><span style="display:inline-block;width:12px;height:12px;background:#8E44AD88;border-radius:2px;margin-right:4px"></span>Impôts perso</span>
           <span><span style="display:inline-block;width:12px;height:12px;background:#C0392B88;border-radius:2px;margin-right:4px"></span>Impôts pro</span>
           <span><span style="display:inline-block;width:12px;height:12px;background:#E67E2288;border-radius:2px;margin-right:4px"></span>Dettes financières</span>
           <span><span style="display:inline-block;width:12px;height:12px;background:#F39C1288;border-radius:2px;margin-right:4px"></span>Charges fixes</span>
           <span><span style="display:inline-block;width:12px;height:12px;background:#7F8C8D88;border-radius:2px;margin-right:4px"></span>Fournisseurs</span>
           <span><span style="display:inline-block;width:12px;height:12px;background:#6B46C188;border-radius:2px;margin-right:4px"></span>🗓️ Engagements à venir</span>
-          <span><span style="display:inline-block;width:12px;height:12px;background:#3D8EF088;border-radius:2px;margin-right:4px"></span>Besoin perso (SARL→LIVING)</span>
+          <span><span style="display:inline-block;width:12px;height:12px;background:#3D8EF088;border-radius:2px;margin-right:4px"></span>Besoin perso (SARL→LIVING, TTC)</span>
           <span style="border-left:1px solid var(--b1);padding-left:10px;color:var(--grn);font-weight:600">── Entrées prévues</span>
           <span style="color:var(--grn)">- - Encaissé réel</span>
         </div>
@@ -8126,13 +8125,14 @@ async function loadTresoChart(){
   // revNecessaire = dettes perso + charges fixes perso + impôts perso + projets + RAV
   // Les dettes SARL Guiraud (URSSAF, huissiers) sont payées en interne par SARL depuis sa tréso
   // ── Flux intra-groupe : même sources que foyer-budget ──
-  const [dPRes,bmpRes,setPRes,ppRes,fxPersoRes,chSarlRes] = await Promise.all([
-    sb.from('debts').select('*').eq('company_id','perso').not('status','eq','solde'),
+  const [dPRes,bmpRes,setPRes,ppRes,fxPersoRes,chSarlRes,exReqRes] = await Promise.all([
+    sb.from('debts').select('*').eq('company_id','perso').eq('status','en_cours'),
     sb.from('budget_mensuel_perso').select('*'),
     sb.from('settings').select('key,value'),
     sb.from('projets_perso').select('*'),
     sb.from('fixed_expenses').select('*').eq('active',true),
-    sb.from('recurring_charges').select('monthly_amount,amount_ttc').eq('company_id','sarl-guiraud').eq('status','actif')
+    sb.from('recurring_charges').select('monthly_amount,amount_ttc').eq('company_id','sarl-guiraud').eq('status','actif'),
+    sb.from('expense_requests').select('*').eq('statut','valide')
   ]);
   const settingsMap2={}; (setPRes.data||[]).forEach(s=>settingsMap2[s.key]=s.value);
   const budgetByMois={}; (bmpRes.data||[]).forEach(b=>budgetByMois[b.mois]=b);
@@ -8161,8 +8161,15 @@ async function loadTresoChart(){
           if(dd.getFullYear()===mY&&dd.getMonth()===mM)projets+=mens;}}
     });
     const rattrapage=mIdx===0?fixesRetardMontant:0;
-    // Besoin perso net = dettes + fixes + rattrapage + variables + impôts + projets + RAV
-    const besoinPersoNet=dettesPerso+fixesPersoBase+rattrapage+vars+impots+projets+rav;
+    // Dépenses/invest ponctuels validés du mois (expense_requests statut=valide, recurrent=false)
+    const ponctuelles=(exReqRes.data||[]).filter(p=>{
+      if(p.recurrent)return false;
+      if(!p.date_prevue)return false;
+      const d=new Date(p.date_prevue);
+      return d.getUTCFullYear()===mY&&d.getUTCMonth()===mM;
+    }).reduce((s,p)=>s+Number(p.montant||0),0);
+    // Besoin perso net = dettes + fixes + rattrapage + variables + impôts + projets + RAV + ponctuelles
+    const besoinPersoNet=dettesPerso+fixesPersoBase+rattrapage+vars+impots+projets+rav+ponctuelles;
     // Facturation SARL = besoin perso + charges propres SARL Guiraud → TTC × 1.20
     return Math.round((besoinPersoNet+chargesSarlGuiraud)*1.20);
   });
@@ -8681,13 +8688,12 @@ async function loadTresoChart(){
         labels,
         datasets:[
           {label:'URSSAF / Cotisations',data:catUrssaf,backgroundColor:'#E74C3C88',stack:'s',order:2},
-          {label:'Impôts perso',data:catImpotsP,backgroundColor:'#8E44AD88',stack:'s',order:2},
           {label:'Impôts pro',data:catImpotsPro,backgroundColor:'#C0392B88',stack:'s',order:2},
           {label:'Dettes financières',data:catDettesF,backgroundColor:'#E67E2288',stack:'s',order:2},
           {label:'Charges fixes',data:catChargesF,backgroundColor:'#F39C1288',stack:'s',order:2},
           {label:'Fournisseurs',data:catFourn,backgroundColor:'#7F8C8D88',stack:'s',order:2},
           {label:'🗓️ Engagements à venir',data:(window._tresoEngagementsParMois||new Array(12).fill(0)),backgroundColor:'#6B46C188',stack:'s',order:2},
-          {label:'Besoin perso',data:catPerso,backgroundColor:'#3D8EF088',stack:'s',order:2},
+          {label:'Besoin perso (refacturation SARL Guiraud, TTC)',data:catPerso,backgroundColor:'#3D8EF088',stack:'s',order:2},
           {label:'Entrées prévues',data:totalEntreesMois,type:'line',borderColor:'#2ECC71',backgroundColor:'rgba(46,204,113,0.05)',borderWidth:2.5,pointRadius:4,fill:false,tension:0.3,order:0,stack:undefined},
           {label:'Encaissé réel',data:encaisseReelLine,type:'line',borderColor:'#2ECC71',backgroundColor:'transparent',borderWidth:2,borderDash:[5,4],pointRadius:6,pointBackgroundColor:'#2ECC71',fill:false,tension:0,order:0,stack:undefined}
         ]
