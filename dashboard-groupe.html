@@ -8125,14 +8125,15 @@ async function loadTresoChart(){
   // revNecessaire = dettes perso + charges fixes perso + impôts perso + projets + RAV
   // Les dettes SARL Guiraud (URSSAF, huissiers) sont payées en interne par SARL depuis sa tréso
   // ── Flux intra-groupe : même sources que foyer-budget ──
-  const [dPRes,bmpRes,setPRes,ppRes,fxPersoRes,chSarlRes,exReqRes] = await Promise.all([
+  const [dPRes,bmpRes,setPRes,ppRes,fxPersoRes,chSarlRes,exReqRes,dSarlRes] = await Promise.all([
     sb.from('debts').select('*').eq('company_id','perso').eq('status','en_cours'),
     sb.from('budget_mensuel_perso').select('*'),
     sb.from('settings').select('key,value'),
     sb.from('projets_perso').select('*'),
     sb.from('fixed_expenses').select('*').eq('active',true),
     sb.from('recurring_charges').select('monthly_amount,amount_ttc').eq('company_id','sarl-guiraud').eq('status','actif'),
-    sb.from('expense_requests').select('*').eq('statut','valide')
+    sb.from('expense_requests').select('*').eq('statut','valide'),
+    sb.from('debts').select('*').eq('company_id','sarl-guiraud').eq('status','en_cours')
   ]);
   const settingsMap2={}; (setPRes.data||[]).forEach(s=>settingsMap2[s.key]=s.value);
   const budgetByMois={}; (bmpRes.data||[]).forEach(b=>budgetByMois[b.mois]=b);
@@ -8140,7 +8141,18 @@ async function loadTresoChart(){
   const fixesRetardMap=JSON.parse(settingsMap2['fixes_retard']||'{}');
   const fixesPersoBase=(fxPersoRes.data||[]).reduce((s,f)=>s+Number(f.amount||0),0);
   const fixesRetardMontant=(fxPersoRes.data||[]).reduce((s,f)=>s+Number(f.amount||0)*Number(fixesRetardMap[f.id]||0),0);
-  const chargesSarlGuiraud=(chSarlRes.data||[]).reduce((s,c)=>s+Number(c.monthly_amount||c.amount_ttc||0),0);
+  const chargesSarlGuirautBase=(chSarlRes.data||[]).reduce((s,c)=>s+Number(c.monthly_amount||c.amount_ttc||0),0);
+
+  // Dettes mensuelles SARL Guiraud à payer ce mois — calcul par mois avec respect des dates
+  const dettesSarlGuiraudParMois=months.map(m=>{
+    const mY=m.getFullYear(),mM=m.getMonth();
+    return (dSarlRes.data||[]).filter(d=>{
+      if(d.frequency!=='monthly')return false;
+      if(d.start_date){const s=new Date(d.start_date);if(mY<s.getUTCFullYear()||(mY===s.getUTCFullYear()&&mM<s.getUTCMonth()))return false;}
+      if(d.end_date){const e=new Date(d.end_date);if(mY>e.getUTCFullYear()||(mY===e.getUTCFullYear()&&mM>e.getUTCMonth()))return false;}
+      return true;
+    }).reduce((s,d)=>s+Number(d.monthly_amount||0),0);
+  });
 
   const intraGroupe=months.map((m,mIdx)=>{
     const mKey2=m.getFullYear()+'-'+String(m.getMonth()+1).padStart(2,'0');
@@ -8170,8 +8182,10 @@ async function loadTresoChart(){
     }).reduce((s,p)=>s+Number(p.montant||0),0);
     // Besoin perso net = dettes + fixes + rattrapage + variables + impôts + projets + RAV + ponctuelles
     const besoinPersoNet=dettesPerso+fixesPersoBase+rattrapage+vars+impots+projets+rav+ponctuelles;
-    // Facturation SARL = besoin perso + charges propres SARL Guiraud → TTC × 1.20
-    return Math.round((besoinPersoNet+chargesSarlGuiraud)*1.20);
+    // Charges SARL Guiraud du mois = frais de fonctionnement récurrents + dettes mensuelles SARL
+    const chargesSarl=chargesSarlGuirautBase+dettesSarlGuiraudParMois[mIdx];
+    // Facturation SARL = besoin perso + charges SARL Guiraud → TTC × 1.20
+    return Math.round((besoinPersoNet+chargesSarl)*1.20);
   });
 
   // TVA déductible pour Living = 20% sur HT facture SARL Guiraud
