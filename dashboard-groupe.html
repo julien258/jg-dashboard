@@ -2590,6 +2590,7 @@
       </div>
       <!-- Filtres statut -->
       <div style="display:flex;gap:6px;margin-bottom:1rem;flex-wrap:wrap" id="contract-filters"></div>
+      <div id="contracts-kpi"></div>
       <div id="contracts-list"><div class="lo"><span class="spin"></span></div></div>
     </div>
 
@@ -9297,25 +9298,58 @@ async function loadContracts(filter){
   const statuses=['all','prospect','en_cours','signe','facture','encaisse'];
   const statusFrLabels={all:'Tous',...statusLabels};
 
-  // Filtre client — liste unique des clients présents
-  const clientNames=[...new Set(allContracts.map(c=>c.clients?.name).filter(Boolean))].sort();
+  // Filtres dynamiques
   const activeClientFilter=window._activeClientFilter||'all';
-  const clientSelect=`<select onchange="window._activeClientFilter=this.value;loadContracts()" style="font-size:11px;padding:2px 8px;border-radius:6px;border:1px solid var(--b1);background:var(--s2);color:var(--t1);margin-left:8px">
+  const activeProductFilter=window._activeProductFilter||'all';
+
+  const clientNames=[...new Set(allContracts.map(c=>c.clients?.name).filter(Boolean))].sort();
+  const productNames=[...new Set(allContracts.map(c=>c.products?.name).filter(Boolean))].sort();
+
+  const selectStyle='font-size:11px;padding:4px 10px;border-radius:8px;border:1px solid var(--b1);background:var(--s2);color:var(--t1);cursor:pointer';
+
+  const clientSelect=`<select onchange="window._activeClientFilter=this.value;loadContracts()" style="${selectStyle}">
     <option value="all">Tous les clients</option>
     ${clientNames.map(n=>`<option value="${n}" ${activeClientFilter===n?'selected':''}>${n}</option>`).join('')}
+  </select>`;
+
+  const productSelect=`<select onchange="window._activeProductFilter=this.value;loadContracts()" style="${selectStyle}">
+    <option value="all">Tous les produits</option>
+    ${productNames.map(n=>`<option value="${n}" ${activeProductFilter===n?'selected':''}>${n}</option>`).join('')}
   </select>`;
 
   document.getElementById('contract-filters').innerHTML=
     '<div style="display:flex;align-items:center;flex-wrap:wrap;gap:6px">'
     +statuses.map(s=>`<button onclick="loadContracts('${s}')" class="btn btn-sm ${activeContractFilter===s?'btn-p':'btn-g'}" style="font-size:11px">${statusFrLabels[s]}</button>`).join('')
     +clientSelect
+    +productSelect
     +'</div>';
 
   const filtered=allContracts.filter(c=>{
     const statusOk=activeContractFilter==='all'||c.status===activeContractFilter;
     const clientOk=activeClientFilter==='all'||c.clients?.name===activeClientFilter;
-    return statusOk&&clientOk;
+    const productOk=activeProductFilter==='all'||c.products?.name===activeProductFilter;
+    return statusOk&&clientOk&&productOk;
   });
+
+  // KPI CA filtré
+  const totalCA=filtered.reduce((s,c)=>s+Number(c.commission_amount||0),0);
+  const totalVol=filtered.reduce((s,c)=>s+Number(c.amount||0),0);
+  const kpiLabel=(activeProductFilter!=='all'?activeProductFilter:(activeClientFilter!=='all'?activeClientFilter:'Sélection'));
+  const kpiEl=document.getElementById('contracts-kpi');
+  if(kpiEl){
+    kpiEl.innerHTML=`<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px">
+      <div style="background:var(--s2);border:1px solid var(--b1);border-radius:10px;padding:10px 18px;display:flex;flex-direction:column;gap:2px">
+        <span style="font-size:10px;color:var(--t2);text-transform:uppercase;letter-spacing:.5px">${kpiLabel} — ${filtered.length} contrat${filtered.length>1?'s':''}</span>
+        <span style="font-size:20px;font-weight:700;color:var(--grn);font-family:'IBM Plex Mono',monospace">${Math.round(totalCA).toLocaleString('fr-FR')} €</span>
+        <span style="font-size:10px;color:var(--t2)">commission totale</span>
+      </div>
+      ${totalVol>0?`<div style="background:var(--s2);border:1px solid var(--b1);border-radius:10px;padding:10px 18px;display:flex;flex-direction:column;gap:2px">
+        <span style="font-size:10px;color:var(--t2);text-transform:uppercase;letter-spacing:.5px">Volume d'affaires</span>
+        <span style="font-size:20px;font-weight:700;color:var(--acc);font-family:'IBM Plex Mono',monospace">${(totalVol/1e6).toFixed(2)} M€</span>
+        <span style="font-size:10px;color:var(--t2)">encours financés</span>
+      </div>`:''}
+    </div>`;
+  }
 
   window._contractsMap = {}; filtered.forEach(c => window._contractsMap[c.id] = c);
   document.getElementById('contracts-list').innerHTML=`<div class="card"><div style="overflow-x:auto"><table>
