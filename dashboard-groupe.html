@@ -1243,6 +1243,36 @@
         <div style="margin-left:auto;font-size:11px;color:var(--t3)" id="encaisse-date"></div>
       </div>
 
+      <!-- Filtre sociétés tréso globale -->
+      <div class="card mb" style="padding:12px 16px">
+        <div style="font-size:11px;color:var(--t2);margin-bottom:8px;font-weight:500;text-transform:uppercase;letter-spacing:.5px">Sociétés affichées dans le graphique</div>
+        <div style="display:flex;gap:12px;flex-wrap:wrap" id="treso-soc-checkboxes">
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px">
+            <input type="checkbox" id="tsc-living" checked onchange="refreshTresoFilter()" style="accent-color:#2ECC71">
+            <span style="width:10px;height:10px;background:#2ECC71;border-radius:2px;display:inline-block"></span>LIVING
+          </label>
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px">
+            <input type="checkbox" id="tsc-guiraud" checked onchange="refreshTresoFilter()" style="accent-color:#3D8EF0">
+            <span style="width:10px;height:10px;background:#3D8EF0;border-radius:2px;display:inline-block"></span>SARL Guiraud
+          </label>
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px">
+            <input type="checkbox" id="tsc-realgains" checked onchange="refreshTresoFilter()" style="accent-color:#9B59B6">
+            <span style="width:10px;height:10px;background:#9B59B6;border-radius:2px;display:inline-block"></span>Real Gains
+          </label>
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px">
+            <input type="checkbox" id="tsc-meulette" checked onchange="refreshTresoFilter()" style="accent-color:#F39C12">
+            <span style="width:10px;height:10px;background:#F39C12;border-radius:2px;display:inline-block"></span>La Meulette
+          </label>
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;border-left:1px solid var(--b1);padding-left:12px">
+            <input type="checkbox" id="tsc-alpha" onchange="refreshTresoFilter()" style="accent-color:#1ABC9C">
+            <span style="width:10px;height:10px;background:#1ABC9C;border-radius:2px;display:inline-block"></span>Alpha T Max <span style="font-size:10px;color:var(--t2)">(participation)</span>
+          </label>
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px">
+            <input type="checkbox" id="tsc-cfc" onchange="refreshTresoFilter()" style="accent-color:#E67E22">
+            <span style="width:10px;height:10px;background:#E67E22;border-radius:2px;display:inline-block"></span>CFC Dubai
+          </label>
+        </div>
+      </div>
       <!-- Graphique 1 : Entrées / Sorties 12 mois -->
       <div class="card mb">
         <div class="card-t">Flux de trésorerie — 12 mois glissants</div>
@@ -2861,6 +2891,12 @@
     <div class="g2">
       <div>
         <div class="fg"><label>Libellé</label><input type="text" id="ce-label"></div>
+        <div class="fg">
+          <label>Produit</label>
+          <select id="ce-product" onchange="onCeProductChange()">
+            <option value="">— Inchangé —</option>
+          </select>
+        </div>
         <div class="fg"><label>Volume / Montant (€)</label><input type="number" id="ce-amount"></div>
         <div class="fg"><label>Commission HT (€)</label><input type="number" id="ce-commission" style="border-color:var(--grn)" oninput="calcCeTVA()"></div>
         <div class="fg" style="background:var(--s2);padding:8px;border-radius:8px">
@@ -8030,6 +8066,11 @@ async function delPlacement(id){
 
 // ===== GRAPHIQUE TRÉSO =====
 let tresoChartObj=null;
+function refreshTresoFilter(){
+  // Recharge le graphique tréso avec les sociétés sélectionnées
+  loadTresoChart();
+}
+
 async function loadTresoChart(){
   const now=new Date();
   const months=[];
@@ -8056,8 +8097,22 @@ async function loadTresoChart(){
   // Stocker dans window pour accès depuis les tooltips
   window._tresoContracts = contracts;
   window._tresoMonths = months;
-  const coColors={'sas-living':'#2ECC71','sarl-guiraud':'#3D8EF0','real-gains':'#9B59B6','meulette':'#F39C12'};
-  const coIds=['sas-living','sarl-guiraud','real-gains','meulette'];
+  const coColors={'sas-living':'#2ECC71','sarl-guiraud':'#3D8EF0','real-gains':'#9B59B6','meulette':'#F39C12','alpha':'#1ABC9C','cfc':'#E67E22'};
+  // Lire les checkboxes — Alpha et CFC décochés par défaut
+  const tscLiving=document.getElementById('tsc-living')?.checked!==false;
+  const tscGuiraud=document.getElementById('tsc-guiraud')?.checked!==false;
+  const tscRealGains=document.getElementById('tsc-realgains')?.checked!==false;
+  const tscMeulette=document.getElementById('tsc-meulette')?.checked!==false;
+  const tscAlpha=document.getElementById('tsc-alpha')?.checked===true;
+  const tscCFC=document.getElementById('tsc-cfc')?.checked===true;
+  const coIds=[
+    ...(tscLiving?['sas-living']:[]),
+    ...(tscGuiraud?['sarl-guiraud']:[]),
+    ...(tscRealGains?['real-gains']:[]),
+    ...(tscMeulette?['meulette']:[]),
+    ...(tscAlpha?['alpha']:[]),
+    ...(tscCFC?['cfc']:[])
+  ];
   const coNames={'sas-living':'ALTIOR C / LIVING','sarl-guiraud':'SARL Guiraud','real-gains':'RG/Monikaza','meulette':'La Meulette','alpha':'ALPHA','cfc':'CFC','lux-holdco':'LUX HOLDCO','raif-lux':'RAIF LUX'};
 
   // Calcul revenus par société par mois
@@ -9354,6 +9409,22 @@ async function delClient(id){if(!confirm('Supprimer ce client ?'))return;await s
 
 
 // CONTRATS
+// Met à jour les sections CGW/MPC quand on change le produit dans l'édition
+function onCeProductChange(){
+  const sel=document.getElementById('ce-product');
+  if(!sel||!sel.value)return;
+  const prod=allProducts.find(p=>p.id===sel.value);
+  if(!prod)return;
+  const isCGW=['cgw','mpc'].includes(prod.category);
+  const isCGWEl=document.getElementById('ce-cgw');
+  const isCGWprobEl=document.getElementById('ce-trail-proba-fg');
+  if(isCGWEl)isCGWEl.style.display=isCGW?'block':'none';
+  if(isCGWprobEl)isCGWprobEl.style.display=isCGW?'block':'none';
+  // Auto-select Alpha T Max si produit MPC
+  const billingEl=document.getElementById('ce-billing');
+  if(isCGW&&billingEl&&billingEl.value==='sas-living')billingEl.value='alpha';
+}
+
 // ── MIGRATION CGW → ALPHA T MAX ───────────────────────────────────────────────
 async function migrerCGWversAlpha(){
   // Trouver les contrats CGW (produit category cgw) facturés par LIVING non terminés
@@ -9768,6 +9839,12 @@ async function openContractEdit(id){
   const{data,error}=await sb.from('contracts').select('*,clients(name),products(name,category,trailing_rate,trailing_frequency)').eq('id',id).single();
   if(error||!data){toast('Erreur chargement contrat');return;}
   document.getElementById('ce-id').value=id;
+  // Peupler le sélecteur produit
+  const ceProductSel=document.getElementById('ce-product');
+  if(ceProductSel){
+    const prods=allProducts.length?allProducts:((await sb.from('products').select('id,name,category').eq('active',true).order('category').order('name')).data||[]);
+    ceProductSel.innerHTML='<option value="">— Inchangé —</option>'+prods.map(p=>`<option value="${p.id}" ${p.id===data.product_id?'selected':''}>${p.name}</option>`).join('');
+  }
   document.getElementById('ce-label').value=data.label||'';
   document.getElementById('ce-amount').value=data.amount||'';
   document.getElementById('ce-commission').value=data.commission_amount||'';
@@ -9868,6 +9945,7 @@ async function saveContractEdit(){
   const id=document.getElementById('ce-id').value;
   const updates={
     label:document.getElementById('ce-label').value,
+    ...(document.getElementById('ce-product')?.value?{product_id:document.getElementById('ce-product').value}:{}),
     amount:parseFloat(document.getElementById('ce-amount').value)||0,
     commission_amount:parseFloat(document.getElementById('ce-commission').value)||0,
     status:document.getElementById('ce-status').value,
