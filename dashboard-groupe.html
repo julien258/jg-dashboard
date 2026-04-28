@@ -2397,13 +2397,24 @@
             <div>
               <div class="fg"><label>Nom du produit</label><input type="text" id="p-name" placeholder="CGW Premium, LLD Standard..."></div>
               <div class="fg"><label>Catégorie</label>
-                <select id="p-cat">
-                  <option value="cgw">CGW Placement</option>
+                <select id="p-cat" onchange="toggleMPCFields()">
+                  <option value="mpc">💎 MPC — Manhattan Private Credit</option>
+                  <option value="cgw">CGW Placement (legacy)</option>
                   <option value="lld">LLD Financement</option>
                   <option value="honoraires">Honoraires conseil</option>
                   <option value="obligations">Obligations / Prêts</option>
                   <option value="apport_affaire">Apport d'affaires</option>
                 </select>
+              </div>
+              <!-- Champs spécifiques MPC Manhattan -->
+              <div id="mpc-preset-fields" style="margin-top:8px;padding:10px;background:rgba(46,204,113,.08);border:1px solid var(--grn);border-radius:8px;font-size:12px">
+                <div style="color:var(--grn);font-weight:600;margin-bottom:8px">💎 Prédéfinis Manhattan Private Credit</div>
+                <div style="display:flex;gap:8px;flex-wrap:wrap">
+                  <button type="button" class="btn btn-g" style="font-size:11px;border-color:var(--grn);color:var(--grn)" onclick="fillMPCPreset('blacklabel')">Black Label (9,5%)</button>
+                  <button type="button" class="btn btn-g" style="font-size:11px;border-color:var(--grn);color:var(--grn)" onclick="fillMPCPreset('sixsenses')">Six Senses (15%)</button>
+                  <button type="button" class="btn btn-g" style="font-size:11px;border-color:var(--grn);color:var(--grn)" onclick="fillMPCPreset('9mountain')">9 Mountain (15%)</button>
+                </div>
+                <div style="color:var(--t2);font-size:10px;margin-top:6px">Cliquer sur un produit pour pré-remplir les taux automatiquement</div>
               </div>
               <div class="fg"><label>Description</label><textarea id="p-desc" style="min-height:50px" placeholder="Détails du produit..."></textarea></div>
             </div>
@@ -7542,7 +7553,7 @@ function togglePlacementForm(reset=true){
 
 // Remplit le select produits CGW dans le formulaire placement
 async function loadProductsForPlacement(){
-  const{data}=await sb.from('products').select('id,name,commission_rate,trailing_rate,trailing_frequency').eq('category','cgw').eq('active',true);
+  const{data}=await sb.from('products').select('id,name,commission_rate,trailing_rate,trailing_frequency').in('category',['cgw','mpc']).eq('active',true);
   const sel=document.getElementById('pl-product');
   if(!sel||!data)return;
   sel.innerHTML='<option value="">— Saisie manuelle —</option>'+
@@ -8058,7 +8069,7 @@ async function loadTresoChart(){
     const soc=c.billing_company_id;
     if(!revenusParSoc[soc])return;
     // Exclure les contrats CGW trailing — déjà comptés dans revenusTrailing
-    if(c.products&&c.products.category==='cgw'&&Number(c.products.trailing_rate||0)>0)return;
+    if(c.products&&(c.products.category==='cgw'||c.products.category==='mpc')&&Number(c.products.trailing_rate||0)>0)return;
     const freq={monthly:1,quarterly:3,semi_annual:6,annual:12}[c.recurrence]||0;
     const com=Number(c.commission_amount||0);
     if(c.recurrence&&freq>0){
@@ -8114,7 +8125,7 @@ async function loadTresoChart(){
   // Trailing commissions CGW — revenus récurrents limités par type de produit
   const revenusTrailing=new Array(12).fill(0);
   (contracts||[]).forEach(c=>{
-    if(!c.products||c.products.category!=='cgw')return;
+    if(!c.products||(c.products.category!=='cgw'&&c.products.category!=='mpc'))return;
     if(!c.signed_date)return;
     const trailRate=Number(c.products.trailing_rate||0)/100;
     if(trailRate===0)return;
@@ -8170,7 +8181,7 @@ async function loadTresoChart(){
   });
   // Source 2 : contrats CGW dont le client EST une société du groupe
   (contracts||[]).forEach(c=>{
-    if(!c.products||c.products.category!=='cgw')return;
+    if(!c.products||(c.products.category!=='cgw'&&c.products.category!=='mpc'))return;
     if(!c.clients||c.clients.is_group_entity!==true)return; // skip clients externes
     const label=String(c.label||'');
     if(label.toLowerCase().includes('trail'))return; // skip trails (commissions futures)
@@ -9151,8 +9162,8 @@ async function loadCRMData(){
 // CATALOGUE
 async function loadCatalogue(){
   const{data}=await sb.from('products').select('*').order('category');
-  const catColors={cgw:'var(--grn)',lld:'var(--acc)',honoraires:'var(--amb)',obligations:'var(--pur)',apport_affaire:'var(--t2)'};
-  const catLabels={cgw:'CGW',lld:'LLD',honoraires:'Honoraires',obligations:'Obligations',apport_affaire:'Apport affaires'};
+  const catColors={cgw:'var(--grn)',mpc:'var(--grn)',lld:'var(--acc)',honoraires:'var(--amb)',obligations:'var(--pur)',apport_affaire:'var(--t2)'};
+  const catLabels={cgw:'CGW/MPC',mpc:'MPC Manhattan',lld:'LLD',honoraires:'Honoraires',obligations:'Obligations',apport_affaire:'Apport affaires'};
   document.getElementById('catalogue-list').innerHTML=`<div class="card"><table>
     <thead><tr><th>Produit</th><th>Catégorie</th><th>Upfront</th><th>Trail rappel</th><th>Reconduction</th><th>Fréquence</th><th>Max</th><th></th></tr></thead>
     <tbody>${(data||[]).map(p=>`<tr>
@@ -9166,6 +9177,28 @@ async function loadCatalogue(){
       <td><button onclick="delProduct('${p.id}')" style="border:none;background:none;cursor:pointer;color:var(--t2);font-size:13px">✕</button></td>
     </tr>`).join('')}</tbody>
   </table></div>`;
+}
+
+function toggleMPCFields(){
+  const cat=document.getElementById('p-cat').value;
+  const mpcEl=document.getElementById('mpc-preset-fields');
+  if(mpcEl)mpcEl.style.display=(cat==='mpc'||cat==='cgw')?'block':'none';
+}
+
+function fillMPCPreset(type){
+  const presets={
+    blacklabel:{name:'MPC Black Label',rate:9.5,trail:6.75,freq:'quarterly',desc:'Manhattan Private Credit — Black Label. Souscription 9,5% · Rollover trimestriel 6,75%.'},
+    sixsenses:{name:'MPC Six Senses',rate:15,trail:6.75,freq:'quarterly',desc:'Manhattan Private Credit — Six Senses. Souscription 15% · Rollover trimestriel 6,75%.'},
+    '9mountain':{name:'MPC 9 Mountain',rate:15,trail:6.75,freq:'quarterly',desc:'Manhattan Private Credit — 9 Mountain. Souscription 15% · Rollover trimestriel 6,75%.'}
+  };
+  const p=presets[type];if(!p)return;
+  document.getElementById('p-name').value=p.name;
+  document.getElementById('p-rate').value=p.rate;
+  document.getElementById('p-trail').value=p.trail;
+  document.getElementById('p-freq').value=p.freq;
+  document.getElementById('p-desc').value=p.desc;
+  document.getElementById('p-cat').value='mpc';
+  document.getElementById('p-ctype').value='upfront_pct';
 }
 
 async function addProduct(){
@@ -9224,7 +9257,7 @@ async function openClientFiche(clientId){
   const statusLabels={prospect:'Prospect',en_cours:'En cours',signe:'Signé',facture:'Facturé',encaisse:'Encaissé',termine:'Terminé'};
   const invoiceLabels={a_emettre:'À facturer',emise:'Facture émise',payee:'Payé'};
   const invoiceColors={a_emettre:'br',emise:'ba',payee:'bg'};
-  const catConfig={cgw:{icon:'💎',color:'var(--grn)',bg:'var(--grd)',label:'Placement CGW'},lld:{icon:'🚗',color:'var(--acc)',bg:'var(--acd)',label:'LLD'},honoraires:{icon:'📋',color:'var(--amb)',bg:'var(--amd)',label:'Honoraires'},obligations:{icon:'📈',color:'var(--pur)',bg:'var(--pud)',label:'Obligations'},apport_affaire:{icon:'🤝',color:'var(--t2)',bg:'var(--s3)',label:"Apport d'affaires"}};
+  const catConfig={cgw:{icon:'💎',color:'var(--grn)',bg:'var(--grd)',label:'Placement CGW'},mpc:{icon:'💎',color:'var(--grn)',bg:'var(--grd)',label:'MPC Manhattan'},lld:{icon:'🚗',color:'var(--acc)',bg:'var(--acd)',label:'LLD'},honoraires:{icon:'📋',color:'var(--amb)',bg:'var(--amd)',label:'Honoraires'},obligations:{icon:'📈',color:'var(--pur)',bg:'var(--pud)',label:'Obligations'},apport_affaire:{icon:'🤝',color:'var(--t2)',bg:'var(--s3)',label:"Apport d'affaires"}};
   const defaultCat={icon:'📦',color:'var(--t2)',bg:'var(--s3)',label:'Autre'};
   const allC=contracts||[];
   const totalVol=allC.reduce((s,c)=>s+Number(c.amount||0),0);
@@ -9334,11 +9367,11 @@ async function migrerCGWversAlpha(){
     return;
   }
 
-  const cgwOnly=cgwContracts.filter(c=>c.products?.category==='cgw');
+  const cgwOnly=cgwContracts.filter(c=>['cgw','mpc'].includes(c.products?.category));
   if(cgwOnly.length===0){toast('✓ Aucun contrat CGW LIVING à migrer');return;}
 
   const labels=cgwOnly.map(c=>`• ${c.clients?.name||'?'} — ${c.label||c.products?.name||'?'} (${c.status})`).join('\n');
-  if(!confirm(`Migrer ${cgwOnly.length} contrat(s) CGW de SAS LIVING → Alpha T Max :\n\n${labels}\n\nConfirmer ?`))return;
+  if(!confirm(`Migrer ${cgwOnly.length} contrat(s) CGW/MPC de SAS LIVING → Alpha T Max :\n\n${labels}\n\nConfirmer ?`))return;
 
   const ids=cgwOnly.map(c=>c.id);
   const{error}=await sb.from('contracts').update({billing_company_id:'alpha'}).in('id',ids);
@@ -9432,7 +9465,7 @@ async function loadContracts(filter){
         ${c.lld_bailleur?`<div style="font-size:10px;color:var(--t2);margin-top:2px">${c.lld_bailleur}${c.lld_co_courtier?' · via '+c.lld_co_courtier:''}</div>`:''}
         ${c.lld_retrocession_montant>0?`<div style="font-size:10px;color:var(--red)">Rétro: ${Math.round(Number(c.lld_retrocession_montant)).toLocaleString('fr-FR')} €</div>`:''}
         ${(()=>{
-          if(c.billing_company_id!=='alpha'||c.products?.category!=='cgw')return '';
+          if(c.billing_company_id!=='alpha'||!['cgw','mpc'].includes(c.products?.category))return '';
           const apporteurLabels={julien_cfc:'Julien/CFC',benjamin:'Benjamin',natif:'50/50'};
           const apLabel=c.cgw_apporteur?apporteurLabels[c.cgw_apporteur]||c.cgw_apporteur:'—';
           let surcoHtml='';
@@ -9478,12 +9511,12 @@ async function calcCommission(){
 
   // Auto-routing : CGW → Alpha T Max automatiquement
   const billingEl=document.getElementById('ct-billing');
-  if(prod.category==='cgw'&&billingEl&&billingEl.value==='sas-living'){
+  if((prod.category==='cgw'||prod.category==='mpc')&&billingEl&&billingEl.value==='sas-living'){
     billingEl.value='alpha';
   }
   // Affiche/cache les champs CGW apporteur
   const cgwApporteurFields=document.getElementById('cgw-apporteur-fields');
-  if(cgwApporteurFields)cgwApporteurFields.style.display=prod.category==='cgw'?'block':'none';
+  if(cgwApporteurFields)cgwApporteurFields.style.display=(prod.category==='cgw'||prod.category==='mpc')?'block':'none';
 
   if(prod.category==='lld'){
     calcLLDCommission();
@@ -9754,7 +9787,7 @@ async function openContractEdit(id){
   toggleCeRecurrence();
   document.getElementById('ce-reminder').value=data.next_reminder||'';
   // Probabilité trailing — affiche seulement pour CGW
-  const isCGWProduct=data.products?.category==='cgw';
+  const isCGWProduct=['cgw','mpc'].includes(data.products?.category);
   const probaFg=document.getElementById('ce-trail-proba-fg');
   if(probaFg)probaFg.style.display=isCGWProduct?'block':'none';
   if(isCGWProduct){
@@ -9770,7 +9803,7 @@ async function openContractEdit(id){
 
   // Champs LLD
   const isLLD=data.products?.category==='lld';
-  const isCGW=data.products?.category==='cgw';
+  const isCGW=['cgw','mpc'].includes(data.products?.category);
   document.getElementById('ce-lld').style.display=isLLD?'block':'none';
   document.getElementById('ce-cgw').style.display=isCGW?'block':'none';
 
@@ -12457,7 +12490,7 @@ async function renderCoKPIs(){
   const actifs=contracts||[];
   const caYTD=actifs.reduce((s,c)=>s+Number(c.commission_amount||0),0);
   const volumeLLD=actifs.filter(c=>c.products?.category==='lld').reduce((s,c)=>s+Number(c.amount||0),0);
-  const volumeCGW=actifs.filter(c=>c.products?.category==='cgw').reduce((s,c)=>s+Number(c.amount||0),0);
+  const volumeCGW=actifs.filter(c=>['cgw','mpc'].includes(c.products?.category)).reduce((s,c)=>s+Number(c.amount||0),0);
   const afacturer=actifs.filter(c=>c.invoice_status==='a_emettre').reduce((s,c)=>s+Number(c.commission_amount||0),0);
   const netCC=(balances||[]).reduce((s,b)=>s+Number(b.amount||0),0);
 
@@ -14010,7 +14043,7 @@ async function generateTrailContracts(){
       .select('*,products(name,category,trailing_rate,trailing_frequency),clients(name)')
       .eq('id', contractId).single();
     if(ce || !c) throw new Error('Contrat introuvable');
-    if(!c.products || c.products.category !== 'cgw') throw new Error('Ce contrat nest pas un produit CGW');
+    if(!c.products||!['cgw','mpc'].includes(c.products.category)) throw new Error('Ce contrat nest pas un produit CGW/MPC');
     if(!c.products.trailing_rate) throw new Error('Aucun taux trail défini sur ce produit');
 
     const capital     = Number(c.amount || 0);
@@ -14087,7 +14120,7 @@ async function generateTrailingReceivables(){
   const in30=new Date(today.getTime()+30*24*3600*1000);
 
   for(const c of contracts){
-    if(!c.products||c.products.category!=='cgw')continue;
+    if(!c.products||!['cgw','mpc'].includes(c.products.category))continue;
     if(!c.signed_date)continue;
     const trailRate=Number(c.products.trailing_rate||0)/100;
     if(trailRate===0)continue;
