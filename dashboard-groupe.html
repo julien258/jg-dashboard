@@ -2577,6 +2577,23 @@
               </div>
             </div>
           </div>
+          <!-- CHAMPS CGW ALPHA T MAX -->
+          <div id="cgw-apporteur-fields" style="display:none;margin-top:1rem;padding-top:1rem;border-top:1px solid var(--b1)">
+            <div style="font-size:12px;color:var(--grn);margin-bottom:10px;font-weight:500">💎 Paramètres Alpha T Max — Surcommission apporteur</div>
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
+              <div class="fg">
+                <label>Apporteur</label>
+                <select id="cgw-apporteur" onchange="calcCGWSurco()">
+                  <option value="julien_cfc">Julien (via CFC)</option>
+                  <option value="benjamin">Benjamin</option>
+                  <option value="natif">Natif Alpha 50/50</option>
+                </select>
+              </div>
+              <div class="fg"><label>Montant ligne ($)</label><input type="number" id="cgw-montant-usd" placeholder="1000000" oninput="calcCGWSurco()"></div>
+              <div class="fg"><label>Taux souscription Manhattan (%)</label><input type="number" id="cgw-taux-souscription" placeholder="9.5" step="0.1" value="9.5" oninput="calcCGWSurco()"></div>
+            </div>
+            <div id="cgw-surco-preview" style="margin-top:10px;padding:12px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;font-size:12px;display:none"></div>
+          </div>
           <!-- UPLOAD DOCUMENT CONTRAT -->
           <div style="margin-top:1rem;padding-top:1rem;border-top:1px solid var(--b1)">
             <div style="font-size:12px;color:var(--t2);margin-bottom:8px">📎 Document contrat (optionnel)</div>
@@ -2589,6 +2606,12 @@
         </div>
       </div>
       <!-- Filtres statut -->
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:6px">
+        <div style="font-size:11px;color:var(--t2)">Contrats & Ventes</div>
+        <button onclick="migrerCGWversAlpha()" class="btn btn-g" style="font-size:11px;border-color:var(--grn);color:var(--grn);display:flex;align-items:center;gap:4px">
+          ⚡ Migrer contrats CGW → Alpha T Max
+        </button>
+      </div>
       <div style="display:flex;gap:6px;margin-bottom:1rem;flex-wrap:wrap" id="contract-filters"></div>
       <div id="contracts-kpi"></div>
       <div id="contracts-list"><div class="lo"><span class="spin"></span></div></div>
@@ -2904,9 +2927,24 @@
         <div class="fg"><label>Date résiliation</label><input type="date" id="ce-resiliation"></div>
       </div>
     </div>
-    <!-- Champs CGW reconduction -->
+    <!-- Champs CGW reconduction + Alpha T Max -->
     <div id="ce-cgw" style="display:none;margin-top:1rem;padding-top:1rem;border-top:1px solid var(--b1)">
-      <div style="font-size:12px;color:var(--grn);margin-bottom:10px;font-weight:500">🔄 Probabilités de reconduction CGW</div>
+      <div style="font-size:12px;color:var(--grn);margin-bottom:10px;font-weight:500">💎 Alpha T Max — Apporteur & Surcommission</div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px">
+        <div class="fg">
+          <label>Apporteur</label>
+          <select id="ce-cgw-apporteur" onchange="calcCGWSurcoEdit()">
+            <option value="">— Non défini —</option>
+            <option value="julien_cfc">Julien (via CFC)</option>
+            <option value="benjamin">Benjamin</option>
+            <option value="natif">Natif Alpha 50/50</option>
+          </select>
+        </div>
+        <div class="fg"><label>Montant ligne ($)</label><input type="number" id="ce-cgw-montant-usd" placeholder="1000000" oninput="calcCGWSurcoEdit()"></div>
+        <div class="fg"><label>Taux souscription Manhattan (%)</label><input type="number" id="ce-cgw-taux-souscription" placeholder="9.5" step="0.1" value="9.5" oninput="calcCGWSurcoEdit()"></div>
+      </div>
+      <div id="ce-cgw-surco-preview" style="margin-bottom:10px;padding:10px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;font-size:12px;display:none"></div>
+      <div style="font-size:12px;color:var(--grn);margin-bottom:6px;font-weight:500">🔄 Probabilités de reconduction</div>
       <div id="ce-cgw-info" style="font-size:12px;color:var(--t2);margin-bottom:10px"></div>
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px" id="ce-cgw-sliders"></div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">
@@ -9148,7 +9186,7 @@ async function delProduct(id){if(!confirm('Supprimer ce produit ?'))return;await
 // CLIENTS
 async function loadClients(){
   const{data}=await sb.from('clients').select('*,contracts(id,status,commission_amount,amount)').order('name');
-  const billingLabels={'sas-living':'SAS Living','sarl-guiraud':'SARL Guiraud','real-gains':'RG/Monikaza'};
+  const billingLabels={'sas-living':'SAS Living','sarl-guiraud':'SARL Guiraud','real-gains':'RG/Monikaza','alpha':'Alpha T Max','cfc':'CFC Dubai','meulette':'La Meulette','spv-monikaza':'SPV Monikaza','lux-holdco':'LUX HoldCo','raif-lux':'RAIF LUX'};
   const catIcons={entreprise:'🏢',particulier:'👤',institutionnel:'🏛️'};
   document.getElementById('clients-list').innerHTML=`<div class="card" style="overflow:hidden"><table>
     <thead><tr><th>Client</th><th>Catégorie</th><th>Société facturante</th><th style="text-align:right">Contrats</th><th style="text-align:right">Volume</th><th style="text-align:right">Commissions</th><th></th></tr></thead>
@@ -9283,6 +9321,34 @@ async function delClient(id){if(!confirm('Supprimer ce client ?'))return;await s
 
 
 // CONTRATS
+// ── MIGRATION CGW → ALPHA T MAX ───────────────────────────────────────────────
+async function migrerCGWversAlpha(){
+  // Trouver les contrats CGW (produit category cgw) facturés par LIVING non terminés
+  const{data:cgwContracts}=await sb.from('contracts')
+    .select('id,label,status,billing_company_id,clients(name),products(name,category)')
+    .eq('billing_company_id','sas-living')
+    .not('status','in','("termine","encaisse")');
+
+  if(!cgwContracts||cgwContracts.length===0){
+    toast('✓ Aucun contrat CGW LIVING à migrer');
+    return;
+  }
+
+  const cgwOnly=cgwContracts.filter(c=>c.products?.category==='cgw');
+  if(cgwOnly.length===0){toast('✓ Aucun contrat CGW LIVING à migrer');return;}
+
+  const labels=cgwOnly.map(c=>`• ${c.clients?.name||'?'} — ${c.label||c.products?.name||'?'} (${c.status})`).join('\n');
+  if(!confirm(`Migrer ${cgwOnly.length} contrat(s) CGW de SAS LIVING → Alpha T Max :\n\n${labels}\n\nConfirmer ?`))return;
+
+  const ids=cgwOnly.map(c=>c.id);
+  const{error}=await sb.from('contracts').update({billing_company_id:'alpha'}).in('id',ids);
+  if(error){toast('❌ Erreur migration : '+error.message);return;}
+  toast(`✅ ${cgwOnly.length} contrat(s) CGW migrés vers Alpha T Max`);
+  loadContracts();
+  loadCRMData();
+}
+// ── FIN MIGRATION ─────────────────────────────────────────────────────────────
+
 async function loadContracts(filter){
   if(filter)activeContractFilter=filter;
   const{data}=await sb.from('contracts').select('*,clients(name),products(name,category,trailing_rate,trailing_frequency)').order('created_at',{ascending:false});
@@ -9365,6 +9431,17 @@ async function loadContracts(filter){
         <span class="badge ${statusColors[c.status]||'bz'}">${statusLabels[c.status]||c.status}</span>
         ${c.lld_bailleur?`<div style="font-size:10px;color:var(--t2);margin-top:2px">${c.lld_bailleur}${c.lld_co_courtier?' · via '+c.lld_co_courtier:''}</div>`:''}
         ${c.lld_retrocession_montant>0?`<div style="font-size:10px;color:var(--red)">Rétro: ${Math.round(Number(c.lld_retrocession_montant)).toLocaleString('fr-FR')} €</div>`:''}
+        ${(()=>{
+          if(c.billing_company_id!=='alpha'||c.products?.category!=='cgw')return '';
+          const apporteurLabels={julien_cfc:'Julien/CFC',benjamin:'Benjamin',natif:'50/50'};
+          const apLabel=c.cgw_apporteur?apporteurLabels[c.cgw_apporteur]||c.cgw_apporteur:'—';
+          let surcoHtml='';
+          if(c.cgw_montant_usd&&c.cgw_apporteur&&c.cgw_apporteur!=='natif'){
+            const{surco,pctSurco}=calcCGWSurcoAmount(Number(c.cgw_montant_usd),Number(c.cgw_taux_souscription||9.5));
+            surcoHtml=`<div style="font-size:10px;color:var(--grn);margin-top:1px">Surco CFC: ${Math.round(surco).toLocaleString('fr-FR')} $ (${pctSurco}%)</div>`;
+          }
+          return `<div style="font-size:10px;color:var(--t2);margin-top:2px">👤 ${apLabel}</div>${surcoHtml}`;
+        })()}
       </td>
       <td>
         <span class="badge ${invoiceColors[c.invoice_status]||'bz'}" style="font-size:10px">${invoiceLabels[c.invoice_status]||'—'}</span>
@@ -9399,6 +9476,15 @@ async function calcCommission(){
   // Affiche/cache les champs LLD
   if(lldFields)lldFields.style.display=prod.category==='lld'?'block':'none';
 
+  // Auto-routing : CGW → Alpha T Max automatiquement
+  const billingEl=document.getElementById('ct-billing');
+  if(prod.category==='cgw'&&billingEl&&billingEl.value==='sas-living'){
+    billingEl.value='alpha';
+  }
+  // Affiche/cache les champs CGW apporteur
+  const cgwApporteurFields=document.getElementById('cgw-apporteur-fields');
+  if(cgwApporteurFields)cgwApporteurFields.style.display=prod.category==='cgw'?'block':'none';
+
   if(prod.category==='lld'){
     calcLLDCommission();
   } else if(amount>0){
@@ -9411,6 +9497,78 @@ async function calcCommission(){
       const freqLabel={quarterly:'trimestriel',semi_annual:'semestriel',monthly:'mensuel',annual:'annuel'}[prod.trailing_frequency]||'';
       toast(`💡 ${com.toLocaleString('fr-FR')} € upfront + ${trailCom.toLocaleString('fr-FR')} € rappel ${freqLabel}`);
     }
+  }
+}
+
+// ── CGW SURCOMMISSION ENGINE ─────────────────────────────────────────────────
+function calcCGWSurcoAmount(montantUSD, tauxSouscription){
+  // Paliers étage I (% de la commission Alpha T Max, non du montant brut)
+  const paliers=[
+    {min:0,     max:750000,   pct:0},
+    {min:750000, max:1000000,  pct:4},
+    {min:1000000,max:1500000,  pct:7},
+    {min:1500000,max:2000000,  pct:10},
+    {min:2000000,max:3000000,  pct:13},
+    {min:3000000,max:5000000,  pct:16},
+    {min:5000000,max:7500000,  pct:20},
+    {min:7500000,max:10000000, pct:23},
+    {min:10000000,max:Infinity,pct:25}
+  ];
+  const palier=paliers.find(p=>montantUSD>=p.min&&montantUSD<p.max)||paliers[0];
+  const comAlpha=montantUSD*(tauxSouscription/100);
+  const surco=comAlpha*(palier.pct/100);
+  return{comAlpha,surco,pctSurco:palier.pct};
+}
+
+function calcCGWSurco(){
+  const montant=parseFloat(document.getElementById('cgw-montant-usd')?.value)||0;
+  const taux=parseFloat(document.getElementById('cgw-taux-souscription')?.value)||9.5;
+  const apporteur=document.getElementById('cgw-apporteur')?.value||'julien_cfc';
+  const preview=document.getElementById('cgw-surco-preview');
+  if(!preview)return;
+  if(montant<=0){preview.style.display='none';return;}
+  preview.style.display='block';
+  const{comAlpha,surco,pctSurco}=calcCGWSurcoAmount(montant,taux);
+  const net50=(comAlpha-surco)/2;
+  const apporteurLabel={julien_cfc:'Julien via CFC',benjamin:'Benjamin',natif:'— (50/50 pur)'}[apporteur];
+  const fmtUSD=n=>Math.round(n).toLocaleString('fr-FR')+' $';
+  if(apporteur==='natif'){
+    preview.innerHTML=`<div style="color:var(--t2)">Client natif Alpha — <strong>50/50 pur</strong>. Pas de sur-commission.</div>
+    <div style="margin-top:6px">Commission Alpha T Max : <strong>${fmtUSD(comAlpha)}</strong> → Part chacun : <strong>${fmtUSD(comAlpha/2)}</strong></div>`;
+  } else {
+    preview.innerHTML=`<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+      <div><div style="color:var(--t2);font-size:10px;text-transform:uppercase;margin-bottom:2px">Com. Alpha T Max</div><div style="font-weight:600">${fmtUSD(comAlpha)}</div><div style="font-size:10px;color:var(--t2)">${taux}% × ${(montant/1e6).toFixed(2)}M$</div></div>
+      <div><div style="color:var(--grn);font-size:10px;text-transform:uppercase;margin-bottom:2px">Surco ${apporteurLabel} (Étage I)</div><div style="font-weight:700;color:var(--grn)">${fmtUSD(surco)}</div><div style="font-size:10px;color:var(--t2)">${pctSurco}% de la commission</div></div>
+      <div><div style="color:var(--acc);font-size:10px;text-transform:uppercase;margin-bottom:2px">Net 50/50 chacun</div><div style="font-weight:600;color:var(--acc)">${fmtUSD(net50)}</div><div style="font-size:10px;color:var(--t2)">base après surco</div></div>
+    </div>
+    <div style="margin-top:8px;padding:6px 10px;background:rgba(46,204,113,.1);border-radius:6px;font-size:11px;color:var(--grn)">
+      💰 Total apporteur = <strong>${fmtUSD(surco+net50)}</strong> (surco + 50/50) · Autre associé = <strong>${fmtUSD(net50)}</strong>
+    </div>`;
+  }
+}
+// ── FIN CGW SURCOMMISSION ENGINE ─────────────────────────────────────────────
+
+function calcCGWSurcoEdit(){
+  const montant=parseFloat(document.getElementById('ce-cgw-montant-usd')?.value)||0;
+  const taux=parseFloat(document.getElementById('ce-cgw-taux-souscription')?.value)||9.5;
+  const apporteur=document.getElementById('ce-cgw-apporteur')?.value||'';
+  const preview=document.getElementById('ce-cgw-surco-preview');
+  if(!preview)return;
+  if(montant<=0||!apporteur){preview.style.display='none';return;}
+  preview.style.display='block';
+  const{comAlpha,surco,pctSurco}=calcCGWSurcoAmount(montant,taux);
+  const net50=(comAlpha-surco)/2;
+  const fmtUSD=n=>Math.round(n).toLocaleString('fr-FR')+' $';
+  if(apporteur==='natif'||!apporteur){
+    preview.innerHTML=`<span style="color:var(--t2)">Client natif — <strong>50/50 pur</strong>. Pas de surcommission.</span>`;
+  } else {
+    const apLabel=apporteur==='julien_cfc'?'Julien/CFC':'Benjamin';
+    preview.innerHTML=`<div style="display:flex;gap:16px;flex-wrap:wrap">
+      <div><span style="color:var(--t2);font-size:10px">Com. Alpha</span><div style="font-weight:600">${fmtUSD(comAlpha)}</div></div>
+      <div><span style="color:var(--grn);font-size:10px">Surco ${apLabel} (${pctSurco}%)</span><div style="font-weight:700;color:var(--grn)">${fmtUSD(surco)}</div></div>
+      <div><span style="color:var(--acc);font-size:10px">Net 50/50 chacun</span><div style="font-weight:600;color:var(--acc)">${fmtUSD(net50)}</div></div>
+      <div><span style="color:var(--t2);font-size:10px">Total apporteur</span><div style="font-weight:700">${fmtUSD(surco+net50)}</div></div>
+    </div>`;
   }
 }
 
@@ -9508,6 +9666,16 @@ async function addContract(){
     notes:document.getElementById('ct-notes').value||null,
     invoice_status:'a_emettre'
   };
+
+  // Champs CGW spécifiques (Alpha T Max)
+  const cgwApporteurEl=document.getElementById('cgw-apporteur');
+  const cgwMontantEl=document.getElementById('cgw-montant-usd');
+  const cgwTauxEl=document.getElementById('cgw-taux-souscription');
+  if(cgwApporteurEl&&cgwApporteurEl.closest('#cgw-apporteur-fields')?.style.display!=='none'){
+    contractData.cgw_apporteur=cgwApporteurEl.value||null;
+    contractData.cgw_montant_usd=parseFloat(cgwMontantEl?.value)||null;
+    contractData.cgw_taux_souscription=parseFloat(cgwTauxEl?.value)||null;
+  }
 
   if(isLLD){
     contractData.lld_bailleur=document.getElementById('lld-bailleur').value||null;
@@ -9620,6 +9788,14 @@ async function openContractEdit(id){
   }
 
   if(isCGW){
+    // Champs apporteur Alpha T Max
+    const apporteurSelect=document.getElementById('ce-cgw-apporteur');
+    if(apporteurSelect){
+      apporteurSelect.value=data.cgw_apporteur||'';
+      document.getElementById('ce-cgw-montant-usd').value=data.cgw_montant_usd||'';
+      document.getElementById('ce-cgw-taux-souscription').value=data.cgw_taux_souscription||9.5;
+      setTimeout(calcCGWSurcoEdit,100);
+    }
     const prod=data.products;
     const capital=Number(data.amount||0);
     const reconPct=Number(prod?.trailing_rate||0);
@@ -9681,6 +9857,9 @@ async function saveContractEdit(){
     lld_commission_pct:parseFloat(document.getElementById('ce-taux').value)||null,
     lld_retrocession_pct:parseFloat(document.getElementById('ce-retro-pct').value)||0,
     lld_retrocession_montant:parseFloat(document.getElementById('ce-retro-mt').value)||0,
+    cgw_apporteur:document.getElementById('ce-cgw-apporteur')?.value||null,
+    cgw_montant_usd:parseFloat(document.getElementById('ce-cgw-montant-usd')?.value)||null,
+    cgw_taux_souscription:parseFloat(document.getElementById('ce-cgw-taux-souscription')?.value)||null,
     lld_commission_brute:parseFloat(document.getElementById('ce-com-brute').value)||null,
     lld_commission_nette:parseFloat(document.getElementById('ce-com-nette').value)||null,
     lld_duree_mois:parseInt(document.getElementById('ce-duree').value)||null,
