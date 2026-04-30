@@ -5802,10 +5802,10 @@ async function saveGEDDocument(){
 
       // Insérer dans Supabase ged_documents
       const docData={
-        company_id: result.company_id||companyId,
-        doc_type:   result.doc_type||docType,
-        doc_date:   result.doc_date||document.getElementById('ged-docdate')?.value||null,
-        amount:     result.amount||parseFloat(document.getElementById('ged-docmount')?.value)||null,
+        company_id: companyId||result.company_id,
+        doc_type:   docType||result.doc_type,
+        doc_date:   document.getElementById('ged-docdate')?.value||result.doc_date||null,
+        amount:     parseFloat(document.getElementById('ged-docmount')?.value)||result.amount||null,
         from_name:  result.from_name||document.getElementById('ged-docfrom')?.value||null,
         file_name:  result.normalized_name||file.name,
         file_url:   result.drive_url||null,
