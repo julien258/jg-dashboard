@@ -5929,7 +5929,7 @@ async function loadGEDList(){
         +'<td style="text-align:right;font-family:monospace;font-size:11px;color:var(--red)">'+(d.amount?Math.round(d.amount).toLocaleString('fr-FR')+' €':'—')+'</td>'
         +'<td><span style="font-size:11px;font-weight:500;color:'+actionColor+'">'+actionLabel+'</span>'+(d.deadline_date?'<span style="font-size:9px;color:var(--t2);display:block">⏰ '+d.deadline_date+'</span>':'')+'</td>'
         +'<td style="text-align:center">'+driveOk+'</td>'
-        +'<td style="text-align:right">'+(d.drive_url?'':("<button onclick=\"syncDriveDoc('"+(d.id)+"','"+(d.file_name)+"','"+(d.company_id)+"','"+(d.doc_type)+"','"+(d.doc_date)+"')\" style=\"border:none;background:none;cursor:pointer;font-size:14px\" title=\"Drive\">☁️</button> "))+("<button onclick=\"analyzeRisks('"+(d.id)+"')\" style=\"border:none;background:none;cursor:pointer;font-size:14px\" title=\"Analyse risques\">🔍</button> ")+("<button onclick=\"analyzeGEDOpenLegi('"+(d.id)+"')\" style=\"border:none;background:none;cursor:pointer;font-size:14px\" title=\"Analyse juridique\">⚖️</button> ")+("<button onclick=\"linkGEDToDette('"+(d.id)+"')\" style=\"border:none;background:none;cursor:pointer;font-size:14px\">🔗</button>")+("<button onclick=\"deleteGEDDoc('"+(d.id)+"')\" style=\"border:none;background:none;cursor:pointer;color:var(--t2);font-size:12px\">✕</button>")+'</td>'
+        +'<td style="text-align:right">'+(d.drive_url?'':("<button onclick=\"syncDriveDoc('"+(d.id)+"','"+(d.file_name)+"','"+(d.company_id)+"','"+(d.doc_type)+"','"+(d.doc_date)+"')\" style=\"border:none;background:none;cursor:pointer;font-size:14px\" title=\"Drive\">☁️</button> "))+("<button onclick=\"analyzeRisks('"+(d.id)+"')\" style=\"border:none;background:none;cursor:pointer;font-size:14px\" title=\"Analyse risques\">🔍</button> ")+("<button onclick=\"analyzeGEDOpenLegi('"+(d.id)+"')\" style=\"border:none;background:none;cursor:pointer;font-size:14px\" title=\"Analyse juridique\">⚖️</button> ")+("<button onclick=\"linkGEDToDette('"+(d.id)+"')\" style=\"border:none;background:none;cursor:pointer;font-size:14px\">🔗</button> ")+("<button onclick=\"editGEDDoc('"+(d.id)+"')\" style=\"border:none;background:none;cursor:pointer;font-size:14px\" title=\"Modifier\">✏️</button> ")+("<button onclick=\"deleteGEDDoc('"+(d.id)+"')\" style=\"border:none;background:none;cursor:pointer;color:var(--t2);font-size:12px\">✕</button>")+'</td>'
         +'</tr>';
     }).join('')
     +'</tbody></table>';
@@ -14248,6 +14248,55 @@ async function generateTrailingReceivables(){
 }
 init();
 setTimeout(autoSyncPennylane, 2000); // Auto-sync Pennylane 2s après chargement
+
+async function editGEDDoc(id){
+  const {data,error}=await sb.from('ged_documents').select('*').eq('id',id).single();
+  if(error||!data){alert('Document introuvable');return;}
+
+  document.getElementById('ged-edit-id').value=id;
+  document.getElementById('ged-edit-entity').value=data.company_id||'sas-living';
+  document.getElementById('ged-edit-type').value=data.doc_type||'autre';
+  document.getElementById('ged-edit-date').value=data.doc_date||'';
+  document.getElementById('ged-edit-amount').value=data.amount||'';
+  document.getElementById('ged-edit-from').value=data.from_name||'';
+  document.getElementById('ged-edit-dossier').value=data.dossier||'';
+  document.getElementById('ged-edit-status').value=data.action||data.status||'';
+  document.getElementById('ged-edit-deadline').value=data.deadline_date||'';
+
+  const modal=document.getElementById('ged-edit-modal');
+  modal.style.display='flex';
+}
+
+function closeGEDEditModal(){
+  document.getElementById('ged-edit-modal').style.display='none';
+}
+
+async function updateGEDDocument(){
+  const btn=document.getElementById('ged-edit-save-btn');
+  btn.disabled=true; btn.textContent='⏳ Enregistrement...';
+
+  const id=document.getElementById('ged-edit-id').value;
+  const updates={
+    company_id: document.getElementById('ged-edit-entity').value,
+    doc_type:   document.getElementById('ged-edit-type').value,
+    doc_date:   document.getElementById('ged-edit-date').value||null,
+    amount:     parseFloat(document.getElementById('ged-edit-amount').value)||null,
+    from_name:  document.getElementById('ged-edit-from').value||null,
+    dossier:    document.getElementById('ged-edit-dossier').value||null,
+    action:     document.getElementById('ged-edit-status').value||null,
+    deadline_date: document.getElementById('ged-edit-deadline').value||null,
+  };
+
+  const {error}=await sb.from('ged_documents').update(updates).eq('id',id);
+
+  btn.disabled=false; btn.textContent='💾 Enregistrer';
+
+  if(error){alert('Erreur : '+error.message);return;}
+
+  closeGEDEditModal();
+  loadGEDList();
+}
+
 </script>
 <!-- MODAL CRÉATION DOCUMENT PENNYLANE -->
 <div id="modal-pennylane-doc" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:none;align-items:center;justify-content:center">
@@ -14310,5 +14359,82 @@ setTimeout(autoSyncPennylane, 2000); // Auto-sync Pennylane 2s après chargement
   </div>
 </div>
 
+
+<!-- Modal édition GED -->
+<div id="ged-edit-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;align-items:center;justify-content:center">
+  <div style="background:var(--s1);border-radius:16px;padding:2rem;width:560px;max-width:95vw;box-shadow:0 8px 40px rgba(0,0,0,.4)">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem">
+      <div style="font-size:15px;font-weight:700">✏️ Modifier le document</div>
+      <button onclick="closeGEDEditModal()" style="border:none;background:none;font-size:20px;cursor:pointer;color:var(--t2)">✕</button>
+    </div>
+    <input type="hidden" id="ged-edit-id">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+      <div>
+        <div style="font-size:10px;color:var(--t2);text-transform:uppercase;margin-bottom:4px">Entité</div>
+        <select id="ged-edit-entity" style="width:100%;font-size:12px;padding:6px;border-radius:6px;border:1px solid var(--b1);background:var(--b2);color:var(--t1)">
+          <option value="sas-living">💼 SAS Living</option>
+          <option value="sarl-guiraud">🏛️ SARL Guiraud</option>
+          <option value="meulette">🏠 La Meulette</option>
+          <option value="real-gains">🌐 Real Gains</option>
+          <option value="spv-monikaza">🌐 Monikaza SPV</option>
+          <option value="alphatmax">🌐 AlphaTMax</option>
+          <option value="perso">👤 Julien (perso)</option>
+        </select>
+      </div>
+      <div>
+        <div style="font-size:10px;color:var(--t2);text-transform:uppercase;margin-bottom:4px">Type de document</div>
+        <select id="ged-edit-type" style="width:100%;font-size:12px;padding:6px;border-radius:6px;border:1px solid var(--b1);background:var(--b2);color:var(--t1)">
+          <option value="facture_recue">🧾 Facture reçue</option>
+          <option value="facture_emise">📤 Facture émise</option>
+          <option value="recommande">📮 Recommandé / Courrier</option>
+          <option value="recouvrement">⚖️ Recouvrement / Huissier</option>
+          <option value="releve">🏦 Relevé bancaire</option>
+          <option value="fiscal">🏛️ Document fiscal</option>
+          <option value="social">👥 Document social</option>
+          <option value="contrat">📋 Contrat</option>
+          <option value="assurance">🛡️ Assurance</option>
+          <option value="juridique">⚖️ Juridique / Statuts</option>
+          <option value="autre">📄 Autre</option>
+        </select>
+      </div>
+      <div>
+        <div style="font-size:10px;color:var(--t2);text-transform:uppercase;margin-bottom:4px">Date du document</div>
+        <input type="date" id="ged-edit-date" style="width:100%;font-size:12px;padding:6px;border-radius:6px;border:1px solid var(--b1);background:var(--b2);color:var(--t1)">
+      </div>
+      <div>
+        <div style="font-size:10px;color:var(--t2);text-transform:uppercase;margin-bottom:4px">Montant (€)</div>
+        <input type="number" id="ged-edit-amount" placeholder="0.00" style="width:100%;font-size:12px;padding:6px;border-radius:6px;border:1px solid var(--b1);background:var(--b2);color:var(--t1)">
+      </div>
+    </div>
+    <div style="margin-bottom:12px">
+      <div style="font-size:10px;color:var(--t2);text-transform:uppercase;margin-bottom:4px">Expéditeur</div>
+      <input type="text" id="ged-edit-from" placeholder="Nom expéditeur" style="width:100%;font-size:12px;padding:6px;border-radius:6px;border:1px solid var(--b1);background:var(--b2);color:var(--t1)">
+    </div>
+    <div style="margin-bottom:12px">
+      <div style="font-size:10px;color:var(--t2);text-transform:uppercase;margin-bottom:4px">Dossier / Sujet</div>
+      <input type="text" id="ged-edit-dossier" placeholder="Ex: Véhicule, Contentieux Dupont..." style="width:100%;font-size:12px;padding:6px;border-radius:6px;border:1px solid var(--b1);background:var(--b2);color:var(--t1)">
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
+      <div>
+        <div style="font-size:10px;color:var(--t2);text-transform:uppercase;margin-bottom:4px">Statut / Action</div>
+        <select id="ged-edit-status" style="width:100%;font-size:12px;padding:6px;border-radius:6px;border:1px solid var(--b1);background:var(--b2);color:var(--t1)">
+          <option value="">— Aucun —</option>
+          <option value="a_traiter">⚡ À traiter</option>
+          <option value="classe">✅ Classé</option>
+          <option value="urgent">🚨 Urgent</option>
+          <option value="facture">🧾 Facture</option>
+        </select>
+      </div>
+      <div>
+        <div style="font-size:10px;color:var(--t2);text-transform:uppercase;margin-bottom:4px">Échéance</div>
+        <input type="date" id="ged-edit-deadline" style="width:100%;font-size:12px;padding:6px;border-radius:6px;border:1px solid var(--b1);background:var(--b2);color:var(--t1)">
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end">
+      <button onclick="closeGEDEditModal()" style="padding:8px 20px;font-size:12px;border:1px solid var(--b1);background:var(--b2);color:var(--t1);border-radius:8px;cursor:pointer">Annuler</button>
+      <button id="ged-edit-save-btn" onclick="updateGEDDocument()" style="padding:8px 20px;font-size:12px;background:var(--acc);color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:600">💾 Enregistrer</button>
+    </div>
+  </div>
+</div>
 </body>
 </html>
