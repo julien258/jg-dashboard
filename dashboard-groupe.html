@@ -3002,6 +3002,31 @@
       <button id="btn-gen-trails" class="btn btn-g" onclick="generateTrailContracts()" style="width:100%;margin-top:10px;background:rgba(46,204,113,.12);border-color:var(--grn);color:var(--grn)">🔄 Générer les contrats trails en CRM</button>
       <div id="gen-trails-result" style="display:none;margin-top:8px;font-size:11px;padding:6px 10px;border-radius:6px"></div>
     </div>
+    <!-- Section Pièces jointes -->
+    <div style="margin-top:1.4rem;border-top:1px solid var(--b1);padding-top:1.2rem">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--t2);margin-bottom:.8rem">📎 Pièces jointes</div>
+
+      <!-- Upload -->
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:.8rem">
+        <select id="ce-pj-type" style="font-size:12px;padding:5px 8px;border-radius:6px;border:1px solid var(--b1);background:var(--b2);color:var(--t1)">
+          <option value="contrat">📋 Contrat signé</option>
+          <option value="devis">💶 Devis</option>
+          <option value="offre">📄 Offre</option>
+          <option value="autre">📎 Autre</option>
+        </select>
+        <label style="display:flex;align-items:center;gap:6px;font-size:12px;padding:5px 12px;border-radius:6px;border:1px solid var(--b1);background:var(--b2);color:var(--t1);cursor:pointer">
+          <input type="file" id="ce-pj-file" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.xls,.xlsx" style="display:none" onchange="uploadContractAttachment()">
+          📤 Choisir un fichier
+        </label>
+        <span id="ce-pj-status" style="font-size:11px;color:var(--t2)"></span>
+      </div>
+
+      <!-- Liste PJ -->
+      <div id="ce-pj-list" style="display:flex;flex-direction:column;gap:6px">
+        <div style="font-size:11px;color:var(--t2)">Aucune pièce jointe</div>
+      </div>
+    </div>
+
     <div style="display:flex;gap:8px;margin-top:1.2rem">
       <button class="btn btn-p" onclick="saveContractEdit()" style="flex:1">Enregistrer</button>
       <button class="btn btn-g" onclick="document.getElementById('contract-edit-modal').style.display='none'">Annuler</button>
@@ -9923,6 +9948,7 @@ async function openContractEdit(id){
 
   document.getElementById('ce-title').textContent=(data.clients?.name||'')+(data.label?' — '+data.label:'');
   document.getElementById('contract-edit-modal').style.display='flex';
+  loadContractAttachments(id);
 }
 
 function updateCGWPreview(reconMax, montantRecon){
@@ -14295,6 +14321,87 @@ async function updateGEDDocument(){
 
   closeGEDEditModal();
   loadGEDList();
+}
+
+
+// ============================================================
+// PIÈCES JOINTES CONTRAT
+// ============================================================
+
+async function loadContractAttachments(contractId){
+  const listEl = document.getElementById('ce-pj-list');
+  if(!listEl) return;
+  listEl.innerHTML = '<div style="font-size:11px;color:var(--t2)">Chargement...</div>';
+
+  const {data, error} = await sb.from('contract_attachments')
+    .select('*').eq('contract_id', contractId).order('created_at', {ascending:false});
+
+  if(error){
+    listEl.innerHTML = '<div style="font-size:11px;color:var(--red)">Erreur chargement PJ</div>';
+    return;
+  }
+  if(!data||!data.length){
+    listEl.innerHTML = '<div style="font-size:11px;color:var(--t2)">Aucune pièce jointe</div>';
+    return;
+  }
+
+  const typeLabels = {contrat:'📋 Contrat signé', devis:'💶 Devis', offre:'📄 Offre', autre:'📎 Autre'};
+
+  listEl.innerHTML = data.map(pj => {
+    return `<div style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--s2);border-radius:8px;font-size:12px">
+      <span style="font-size:10px;background:var(--b1);padding:2px 7px;border-radius:4px;color:var(--t2)">${typeLabels[pj.type]||pj.type}</span>
+      <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:monospace;font-size:11px">${pj.file_name}</span>
+      <span style="font-size:10px;color:var(--t2)">${pj.created_at?pj.created_at.slice(0,10):''}</span>
+      <button onclick="openContractPJ('${pj.storage_path}')" style="border:none;background:none;cursor:pointer;font-size:14px" title="Voir">👁</button>
+      <button onclick="deleteContractPJ('${pj.id}','${pj.storage_path}')" style="border:none;background:none;cursor:pointer;font-size:12px;color:var(--t2)" title="Supprimer">✕</button>
+    </div>`;
+  }).join('');
+}
+
+async function uploadContractAttachment(){
+  const fileInput = document.getElementById('ce-pj-file');
+  const typeEl   = document.getElementById('ce-pj-type');
+  const statusEl = document.getElementById('ce-pj-status');
+  const contractId = document.getElementById('ce-id').value;
+
+  if(!fileInput.files.length || !contractId) return;
+  const file = fileInput.files[0];
+  const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+  const path = `contracts/${contractId}/${Date.now()}_${safeName}`;
+
+  statusEl.textContent = '⏳ Upload en cours...';
+
+  const {error: upErr} = await sb.storage.from('documents').upload(path, file, {upsert:true});
+  if(upErr){ statusEl.style.color='var(--red)'; statusEl.textContent = '❌ ' + upErr.message; return; }
+
+  const {error: dbErr} = await sb.from('contract_attachments').insert({
+    contract_id:  contractId,
+    file_name:    file.name,
+    storage_path: path,
+    type:         typeEl.value,
+    file_size:    file.size,
+  });
+  if(dbErr){ statusEl.style.color='var(--red)'; statusEl.textContent = '❌ ' + dbErr.message; return; }
+
+  statusEl.style.color = 'var(--grn)';
+  statusEl.textContent = '✅ Ajouté';
+  fileInput.value = '';
+  setTimeout(()=>{ statusEl.textContent=''; statusEl.style.color='var(--t2)'; }, 3000);
+  loadContractAttachments(contractId);
+}
+
+async function openContractPJ(storagePath){
+  const {data, error} = await sb.storage.from('documents').createSignedUrl(storagePath, 300);
+  if(error||!data){ toast('Impossible d\'ouvrir le fichier'); return; }
+  window.open(data.signedUrl, '_blank');
+}
+
+async function deleteContractPJ(id, storagePath){
+  if(!confirm('Supprimer cette pièce jointe ?')) return;
+  await sb.storage.from('documents').remove([storagePath]);
+  await sb.from('contract_attachments').delete().eq('id', id);
+  const contractId = document.getElementById('ce-id').value;
+  loadContractAttachments(contractId);
 }
 
 </script>
