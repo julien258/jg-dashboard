@@ -9154,15 +9154,55 @@ async function loadTresoChart(){
     });
   }
 
-  // ── Échelle complète : calcul du max sur toutes les courbes ──
+  // ── Échelle complète : calcul du max ET du min sur toutes les courbes ──
   const allTotaux = months.map((_,i)=>intraGroupe[i]+depenses[i]);
   const allRevenus = months.map((_,i)=>coIds.reduce((s,id)=>s+revenusParSoc[id][i],0)+revenusPlac[i]);
   const yMaxRaw = Math.max(...allTotaux, ...allRevenus, ...depenses, ...intraGroupe, ...caNetExterne, 100000);
   const yMax = Math.ceil(yMaxRaw * 1.1 / 50000) * 50000;
+  // yMin : si CA net externe (ou autres) descend sous 0, on étend l'axe vers le bas
+  const yMinRaw = Math.min(0, ...caNetExterne, ...allTotaux.map(v=>-v));
+  // On garde yMin à 0 sauf si caNetExterne est négatif (les charges n'ont pas de raison d'être négatives)
+  const minCaNet = Math.min(0, ...caNetExterne);
+  const yMin = minCaNet < 0 ? Math.floor(minCaNet * 1.1 / 50000) * 50000 : 0;
+
+  // Plugin : zone rouge clair sous l'axe 0 pour signaler les mois déficitaires
+  const negativeZonePlugin = {
+    id:'negativeZone',
+    beforeDraw(chart){
+      if(yMin >= 0) return;
+      const ctx = chart.ctx;
+      const yScale = chart.scales.y;
+      const xScale = chart.scales.x;
+      if(!yScale || !xScale) return;
+      const yZero = yScale.getPixelForValue(0);
+      const yBottom = yScale.bottom;
+      if(yZero >= yBottom) return;
+      ctx.save();
+      ctx.fillStyle = 'rgba(231, 76, 60, 0.10)';
+      ctx.fillRect(xScale.left, yZero, xScale.right - xScale.left, yBottom - yZero);
+      // Ligne de séparation à 0
+      ctx.strokeStyle = 'rgba(231, 76, 60, 0.5)';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([6, 3]);
+      ctx.beginPath();
+      ctx.moveTo(xScale.left, yZero);
+      ctx.lineTo(xScale.right, yZero);
+      ctx.stroke();
+      // Label discret en bas à droite
+      ctx.setLineDash([]);
+      ctx.fillStyle = 'rgba(231, 76, 60, 0.7)';
+      ctx.font = 'italic 10px Arial';
+      ctx.textAlign = 'right';
+      ctx.textBaseline = 'bottom';
+      ctx.fillText('⚠ Zone déficitaire (CA net externe < 0)', xScale.right - 8, yBottom - 4);
+      ctx.restore();
+    }
+  };
 
   tresoChartObj=new Chart(document.getElementById('tresoChart').getContext('2d'),{
     type:'bar',
     data:{labels,datasets},
+    plugins:[negativeZonePlugin],
     options:{
       responsive:true,
       maintainAspectRatio:false,
@@ -9173,8 +9213,8 @@ async function loadTresoChart(){
       },
       scales:{
         x:{stacked:true,ticks:{color:'#7A849E',font:{size:11}},grid:{display:false}},
-        y:{stacked:true,min:0,max:yMax,ticks:{callback:v=>(v/1000).toFixed(0)+'k€',color:'#7A849E',font:{size:10}},grid:{color:'rgba(0,0,0,0.04)'}},
-        y2:{display:false,stacked:false,min:0,max:yMax}
+        y:{stacked:true,min:yMin,max:yMax,ticks:{callback:v=>(v/1000).toFixed(0)+'k€',color:'#7A849E',font:{size:10}},grid:{color:'rgba(0,0,0,0.04)'}},
+        y2:{display:false,stacked:false,min:yMin,max:yMax}
       }
     }
   });
