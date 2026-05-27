@@ -1275,8 +1275,8 @@
       </div>
       <!-- Graphique 1 : Entrées / Sorties 12 mois -->
       <div class="card mb">
-        <div class="card-t">Flux de trésorerie — 12 mois glissants</div>
-        <div style="position:relative;height:380px"><canvas id="tresoChart"></canvas></div>
+        <div class="card-t">Flux de trésorerie — 24 mois glissants</div>
+        <div style="position:relative;height:460px"><canvas id="tresoChart"></canvas></div>
       </div>
       <div class="card mb">
         <div class="card-t">Trésorerie cumulée — solde net mois par mois</div>
@@ -8092,7 +8092,7 @@ async function loadTresoChart(){
   const months=[];
   const labels=[];
   const moisNoms=['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
-  for(let i=0;i<12;i++){
+  for(let i=0;i<24;i++){
     const d=new Date(now.getFullYear(),now.getMonth()+i,1);
     months.push(d);
     labels.push(moisNoms[d.getMonth()]+' '+d.getFullYear().toString().slice(2));
@@ -8133,8 +8133,8 @@ async function loadTresoChart(){
 
   // Calcul revenus par société par mois
   const revenusParSoc={};
-  coIds.forEach(id=>revenusParSoc[id]=new Array(12).fill(0));
-  const revenusPlac=new Array(12).fill(0);
+  coIds.forEach(id=>revenusParSoc[id]=new Array(24).fill(0));
+  const revenusPlac=new Array(24).fill(0);
 
   (contracts||[]).forEach(c=>{
     const soc=c.billing_company_id;
@@ -8194,7 +8194,7 @@ async function loadTresoChart(){
   });
 
   // Trailing commissions CGW — revenus récurrents limités par type de produit
-  const revenusTrailing=new Array(12).fill(0);
+  const revenusTrailing=new Array(24).fill(0);
   (contracts||[]).forEach(c=>{
     if(!c.products||(c.products.category!=='cgw'&&c.products.category!=='mpc'))return;
     if(!c.signed_date)return;
@@ -8239,7 +8239,7 @@ async function loadTresoChart(){
   // pas la tréso groupe — seule la commission Living est prise en compte (déjà dans CA)
   // Les trails (label contenant "Trail") sont ignorés car ce ne sont que des lignes
   // de commission futures attachées au contrat principal, pas un nouveau placement
-  const placementsEntrees=new Array(12).fill(0);
+  const placementsEntrees=new Array(24).fill(0);
   // Source 1 : table placements (legacy, maintenance manuelle)
   (placements||[]).forEach(p=>{
     if(!p.date_entree)return;
@@ -8267,8 +8267,8 @@ async function loadTresoChart(){
   });
 
   // Calcul dépenses par mois — séparé en dettes mensuelles + factures ponctuelles
-  const depenses=new Array(12).fill(0);
-  const depensesDettes=new Array(12).fill(0); // dettes lissées uniquement
+  const depenses=new Array(24).fill(0);
+  const depensesDettes=new Array(24).fill(0); // dettes lissées uniquement
   (debts||[]).forEach(d=>{
     const freq={monthly:1,quarterly:3,annual:12}[d.frequency]||0;
     const montant=Number(d.monthly_amount||0);
@@ -8320,9 +8320,9 @@ async function loadTresoChart(){
 
   // === TVA PAR MOIS ===
   // TVA collectée sur ventes (contrats avec tva_taux)
-  const tvaCollectee=new Array(12).fill(0);
+  const tvaCollectee=new Array(24).fill(0);
   // TVA déductible sur achats fournisseurs
-  const tvaDeductible=new Array(12).fill(0);
+  const tvaDeductible=new Array(24).fill(0);
 
   // TVA sur contrats actifs
   (contracts||[]).forEach(c=>{
@@ -8377,7 +8377,7 @@ async function loadTresoChart(){
 
   // ── ENGAGEMENTS PRO À VENIR (provisions juridiques, frais déplacement, conseil...) ──
   // Pour chaque engagement actif (prevu/en_cours), on étale ses mensualités sur les bons mois
-  const engagementsParMois=new Array(12).fill(0);
+  const engagementsParMois=new Array(24).fill(0);
   (engagements||[]).forEach(e=>{
     const dStart=new Date(e.date_prevue);
     const duree=Math.max(1,Number(e.duree_mois)||1);
@@ -8396,7 +8396,7 @@ async function loadTresoChart(){
 
   // Factures émises à encaisser (revenus attendus) + compensation (déduit des dépenses)
   // Comparaison YYYY-MM en string pour éviter les problèmes de timezone
-  const encaissements=new Array(12).fill(0);
+  const encaissements=new Array(24).fill(0);
   (receivables||[]).forEach(r=>{
     if(!r.due_date)return;
     const rYM = String(r.due_date).substring(0,7); // "YYYY-MM"
@@ -8881,6 +8881,7 @@ async function loadTresoChart(){
       label:'Charges INTERNES (besoin perso + SARL G + intra-groupe)',
       data:intraGroupe,
       type:'line',
+      clip:false,
       borderColor:'#1E3A8A',
       backgroundColor:'#1E3A8A22',
       borderWidth:2.5,
@@ -8899,6 +8900,7 @@ async function loadTresoChart(){
       label:'Charges EXTERNES (fournisseurs, URSSAF, dettes, TVA, engagements)',
       data:depenses,
       type:'line',
+      clip:false,
       borderColor:'#D97706',
       backgroundColor:'#D9770622',
       borderWidth:2.5,
@@ -8917,6 +8919,7 @@ async function loadTresoChart(){
       label:'TOTAL charges (internes + externes)',
       data:months.map((_,i)=>intraGroupe[i]+depenses[i]),
       type:'line',
+      clip:false,
       borderColor:'#000000',
       backgroundColor:'#00000011',
       borderWidth:4,
@@ -8935,6 +8938,7 @@ async function loadTresoChart(){
       label:'CA net externe réel',
       data:caNetExterne,
       type:'line',
+      clip:false,
       borderColor:'#2ECC71',
       backgroundColor:'#2ECC7122',
       borderWidth:3,
@@ -8952,12 +8956,12 @@ async function loadTresoChart(){
 
 
   // ── SORTIES CATÉGORISÉES pour le nouveau graphique ──
-  const catUrssaf    = new Array(12).fill(0);
-  const catImpotsP   = new Array(12).fill(0); // perso IR/PAS
-  const catImpotsPro = new Array(12).fill(0); // pro IS/TVA
-  const catDettesF   = new Array(12).fill(0); // leasing, crédits
-  const catChargesF  = new Array(12).fill(0); // charges récurrentes pro
-  const catFourn     = new Array(12).fill(0); // payables fournisseurs
+  const catUrssaf    = new Array(24).fill(0);
+  const catImpotsP   = new Array(24).fill(0); // perso IR/PAS
+  const catImpotsPro = new Array(24).fill(0); // pro IS/TVA
+  const catDettesF   = new Array(24).fill(0); // leasing, crédits
+  const catChargesF  = new Array(24).fill(0); // charges récurrentes pro
+  const catFourn     = new Array(24).fill(0); // payables fournisseurs
   const catPerso     = intraGroupe;            // besoin perso = intraGroupe
 
   // Classifier les dettes par catégorie
@@ -9055,7 +9059,7 @@ async function loadTresoChart(){
     const isDark=matchMedia('(prefers-color-scheme:dark)').matches;
     const gc=isDark?'rgba(255,255,255,.05)':'rgba(0,0,0,.05)';
     const tc=isDark?'#9c9a92':'#73726c';
-    const encaisseReelLine = new Array(12).fill(null);
+    const encaisseReelLine = new Array(24).fill(null);
     encaisseReelLine[0] = Math.round(encaisseReel);
     if(window._sortiesChartObj){window._sortiesChartObj.destroy();window._sortiesChartObj=null;}
     window._sortiesChartObj = new Chart(sortiesEl.getContext('2d'),{
@@ -9068,7 +9072,7 @@ async function loadTresoChart(){
           {label:'Dettes financières',data:catDettesF,backgroundColor:'#E67E2288',stack:'s',order:2},
           {label:'Charges fixes',data:catChargesF,backgroundColor:'#F39C1288',stack:'s',order:2},
           {label:'Fournisseurs',data:catFourn,backgroundColor:'#7F8C8D88',stack:'s',order:2},
-          {label:'🗓️ Engagements à venir',data:(window._tresoEngagementsParMois||new Array(12).fill(0)),backgroundColor:'#6B46C188',stack:'s',order:2},
+          {label:'🗓️ Engagements à venir',data:(window._tresoEngagementsParMois||new Array(24).fill(0)),backgroundColor:'#6B46C188',stack:'s',order:2},
           {label:'Besoin perso (refacturation SARL Guiraud, TTC)',data:catPerso,backgroundColor:'#3D8EF088',stack:'s',order:2},
           {label:'Entrées prévues',data:totalEntreesMois,type:'line',borderColor:'#2ECC71',backgroundColor:'rgba(46,204,113,0.05)',borderWidth:2.5,pointRadius:4,fill:false,tension:0.3,order:0,stack:undefined},
           {label:'Encaissé réel',data:encaisseReelLine,type:'line',borderColor:'#2ECC71',backgroundColor:'transparent',borderWidth:2,borderDash:[5,4],pointRadius:6,pointBackgroundColor:'#2ECC71',fill:false,tension:0,order:0,stack:undefined}
@@ -9129,8 +9133,8 @@ async function loadTresoChart(){
   const allRevenus = months.map((_,i)=>coIds.reduce((s,id)=>s+revenusParSoc[id][i],0)+revenusPlac[i]);
   const allChartValues = [...allTotaux, ...allRevenus, ...depenses, ...intraGroupe, ...caNetExterne].filter(v=>Number.isFinite(v)&&v>0);
   const sortedVals = allChartValues.slice().sort((a,b)=>a-b);
-  const p85 = sortedVals[Math.floor(sortedVals.length * 0.85)] || 100000;
-  const smartCap = Math.max(Math.ceil(p85 * 1.4 / 50000) * 50000, 150000);
+  const p92 = sortedVals[Math.floor(sortedVals.length * 0.92)] || 100000;
+  const smartCap = Math.max(Math.ceil(p92 * 1.3 / 50000) * 50000, 150000);
   const outlierMois = allTotaux.map((v,i)=>v>smartCap?{i,v,type:'total'}:null).filter(Boolean);
   // Détecter aussi les revenus outliers (barres empilées) pour les annoter
   const outlierRevenus = allRevenus.map((v,i)=>v>smartCap?{i,v,type:'revenus'}:null).filter(Boolean);
