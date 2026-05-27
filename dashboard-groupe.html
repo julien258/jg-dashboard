@@ -1277,15 +1277,6 @@
       <div class="card mb">
         <div class="card-t">Flux de trésorerie — 12 mois glissants</div>
         <div style="position:relative;height:380px"><canvas id="tresoChart"></canvas></div>
-        <div style="display:flex;gap:14px;margin-top:12px;flex-wrap:wrap;font-size:11px;color:var(--t2)">
-          <span><span style="display:inline-block;width:12px;height:12px;background:#2ECC7188;border-radius:2px;margin-right:4px"></span>ALTIOR C / LIVING</span>
-          <span><span style="display:inline-block;width:12px;height:12px;background:#3D8EF088;border-radius:2px;margin-right:4px"></span>SARL Guiraud</span>
-          <span><span style="display:inline-block;width:12px;height:12px;background:#9B59B688;border-radius:2px;margin-right:4px"></span>RG / Monikaza</span>
-          <span><span style="display:inline-block;width:12px;height:12px;background:#F39C1288;border-radius:2px;margin-right:4px"></span>La Meulette</span>
-          <span style="border-left:1px solid var(--b1);padding-left:12px;color:var(--grn);font-weight:600">── CA net externe réel</span>
-          <span style="color:#E74C3C">- - Flux intra-groupe (neutralisé)</span>
-          <span style="color:#3D8EF0;font-weight:600">- - Objectif mensuel à couvrir</span>
-        </div>
       </div>
       <div class="card mb">
         <div class="card-t">Trésorerie cumulée — solde net mois par mois</div>
@@ -9133,21 +9124,87 @@ async function loadTresoChart(){
     });
   }
 
+  // ── Smart cap pour mise à l'échelle : éviter qu'un mois outlier écrase les autres ──
+  const allTotaux = months.map((_,i)=>intraGroupe[i]+depenses[i]);
+  const allRevenus = months.map((_,i)=>coIds.reduce((s,id)=>s+revenusParSoc[id][i],0)+revenusPlac[i]);
+  const allChartValues = [...allTotaux, ...allRevenus, ...depenses, ...intraGroupe, ...caNetExterne].filter(v=>Number.isFinite(v)&&v>0);
+  const sortedVals = allChartValues.slice().sort((a,b)=>a-b);
+  const p85 = sortedVals[Math.floor(sortedVals.length * 0.85)] || 100000;
+  const smartCap = Math.max(Math.ceil(p85 * 1.4 / 50000) * 50000, 150000);
+  const outlierMois = allTotaux.map((v,i)=>v>smartCap?{i,v,type:'total'}:null).filter(Boolean);
+  // Détecter aussi les revenus outliers (barres empilées) pour les annoter
+  const outlierRevenus = allRevenus.map((v,i)=>v>smartCap?{i,v,type:'revenus'}:null).filter(Boolean);
+
+  // Plugin pour annoter les pics au-dessus du cap
+  const outlierAnnotationPlugin = {
+    id:'outlierAnnotations',
+    afterDatasetsDraw(chart){
+      if(!outlierMois.length && !outlierRevenus.length)return;
+      const ctx=chart.ctx;
+      const xScale=chart.scales.x;
+      const yScale=chart.scales.y;
+      if(!xScale||!yScale)return;
+      ctx.save();
+      // Annotations pour les pics de TOTAL charges (en haut du graphique)
+      outlierMois.forEach(({i,v})=>{
+        const x=xScale.getPixelForValue(i);
+        const y=yScale.top+14;
+        const label=`⚠ Charges : ${Math.round(v/1000)}k€`;
+        ctx.font='bold 11px Arial';
+        const w=ctx.measureText(label).width+12;
+        const h=20;
+        ctx.fillStyle='#FFF2CC';
+        ctx.strokeStyle='#D97706';
+        ctx.lineWidth=1.5;
+        ctx.fillRect(x-w/2,y-h/2,w,h);
+        ctx.strokeRect(x-w/2,y-h/2,w,h);
+        ctx.fillStyle='#000';
+        ctx.textAlign='center';
+        ctx.textBaseline='middle';
+        ctx.fillText(label,x,y);
+      });
+      // Annotations pour les pics de REVENUS (légèrement plus bas pour éviter chevauchement)
+      outlierRevenus.forEach(({i,v})=>{
+        const x=xScale.getPixelForValue(i);
+        const y=yScale.top+38;
+        const label=`⚠ Revenus : ${Math.round(v/1000)}k€`;
+        ctx.font='bold 11px Arial';
+        const w=ctx.measureText(label).width+12;
+        const h=20;
+        ctx.fillStyle='#D5E8D4';
+        ctx.strokeStyle='#2ECC71';
+        ctx.lineWidth=1.5;
+        ctx.fillRect(x-w/2,y-h/2,w,h);
+        ctx.strokeRect(x-w/2,y-h/2,w,h);
+        ctx.fillStyle='#000';
+        ctx.textAlign='center';
+        ctx.textBaseline='middle';
+        ctx.fillText(label,x,y);
+      });
+      ctx.restore();
+    }
+  };
+
   tresoChartObj=new Chart(document.getElementById('tresoChart').getContext('2d'),{
     type:'bar',
     data:{labels,datasets},
+    plugins:[outlierAnnotationPlugin],
     options:{
       responsive:true,
       maintainAspectRatio:false,
       interaction:{mode:'index',intersect:false},
       plugins:{
         legend:{position:'bottom',labels:{color:'#7A849E',font:{size:11},boxWidth:12,padding:10}},
-        tooltip:{callbacks:{label:ctx=>`${ctx.dataset.label}: ${Math.round(ctx.parsed.y).toLocaleString('fr-FR')} €`}}
+        tooltip:{callbacks:{label:ctx=>{
+          const v=Math.round(ctx.parsed.y);
+          const tronque=v>smartCap?' (📊 affichage tronqué à '+(smartCap/1000)+'k€)':'';
+          return `${ctx.dataset.label}: ${v.toLocaleString('fr-FR')} €${tronque}`;
+        }}}
       },
       scales:{
         x:{stacked:true,ticks:{color:'#7A849E',font:{size:11}},grid:{display:false}},
-        y:{stacked:true,max:Math.ceil(Math.max(...months.map((_,i)=>coIds.reduce((s,id)=>s+revenusParSoc[id][i],0)+revenusPlac[i]),...depenses,...caNetExterne)/100000)*100000,ticks:{callback:v=>(v/1000).toFixed(0)+'k€',color:'#7A849E',font:{size:10}},grid:{color:'rgba(0,0,0,0.04)'}},
-        y2:{display:false,stacked:false,min:0,max:Math.ceil(Math.max(...months.map((_,i)=>coIds.reduce((s,id)=>s+revenusParSoc[id][i],0)+revenusPlac[i]),...depenses,...caNetExterne)/100000)*100000}
+        y:{stacked:true,min:0,max:smartCap,ticks:{callback:v=>(v/1000).toFixed(0)+'k€',color:'#7A849E',font:{size:10}},grid:{color:'rgba(0,0,0,0.04)'}},
+        y2:{display:false,stacked:false,min:0,max:smartCap}
       }
     }
   });
