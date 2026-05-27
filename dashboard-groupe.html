@@ -8129,16 +8129,22 @@ async function loadTresoChart(){
   }
 
   // Charge toutes les données en parallèle
-  const[{data:contracts},{data:debts},{data:placements},{data:payables},{data:receivables},{data:charges},{data:forecasts},{data:engagements}]=await Promise.all([
-    sb.from('contracts').select('*,products(category,trailing_rate,trailing_frequency),clients(is_group_entity,name)').not('status','eq','termine'),
+  const[{data:contracts},{data:debts},{data:placements},{data:payables},{data:receivables},{data:charges},{data:forecasts},{data:engagements},{data:bankSoldes}]=await Promise.all([
+    sb.from('contracts').select('*,products(category,name,trailing_rate,trailing_frequency),clients(is_group_entity,name)').not('status','eq','termine'),
     sb.from('debts').select('*').eq('status','en_cours').not('company_id','eq','sarl-guiraud'), // dettes SARL déjà déduites via intraGroupe
     sb.from('placements').select('*').eq('statut','actif'),
     sb.from('payables').select('*').eq('status','a_payer'),
     sb.from('receivables').select('*').not('status','eq','payee'),
     sb.from('recurring_charges').select('*').eq('status','actif'),
     sb.from('cash_forecast').select('*').eq('company_id','sas-living'),
-    sb.from('engagements_pro').select('*').in('statut',['prevu','en_cours'])
+    sb.from('engagements_pro').select('*').in('statut',['prevu','en_cours']),
+    sb.from('bank_accounts_pro').select('*')
   ]);
+
+  // ── Solde de cash réel à aujourd'hui (Qonto + Wise + manuels hors perso, - prêts) ──
+  const cashInitial = (bankSoldes||[])
+    .filter(c => c.company_id !== 'perso')
+    .reduce((s,c) => c.type_compte==='pret' ? s-Number(c.solde||0) : s+Number(c.solde||0), 0);
 
   // Stocker dans window pour accès depuis les tooltips
   window._tresoContracts = contracts;
@@ -8618,13 +8624,59 @@ async function loadTresoChart(){
   soldeEl.textContent=(soldeNet>=0?'+':'')+Math.round(soldeNet).toLocaleString('fr-FR')+' €';
   soldeEl.style.color=soldeNet>=0?'var(--grn)':'var(--red)';
 
-  // Calcul tréso cumulée
-  let cumul=0;
-  const tresoCumul=months.map((_,i)=>{
-    const net=caNetExterne[i]-depenses[i];
-    cumul+=net;
-    return Math.round(cumul);
+  // ── Calcul des placements MPC actifs par mois, par produit (BL / 9M) ──
+  const placementsActifsBL = new Array(nbMois).fill(0);
+  const placementsActifs9M = new Array(nbMois).fill(0);
+  const placementsActifsAutres = new Array(nbMois).fill(0);
+  (contracts||[]).forEach(c=>{
+    if(!c.products || c.products.category!=='mpc') return;
+    if(!c.clients || c.clients.is_group_entity!==true) return;
+    const label=String(c.label||'');
+    if(label.toLowerCase().includes('trail')) return;
+    const startStr = c.start_date || c.signed_date;
+    if(!startStr) return;
+    const sd = new Date(startStr);
+    const ed = c.end_date ? new Date(c.end_date) : null;
+    const amount = Number(c.amount || 0);
+    if(amount <= 0) return;
+    // Identifier le produit
+    const pName = (c.products.name||'').toLowerCase();
+    let target;
+    if(pName.includes('black') || pName.includes('bl ') || /\bbl\b/.test(pName)) {
+      target = placementsActifsBL;
+    } else if(pName.includes('9 mountain') || pName.includes('9mountain') || pName.includes('9 montagne') || /\b9m\b/.test(pName) || pName.includes('nine mountain')) {
+      target = placementsActifs9M;
+    } else {
+      target = placementsActifsAutres;
+    }
+    // Pour chaque mois de la fenêtre, marquer comme actif si dans la période
+    months.forEach((m,i)=>{
+      // Actif si m >= start ET (pas de end OU m <= end)
+      const mFirst = new Date(m.getFullYear(), m.getMonth(), 1);
+      const sFirst = new Date(sd.getFullYear(), sd.getMonth(), 1);
+      if(mFirst < sFirst) return;
+      if(ed) {
+        const eFirst = new Date(ed.getFullYear(), ed.getMonth(), 1);
+        if(mFirst > eFirst) return;
+      }
+      target[i] += amount;
+    });
   });
+  const tresoSemiDispo = months.map((_,i)=> placementsActifsBL[i] + placementsActifs9M[i] + placementsActifsAutres[i]);
+  // Placements actifs AUJOURD'HUI (au mois 0) = ils sont déjà dans le cash initial s'ils sont passés, donc on les ajoute au solde de départ pour avoir le total
+  const placementsAuMois0 = tresoSemiDispo[0] || 0;
+  // Tréso TOTALE = cashInitial + placementsAuMois0 + cumul variations
+  // (les nouveaux placements transforment liquide en semi-dispo, total inchangé)
+  let cumulVar = 0;
+  const tresoTotal = months.map((_,i)=>{
+    const net = caNetExterne[i] - depenses[i];
+    cumulVar += net;
+    return Math.round(cashInitial + placementsAuMois0 + cumulVar);
+  });
+  // Tréso LIQUIDE = Total - Semi-dispo
+  const tresoLiquide = months.map((_,i)=> Math.round(tresoTotal[i] - tresoSemiDispo[i]));
+  // Conservation de l'ancienne variable pour rétro-compatibilité du code en aval
+  const tresoCumul = tresoTotal;
 
   // Tableau détail avec colonne cumulée
   const tableBody=document.getElementById('treso-detail-table');
@@ -8671,8 +8723,8 @@ async function loadTresoChart(){
   // Actifs en vente → déjà traités plus haut (avant caNetExterne) pour que
   // les ventes patrimoine apparaissent correctement dans le CA BRUT du tableau
 
-  // Tréso excédentaire plaçable par mois
-  const tresoPlagable=tresoCumul.map((v,i)=>Math.max(0,v-seuilPlacement[i]));
+  // Tréso excédentaire plaçable par mois (basée sur LIQUIDE, pas total)
+  const tresoPlagable=tresoLiquide.map((v,i)=>Math.max(0,v-seuilPlacement[i]));
 
   // Détecte les premiers mois où on peut placer 100k€ et 200k€
   const annotations={};
@@ -8716,46 +8768,49 @@ async function loadTresoChart(){
         labels,
         datasets:[
           {
-            label:'Tréso cumulée',
-            data:tresoCumul,
-            borderColor:(ctx)=>{
-              // Segments rouges en négatif, bleus en positif
-              const chart = ctx.chart;
-              const {ctx:c, chartArea} = chart;
-              if(!chartArea) return '#3D8EF0';
-              const yScale = chart.scales.y;
-              const zeroY = yScale.getPixelForValue(0);
-              const gradient = c.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
-              const relZero = Math.max(0, Math.min(1, (zeroY - chartArea.top) / (chartArea.bottom - chartArea.top)));
-              gradient.addColorStop(0, '#3D8EF0');
-              gradient.addColorStop(Math.max(0,relZero-0.001), '#3D8EF0');
-              gradient.addColorStop(Math.min(1,relZero+0.001), '#E74C3C');
-              gradient.addColorStop(1, '#E74C3C');
-              return gradient;
-            },
-            backgroundColor:(ctx)=>{
-              const chart = ctx.chart;
-              const {ctx:c, chartArea} = chart;
-              if(!chartArea) return '#3D8EF033';
-              const yScale = chart.scales.y;
-              const zeroY = yScale.getPixelForValue(0);
-              const gradient = c.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
-              const relZero = Math.max(0, Math.min(1, (zeroY - chartArea.top) / (chartArea.bottom - chartArea.top)));
-              // Bleu translucide au-dessus de 0
-              gradient.addColorStop(0, 'rgba(61,142,240,0.25)');
-              gradient.addColorStop(Math.max(0,relZero-0.001), 'rgba(61,142,240,0.08)');
-              // Rouge translucide en-dessous de 0 (alerte visuelle)
-              gradient.addColorStop(Math.min(1,relZero+0.001), 'rgba(231,76,60,0.12)');
-              gradient.addColorStop(1, 'rgba(231,76,60,0.30)');
-              return gradient;
-            },
-            borderWidth:2.5,
-            pointRadius:4,
-            pointBackgroundColor:tresoCumul.map((v,i)=>v<0?'#E74C3C':v<seuilSecurite[i]?'#F39C12':v>seuilPlacement[i]?'#2ECC71':'#3D8EF0'),
-            pointBorderColor:tresoCumul.map(v=>v<0?'#C0392B':'#fff'),
-            pointBorderWidth:tresoCumul.map(v=>v<0?2:1),
+            label:'💧 Tréso LIQUIDE (cash disponible)',
+            data:tresoLiquide,
+            borderColor:'#2E7D32',
+            backgroundColor:'rgba(46,125,50,0.15)',
+            borderWidth:3.5,
+            pointRadius:5,
+            pointStyle:'circle',
+            pointBackgroundColor:tresoLiquide.map((v,i)=>v<0?'#E74C3C':v<seuilSecurite[i]?'#F39C12':v>seuilPlacement[i]?'#2E7D32':'#7CB342'),
+            pointBorderColor:tresoLiquide.map(v=>v<0?'#C0392B':'#fff'),
+            pointBorderWidth:tresoLiquide.map(v=>v<0?2:1),
             tension:0.3,
-            fill:true
+            fill:true,
+            order:1
+          },
+          {
+            label:'🔒 Tréso SEMI-DISPO (placements MPC : BL + 9M)',
+            data:tresoSemiDispo,
+            borderColor:'#B8860B',
+            backgroundColor:'rgba(184,134,11,0.10)',
+            borderWidth:2.5,
+            borderDash:[10,4],
+            pointRadius:4,
+            pointStyle:'rectRot',
+            pointBackgroundColor:'#B8860B',
+            pointBorderColor:'#FFF8E1',
+            tension:0.3,
+            fill:false,
+            order:2
+          },
+          {
+            label:'📊 Tréso TOTALE (Liquide + Semi-dispo)',
+            data:tresoTotal,
+            borderColor:'#37474F',
+            backgroundColor:'transparent',
+            borderWidth:2,
+            borderDash:[],
+            pointRadius:3,
+            pointStyle:'triangle',
+            pointBackgroundColor:'#37474F',
+            pointBorderColor:'#FFF',
+            tension:0.3,
+            fill:false,
+            order:0
           },
           {
             label:'🔴 Seuil sécurité (M + M+1)',
@@ -8791,12 +8846,13 @@ async function loadTresoChart(){
             label:ctx=>{
               const v=Math.round(ctx.parsed.y);
               const i=ctx.dataIndex;
-              if(ctx.dataset.label==='Tréso cumulée'){
+              const lbl=ctx.dataset.label||'';
+              if(lbl.includes('LIQUIDE')){
                 const excedent=tresoPlagable[i];
-                const suffix=excedent>0?` (+${excedent.toLocaleString('fr-FR')} € plaçable)`:v<seuilSecurite[i]?' ⚠ SOUS LE SEUIL':'';
-                return `Tréso : ${v.toLocaleString('fr-FR')} €${suffix}`;
+                const suffix=excedent>0?` 💰 +${excedent.toLocaleString('fr-FR')} € plaçable MPC`:v<seuilSecurite[i]?' ⚠ SOUS LE SEUIL DE SÉCURITÉ':'';
+                return `${lbl} : ${v.toLocaleString('fr-FR')} €${suffix}`;
               }
-              return `${ctx.dataset.label} : ${v.toLocaleString('fr-FR')} €`;
+              return `${lbl} : ${v.toLocaleString('fr-FR')} €`;
             },
             afterBody:function(ctx){
               try{
@@ -8853,16 +8909,16 @@ async function loadTresoChart(){
               lineWidth:(ctx)=>ctx.tick.value===0?1.5:1
             },
             // Force l'inclusion de 0 dans le graphique + marges
-            suggestedMin: Math.min(0, ...tresoCumul, ...seuilSecurite) - 50000,
-            suggestedMax: Math.max(0, ...tresoCumul, ...seuilPlacement) + 50000
+            suggestedMin: Math.min(0, ...tresoLiquide, ...tresoSemiDispo, ...tresoTotal, ...seuilSecurite) - 50000,
+            suggestedMax: Math.max(0, ...tresoLiquide, ...tresoSemiDispo, ...tresoTotal, ...seuilPlacement) + 50000
           }
         }
       }
     });
 
-    // Affiche le montant plaçable aujourd'hui (mois 0)
+    // Affiche le montant plaçable aujourd'hui (mois 0), basé sur LIQUIDE
     const plaçableAujourdhui=tresoPlagable[0];
-    const seuilOk=tresoCumul[0]>=seuilSecurite[0];
+    const seuilOk=tresoLiquide[0]>=seuilSecurite[0];
     const cumulCard=cumulEl.closest('.card');
     const existingInfo=document.getElementById('treso-cumul-info');
     if(existingInfo)existingInfo.remove();
@@ -8870,12 +8926,24 @@ async function loadTresoChart(){
       const info=document.createElement('div');
       info.id='treso-cumul-info';
       info.style.cssText='display:flex;gap:16px;margin-top:12px;font-size:12px;flex-wrap:wrap';
+      // Suggestion produit MPC selon le montant
+      let suggestMpc='';
+      if(plaçableAujourdhui>=200000){
+        suggestMpc=' → 🏆 <strong>Black Label éligible</strong> (min 200k€, sortie 100j)';
+      } else if(plaçableAujourdhui>=50000){
+        suggestMpc=' → ⛰️ <strong>9 Mountains éligible</strong> (min 50k€, sortie semestrielle)';
+      }
       info.innerHTML=`
         <div style="padding:8px 14px;border-radius:8px;background:${seuilOk?'var(--grd)':'var(--rdd)'};color:${seuilOk?'var(--grn)':'var(--red)'}">
-          ${seuilOk?'✅ Sécurité OK':'⚠️ Tréso insuffisante'} — Seuil : ${Math.round(seuilSecurite[0]).toLocaleString('fr-FR')} €
+          ${seuilOk?'✅ Liquide ≥ Sécurité':'⚠️ Liquide insuffisant'} — Seuil : ${Math.round(seuilSecurite[0]).toLocaleString('fr-FR')} €
+        </div>
+        <div style="padding:8px 14px;border-radius:8px;background:var(--b1);color:var(--t1)">
+          💧 Liquide : <strong>${Math.round(tresoLiquide[0]).toLocaleString('fr-FR')} €</strong>
+          &nbsp;·&nbsp; 🔒 Semi-dispo : <strong>${Math.round(tresoSemiDispo[0]).toLocaleString('fr-FR')} €</strong>
+          &nbsp;·&nbsp; 📊 Total : <strong>${Math.round(tresoTotal[0]).toLocaleString('fr-FR')} €</strong>
         </div>
         ${plaçableAujourdhui>0?`<div style="padding:8px 14px;border-radius:8px;background:var(--grd);color:var(--grn)">
-          💰 Excédent plaçable : <strong>${Math.round(plaçableAujourdhui).toLocaleString('fr-FR')} €</strong> → CGW trimestriel
+          💰 Excédent plaçable : <strong>${Math.round(plaçableAujourdhui).toLocaleString('fr-FR')} €</strong>${suggestMpc}
         </div>`:''}
       `;
       cumulCard.appendChild(info);
